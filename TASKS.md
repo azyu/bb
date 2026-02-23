@@ -7,8 +7,8 @@
 - [x] Define command contracts for `bb auth/repo/pr/pipeline/api` - owner: agent
 - [x] Implement shared Bitbucket Cloud API client (auth + pagination) - owner: agent
 - [x] Improve `bb auth login` token flag UX (`--with-token`, bare `--token` handling) - owner: agent
-- [ ] Implement `bb pr` and `bb pipeline` concrete subcommands (replace stubs) - owner: unassigned
-- [ ] Add shell completion generation command - owner: unassigned
+- [x] Implement `bb pr` and `bb pipeline` concrete subcommands (replace stubs) - owner: agent
+- [x] Add shell completion generation command - owner: agent
 - [x] Implement `bb version` with SemVer + git hash build metadata - owner: agent
 - [x] Add general developer token scope preset to README (EN/KR) - owner: agent
 - [x] Add recommended Bitbucket token scope matrix to README (EN/KR) - owner: agent

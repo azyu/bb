@@ -15,6 +15,6 @@
 - Basic verification workflow is documented and repeatable.
 
 ## Current Phase
-- Phase: 3 (Core implementation)
+- Phase: 4 (Validation and release readiness)
 - Owner: agent
-- Notes: Go CLI skeleton, command contracts, shared API client (auth + pagination), and SemVer+hash version command are implemented for Cloud MVP baseline.
+- Notes: Core wrappers for `auth`, `api`, `repo list`, `pr list/create`, `pipeline list/run`, and `completion` are implemented with tests. Next focus is release hardening and additional wrappers (for example `issue`).

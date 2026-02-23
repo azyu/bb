@@ -81,23 +81,79 @@ This document is the contract baseline for `bb` command behavior.
 - Behavior note:
   - Running `bb` with no args also prints the current version in help output.
 
-## `bb pr` (stub)
+## `bb pr`
 
-Planned wrappers:
-- `bb pr list`
-- `bb pr create`
+### `bb pr list`
+- Purpose: List pull requests for a repository.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+- Optional flags:
+  - `--output` (`table` default, `json`)
+  - `--all` (follow pagination)
+  - `--profile`
+  - `--state` (`OPEN|MERGED|DECLINED`)
+  - `--q`, `--sort`, `--fields`
+- Output:
+  - `table`: `ID`, `STATE`, `SOURCE`, `DEST`, `TITLE`
+  - `json`: array of pull request objects
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Unsupported output -> non-zero exit
 
-Current behavior:
-- Command exists as a stub and returns non-zero.
+### `bb pr create`
+- Purpose: Create a pull request for a repository.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+  - `--title`
+  - `--source`
+  - `--destination`
+- Optional flags:
+  - `--description`
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: created PR summary and URL when provided by API
+  - `json`: created pull request object
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Unsupported output -> non-zero exit
 
-## `bb pipeline` (stub)
+## `bb pipeline`
 
-Planned wrappers:
-- `bb pipeline list`
-- `bb pipeline run`
+### `bb pipeline list`
+- Purpose: List pipelines for a repository.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+- Optional flags:
+  - `--output` (`table` default, `json`)
+  - `--all` (follow pagination)
+  - `--profile`
+  - `--sort`, `--fields`
+- Output:
+  - `table`: `UUID`, `STATE`, `REF`
+  - `json`: array of pipeline objects
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Unsupported output -> non-zero exit
 
-Current behavior:
-- Command exists as a stub and returns non-zero.
+### `bb pipeline run`
+- Purpose: Trigger a pipeline by branch reference.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+  - `--branch`
+- Optional flags:
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: triggered pipeline summary (`UUID`, state, ref)
+  - `json`: triggered pipeline object
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Unsupported output -> non-zero exit
 
 ## `bb issue` (stub)
 
@@ -107,10 +163,12 @@ Planned wrappers:
 Current behavior:
 - Command exists as a stub and returns non-zero.
 
-## `bb completion` (stub)
+## `bb completion`
 
-Planned wrappers:
-- Shell completion generation for bash/zsh/fish/powershell
-
-Current behavior:
-- Command exists as a stub and returns non-zero.
+### `bb completion <bash|zsh|fish|powershell>`
+- Purpose: Print shell completion script to stdout.
+- Output:
+  - Raw completion script for the selected shell
+- Failure behavior:
+  - Wrong argument count -> non-zero exit with usage
+  - Unsupported shell -> non-zero exit

@@ -126,19 +126,34 @@ Add only when needed:
 - PR create/update: `write:pullrequest:bitbucket`
 - Pipeline run/update: `write:pipeline:bitbucket`
 - Issue create/update: `write:issue:bitbucket`
+- During development, run write-scope flows against a dedicated test repository/workspace first.
 
 Avoid by default:
 - `admin:*`
 - `delete:*`
 - `write:permission:bitbucket` unless explicitly required
 
-## 8) Implementation Direction (Next)
-1. Define command contract docs (`bb auth/repo/pr/pipeline/api`) and flags.
-2. Build shared API client module (auth, pagination, errors).
-3. Implement `bb api` first for broad coverage, then high-value wrappers (`repo`, `pr`).
-4. Add JSON output and completion early to support automation workflows.
+## 8) Implementation Status (2026-02-23)
 
-## 9) Versioning Strategy
+Implemented:
+- Shared API client with token auth and pagination (`next` traversal)
+- `bb auth login`, `bb auth status`
+- `bb api`
+- `bb repo list`
+- `bb pr list`, `bb pr create`
+- `bb pipeline list`, `bb pipeline run`
+- `bb completion <bash|zsh|fish|powershell>`
+- `bb version` / `bb --version` and root help version display
+
+Remaining wrappers:
+- `bb issue` (planned)
+
+## 9) Implementation Direction (Next)
+1. Add `bb issue` high-value wrappers and scope guidance updates.
+2. Improve ergonomics (global debug flag, optional local Git remote inference).
+3. Harden auth storage strategy beyond plaintext config for post-MVP.
+
+## 10) Versioning Strategy
 
 - Adopt SemVer as the canonical release version.
 - Attach short git hash as build metadata for traceability.

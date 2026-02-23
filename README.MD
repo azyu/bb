@@ -10,13 +10,18 @@ Implemented commands:
 - `bb auth status`
 - `bb api`
 - `bb repo list`
+- `bb pr list`
+- `bb pr create`
+- `bb pipeline list`
+- `bb pipeline run`
+- `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
 
-Planned (stub) commands:
-- `bb pr`
-- `bb pipeline`
+Planned command:
 - `bb issue`
-- `bb completion`
+
+Planned subcommands:
+- `bb issue list`
 
 ## Requirements
 - Go `1.26+`
@@ -73,7 +78,12 @@ If developers need to create/update PRs or trigger pipelines, add:
 
 ### Current CLI baseline
 - `bb repo list`: `read:repository:bitbucket`
+- `bb pr list`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`
+- `bb pr create`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`
+- `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
+- `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
 - `bb api` against user/workspace endpoints: add `read:user:bitbucket`, `read:workspace:bitbucket`
+- `bb completion` / `bb version`: no additional scopes
 
 ### Feature-based scope matrix
 | Use case | Recommended scopes |
@@ -127,6 +137,35 @@ bb repo list --workspace <workspace-slug>
 bb api /repositories/<workspace-slug>
 bb api --paginate /repositories/<workspace-slug>
 ```
+
+6. List PRs:
+```bash
+bb pr list --workspace <workspace-slug> --repo <repo-slug>
+```
+
+7. Create PR (write scope required):
+```bash
+bb pr create --workspace <workspace-slug> --repo <repo-slug> --title "My PR" --source feature --destination main
+```
+
+8. List pipelines:
+```bash
+bb pipeline list --workspace <workspace-slug> --repo <repo-slug>
+```
+
+9. Trigger pipeline (write scope required):
+```bash
+bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
+```
+
+10. Generate shell completion:
+```bash
+bb completion zsh
+```
+
+## Write Operation Safety
+- Use a dedicated test repository for write operations (`bb pr create`, `bb pipeline run`) during development.
+- Keep production repos on read-only tokens unless write access is explicitly needed.
 
 ## Configuration
 Config path priority:

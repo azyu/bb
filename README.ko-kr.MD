@@ -10,13 +10,18 @@
 - `bb auth status`
 - `bb api`
 - `bb repo list`
+- `bb pr list`
+- `bb pr create`
+- `bb pipeline list`
+- `bb pipeline run`
+- `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
 
-예정(스텁) 명령:
-- `bb pr`
-- `bb pipeline`
+예정 명령:
 - `bb issue`
-- `bb completion`
+
+예정 하위 명령:
+- `bb issue list`
 
 ## 요구사항
 - Go `1.26+`
@@ -73,7 +78,12 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 
 ### 현재 CLI 기준
 - `bb repo list`: `read:repository:bitbucket`
+- `bb pr list`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`
+- `bb pr create`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`
+- `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
+- `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
 - `bb api`로 user/workspace 엔드포인트를 호출할 경우: `read:user:bitbucket`, `read:workspace:bitbucket` 추가
+- `bb completion` / `bb version`: 추가 scope 불필요
 
 ### 기능별 권장 scope 매트릭스
 | 사용 목적 | 권장 scope |
@@ -127,6 +137,35 @@ bb repo list --workspace <workspace-slug>
 bb api /repositories/<workspace-slug>
 bb api --paginate /repositories/<workspace-slug>
 ```
+
+6. PR 목록 조회:
+```bash
+bb pr list --workspace <workspace-slug> --repo <repo-slug>
+```
+
+7. PR 생성 (쓰기 scope 필요):
+```bash
+bb pr create --workspace <workspace-slug> --repo <repo-slug> --title "My PR" --source feature --destination main
+```
+
+8. Pipeline 목록 조회:
+```bash
+bb pipeline list --workspace <workspace-slug> --repo <repo-slug>
+```
+
+9. Pipeline 실행 (쓰기 scope 필요):
+```bash
+bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
+```
+
+10. 셸 자동완성 스크립트 생성:
+```bash
+bb completion zsh
+```
+
+## 쓰기 작업 안전 가이드
+- 개발 중 `bb pr create`, `bb pipeline run` 같은 쓰기 명령은 테스트용 저장소에서 먼저 실행하세요.
+- 운영 저장소에는 필요 시점 전까지 읽기 전용 토큰 사용을 권장합니다.
 
 ## 설정 파일 위치
 우선순위:

@@ -332,19 +332,221 @@ func TestRepoListUnsupportedOutput(t *testing.T) {
 	}
 }
 
-func TestStubCommandsReturnNonZero(t *testing.T) {
-	commands := [][]string{
-		{"pr"},
-		{"pipeline"},
-		{"issue"},
-		{"completion"},
+func TestPRListJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/acme/app/pullrequests" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				{
+					"id":    12,
+					"title": "Add feature",
+					"state": "OPEN",
+					"source": map[string]any{
+						"branch": map[string]any{"name": "feature"},
+					},
+					"destination": map[string]any{
+						"branch": map[string]any{"name": "main"},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
 	}
 
-	for _, cmd := range commands {
-		var stdout, stderr bytes.Buffer
-		if code := Run(cmd, &stdout, &stderr); code == 0 {
-			t.Fatalf("expected non-zero for %v", cmd)
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"pr", "list", "--workspace", "acme", "--repo", "app", "--output", "json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "\"title\": \"Add feature\"") {
+		t.Fatalf("expected pr list output, got %q", stdout.String())
+	}
+}
+
+func TestPRCreate(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "OPEN",
+			"links": map[string]any{
+				"html": map[string]any{
+					"href": "https://bitbucket.org/acme/app/pull-requests/42",
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "create",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--title", "Add feature",
+		"--source", "feature",
+		"--destination", "main",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotMethod != http.MethodPost {
+		t.Fatalf("expected POST method, got %q", gotMethod)
+	}
+	if gotPath != "/2.0/repositories/acme/app/pullrequests" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if gotBody["title"] != "Add feature" {
+		t.Fatalf("unexpected body title: %#v", gotBody["title"])
+	}
+	if !strings.Contains(stdout.String(), "Created PR #42") {
+		t.Fatalf("unexpected output: %q", stdout.String())
+	}
+}
+
+func TestPipelineListJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/acme/app/pipelines" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				{
+					"uuid": "{pipeline-1}",
+					"state": map[string]any{
+						"name": "COMPLETED",
+					},
+					"target": map[string]any{
+						"ref_name": "main",
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"pipeline", "list", "--workspace", "acme", "--repo", "app", "--output", "json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "{pipeline-1}") {
+		t.Fatalf("expected pipeline output, got %q", stdout.String())
+	}
+}
+
+func TestPipelineRun(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"uuid": "{pipeline-2}",
+			"state": map[string]any{
+				"name": "PENDING",
+			},
+			"target": map[string]any{
+				"ref_name": "main",
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"pipeline", "run", "--workspace", "acme", "--repo", "app", "--branch", "main"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotMethod != http.MethodPost {
+		t.Fatalf("expected POST method, got %q", gotMethod)
+	}
+	if gotPath != "/2.0/repositories/acme/app/pipelines" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	target, ok := gotBody["target"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing target in body: %#v", gotBody)
+	}
+	if target["ref_name"] != "main" {
+		t.Fatalf("unexpected target ref_name: %#v", target["ref_name"])
+	}
+	if !strings.Contains(stdout.String(), "Triggered pipeline {pipeline-2}") {
+		t.Fatalf("unexpected output: %q", stdout.String())
+	}
+}
+
+func TestCompletionBash(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"completion", "bash"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "complete -F _bb_complete bb") {
+		t.Fatalf("unexpected completion output: %q", stdout.String())
+	}
+}
+
+func TestCompletionUnsupportedShell(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"completion", "tcsh"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero for unsupported shell, stderr=%q", stderr.String())
+	}
+}
+
+func TestIssueStillStub(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"issue"}, &stdout, &stderr); code == 0 {
+		t.Fatal("expected non-zero for issue stub")
 	}
 }
 

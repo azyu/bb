@@ -2,6 +2,7 @@ package app
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -34,17 +35,14 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "repo":
 		return runRepo(args[1:], stdout, stderr)
 	case "pr":
-		fmt.Fprintln(stderr, "bb pr is not implemented yet")
-		return 1
+		return runPR(args[1:], stdout, stderr)
 	case "pipeline":
-		fmt.Fprintln(stderr, "bb pipeline is not implemented yet")
-		return 1
+		return runPipeline(args[1:], stdout, stderr)
 	case "issue":
 		fmt.Fprintln(stderr, "bb issue is not implemented yet")
 		return 1
 	case "completion":
-		fmt.Fprintln(stderr, "bb completion is not implemented yet")
-		return 1
+		return runCompletion(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		printRootUsage(stdout)
 		return 0
@@ -312,6 +310,375 @@ func runRepoList(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
+func runPR(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "usage: bb pr <list|create>")
+		return 1
+	}
+	switch args[0] {
+	case "list":
+		return runPRList(args[1:], stdout, stderr)
+	case "create":
+		return runPRCreate(args[1:], stdout, stderr)
+	default:
+		fmt.Fprintf(stderr, "unknown pr command: %s\n", args[0])
+		return 1
+	}
+}
+
+func runPRList(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("pr list", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	output := fs.String("output", "table", "output format: table|json")
+	all := fs.Bool("all", false, "fetch all pages")
+	profile := fs.String("profile", "", "profile name override")
+	state := fs.String("state", "", "pull request state filter (OPEN|MERGED|DECLINED)")
+	q := fs.String("q", "", "Bitbucket q filter")
+	sort := fs.String("sort", "", "sort expression")
+	fields := fs.String("fields", "", "partial fields selector")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+
+	client, err := newClientFromProfile(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	query := url.Values{}
+	setQueryIfNotEmpty(query, "state", strings.ToUpper(strings.TrimSpace(*state)))
+	setQueryIfNotEmpty(query, "q", *q)
+	setQueryIfNotEmpty(query, "sort", *sort)
+	setQueryIfNotEmpty(query, "fields", *fields)
+
+	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", *workspace, *repo)
+	var values []json.RawMessage
+	if *all {
+		values, err = client.GetAllValues(context.Background(), path, query)
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+	} else {
+		var page struct {
+			Values []json.RawMessage `json:"values"`
+		}
+		if err := client.DoJSON(context.Background(), http.MethodGet, path, query, nil, &page); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		values = page.Values
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, values, stderr)
+	case "table":
+		return printPRTable(stdout, values, stderr)
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
+func runPRCreate(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("pr create", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	title := fs.String("title", "", "pull request title")
+	source := fs.String("source", "", "source branch name")
+	destination := fs.String("destination", "", "destination branch name")
+	description := fs.String("description", "", "pull request description")
+	profile := fs.String("profile", "", "profile name override")
+	output := fs.String("output", "text", "output format: text|json")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+	if strings.TrimSpace(*title) == "" {
+		fmt.Fprintln(stderr, "--title is required")
+		return 1
+	}
+	if strings.TrimSpace(*source) == "" {
+		fmt.Fprintln(stderr, "--source is required")
+		return 1
+	}
+	if strings.TrimSpace(*destination) == "" {
+		fmt.Fprintln(stderr, "--destination is required")
+		return 1
+	}
+
+	client, err := newClientFromProfile(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	body := map[string]any{
+		"title": *title,
+		"source": map[string]any{
+			"branch": map[string]any{
+				"name": *source,
+			},
+		},
+		"destination": map[string]any{
+			"branch": map[string]any{
+				"name": *destination,
+			},
+		},
+	}
+	if strings.TrimSpace(*description) != "" {
+		body["description"] = *description
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		fmt.Fprintf(stderr, "encode request body: %v\n", err)
+		return 1
+	}
+
+	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", *workspace, *repo)
+	var created pullRequestRow
+	if err := client.DoJSON(context.Background(), http.MethodPost, path, nil, bytes.NewReader(payload), &created); err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, created, stderr)
+	case "text":
+		fmt.Fprintf(stdout, "Created PR #%d (%s): %s\n", created.ID, created.State, created.Title)
+		if strings.TrimSpace(created.Links.HTML.Href) != "" {
+			fmt.Fprintf(stdout, "URL: %s\n", created.Links.HTML.Href)
+		}
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
+func runPipeline(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "usage: bb pipeline <list|run>")
+		return 1
+	}
+	switch args[0] {
+	case "list":
+		return runPipelineList(args[1:], stdout, stderr)
+	case "run":
+		return runPipelineRun(args[1:], stdout, stderr)
+	default:
+		fmt.Fprintf(stderr, "unknown pipeline command: %s\n", args[0])
+		return 1
+	}
+}
+
+func runPipelineList(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("pipeline list", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	output := fs.String("output", "table", "output format: table|json")
+	all := fs.Bool("all", false, "fetch all pages")
+	profile := fs.String("profile", "", "profile name override")
+	sort := fs.String("sort", "", "sort expression")
+	fields := fs.String("fields", "", "partial fields selector")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+
+	client, err := newClientFromProfile(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	query := url.Values{}
+	setQueryIfNotEmpty(query, "sort", *sort)
+	setQueryIfNotEmpty(query, "fields", *fields)
+
+	path := fmt.Sprintf("/repositories/%s/%s/pipelines", *workspace, *repo)
+	var values []json.RawMessage
+	if *all {
+		values, err = client.GetAllValues(context.Background(), path, query)
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+	} else {
+		var page struct {
+			Values []json.RawMessage `json:"values"`
+		}
+		if err := client.DoJSON(context.Background(), http.MethodGet, path, query, nil, &page); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		values = page.Values
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, values, stderr)
+	case "table":
+		return printPipelineTable(stdout, values, stderr)
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
+func runPipelineRun(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("pipeline run", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	branch := fs.String("branch", "", "target branch name")
+	profile := fs.String("profile", "", "profile name override")
+	output := fs.String("output", "text", "output format: text|json")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+	if strings.TrimSpace(*branch) == "" {
+		fmt.Fprintln(stderr, "--branch is required")
+		return 1
+	}
+
+	client, err := newClientFromProfile(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	body := map[string]any{
+		"target": map[string]any{
+			"type":     "pipeline_ref_target",
+			"ref_type": "branch",
+			"ref_name": *branch,
+		},
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		fmt.Fprintf(stderr, "encode request body: %v\n", err)
+		return 1
+	}
+
+	path := fmt.Sprintf("/repositories/%s/%s/pipelines", *workspace, *repo)
+	var triggered pipelineRow
+	if err := client.DoJSON(context.Background(), http.MethodPost, path, nil, bytes.NewReader(payload), &triggered); err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, triggered, stderr)
+	case "text":
+		fmt.Fprintf(stdout, "Triggered pipeline %s\n", triggered.UUID)
+		fmt.Fprintf(stdout, "State: %s\n", pipelineStateLabel(triggered))
+		if strings.TrimSpace(triggered.Target.RefName) != "" {
+			fmt.Fprintf(stdout, "Ref: %s\n", triggered.Target.RefName)
+		}
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
+func runCompletion(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 1 {
+		fmt.Fprintln(stderr, "usage: bb completion <bash|zsh|fish|powershell>")
+		return 1
+	}
+	switch strings.ToLower(strings.TrimSpace(args[0])) {
+	case "bash":
+		fmt.Fprintln(stdout, bashCompletionScript)
+		return 0
+	case "zsh":
+		fmt.Fprintln(stdout, zshCompletionScript)
+		return 0
+	case "fish":
+		fmt.Fprintln(stdout, fishCompletionScript)
+		return 0
+	case "powershell":
+		fmt.Fprintln(stdout, powershellCompletionScript)
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unsupported shell: %s\n", args[0])
+		return 1
+	}
+}
+
+type pullRequestRow struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	State string `json:"state"`
+	Links struct {
+		HTML struct {
+			Href string `json:"href"`
+		} `json:"html"`
+	} `json:"links"`
+	Source struct {
+		Branch struct {
+			Name string `json:"name"`
+		} `json:"branch"`
+	} `json:"source"`
+	Destination struct {
+		Branch struct {
+			Name string `json:"name"`
+		} `json:"branch"`
+	} `json:"destination"`
+}
+
+type pipelineRow struct {
+	UUID  string `json:"uuid"`
+	State struct {
+		Name   string `json:"name"`
+		Result struct {
+			Name string `json:"name"`
+		} `json:"result"`
+	} `json:"state"`
+	Target struct {
+		RefName string `json:"ref_name"`
+	} `json:"target"`
+}
+
 func printRepoTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
 	type repoRow struct {
 		Slug     string `json:"slug"`
@@ -333,6 +700,57 @@ func printRepoTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+func printPRTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
+	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "ID\tSTATE\tSOURCE\tDEST\tTITLE")
+	for _, raw := range values {
+		var row pullRequestRow
+		if err := json.Unmarshal(raw, &row); err != nil {
+			fmt.Fprintf(stderr, "decode pull request row: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(
+			tw,
+			"%d\t%s\t%s\t%s\t%s\n",
+			row.ID,
+			row.State,
+			row.Source.Branch.Name,
+			row.Destination.Branch.Name,
+			row.Title,
+		)
+	}
+	if err := tw.Flush(); err != nil {
+		fmt.Fprintf(stderr, "flush table: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func printPipelineTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
+	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "UUID\tSTATE\tREF")
+	for _, raw := range values {
+		var row pipelineRow
+		if err := json.Unmarshal(raw, &row); err != nil {
+			fmt.Fprintf(stderr, "decode pipeline row: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", row.UUID, pipelineStateLabel(row), row.Target.RefName)
+	}
+	if err := tw.Flush(); err != nil {
+		fmt.Fprintf(stderr, "flush table: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func pipelineStateLabel(row pipelineRow) string {
+	if strings.TrimSpace(row.State.Result.Name) != "" {
+		return row.State.Result.Name
+	}
+	return row.State.Name
 }
 
 func printJSON(stdout io.Writer, v any, stderr io.Writer) int {
@@ -372,10 +790,10 @@ func printRootUsage(w io.Writer) {
 	fmt.Fprintln(w, "  api        Call Bitbucket Cloud REST endpoints")
 	fmt.Fprintln(w, "  repo       Repository operations")
 	fmt.Fprintln(w, "  version    Show CLI version metadata")
-	fmt.Fprintln(w, "  pr         Pull request operations (stub)")
-	fmt.Fprintln(w, "  pipeline   Pipeline operations (stub)")
+	fmt.Fprintln(w, "  pr         Pull request operations")
+	fmt.Fprintln(w, "  pipeline   Pipeline operations")
 	fmt.Fprintln(w, "  issue      Issue operations (stub)")
-	fmt.Fprintln(w, "  completion Shell completion (stub)")
+	fmt.Fprintln(w, "  completion Shell completion")
 }
 
 func runVersion(stdout io.Writer) int {
@@ -384,3 +802,29 @@ func runVersion(stdout io.Writer) int {
 	fmt.Fprintf(stdout, "built: %s\n", version.BuildDate)
 	return 0
 }
+
+func setQueryIfNotEmpty(values url.Values, key, value string) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed != "" {
+		values.Set(key, trimmed)
+	}
+}
+
+const bashCompletionScript = `_bb_complete() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  local cmds="auth api repo pr pipeline issue completion version help"
+  COMPREPLY=($(compgen -W "${cmds}" -- "${cur}"))
+}
+complete -F _bb_complete bb`
+
+const zshCompletionScript = `#compdef bb
+_arguments "1:command:(auth api repo pr pipeline issue completion version help)"`
+
+const fishCompletionScript = `complete -c bb -f -a "auth api repo pr pipeline issue completion version help"`
+
+const powershellCompletionScript = `Register-ArgumentCompleter -CommandName bb -ScriptBlock {
+  param($wordToComplete)
+  "auth","api","repo","pr","pipeline","issue","completion","version","help" |
+    Where-Object { $_ -like "$wordToComplete*" } |
+    ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }
+}`
