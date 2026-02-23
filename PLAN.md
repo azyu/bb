@@ -15,6 +15,6 @@
 - Basic verification workflow is documented and repeatable.
 
 ## Current Phase
-- Phase: 1 (Research and scope definition)
-- Owner: unassigned
-- Notes: `docs/references.md` created as baseline.
+- Phase: 3 (Core implementation)
+- Owner: agent
+- Notes: Go CLI skeleton, command contracts, and shared API client (auth + pagination) are implemented for Cloud MVP baseline.

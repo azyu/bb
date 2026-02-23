@@ -36,8 +36,7 @@ Update rules during work:
 
 ## Build & Development
 
-This repo is currently in documentation/bootstrap phase.
-There is no build/test/lint toolchain configured yet.
+Primary toolchain: **Go 1.26+**
 
 Useful current commands:
 - List tracked/untracked files quickly:
@@ -53,11 +52,26 @@ Useful current commands:
   ```bash
   sed -n '1,240p' docs/references.md
   ```
-
-Once a language/toolchain is introduced, add exact commands here:
-- local run command
-- test command
-- lint/format command
+- Review command contracts:
+  ```bash
+  sed -n '1,260p' docs/command-contracts.md
+  ```
+- Run CLI locally:
+  ```bash
+  go run ./cmd/bb --help
+  ```
+- Run all tests:
+  ```bash
+  go test ./...
+  ```
+- Run package coverage:
+  ```bash
+  go test -cover ./internal/...
+  ```
+- Format Go files:
+  ```bash
+  gofmt -w ./cmd ./internal
+  ```
 
 ## Code Standards
 
@@ -101,16 +115,17 @@ Current minimum checklist (docs/bootstrap phase):
    sed -n '1,260p' AGENTS.md
    ```
 
-If code/tooling is added, replace this section with concrete file-scoped test/lint commands.
+Use file-scoped checks first when possible (e.g. `go test ./internal/api`).
 
 ## Testing
 
-No testing framework is configured yet.
+Testing uses Go's standard testing package.
 
-When tests are introduced:
+Rules:
 - Prefer fast, file-scoped tests first.
 - For bug fixes, reproduce with a failing test before implementing the fix.
 - Do not claim a fix is complete until the reproduction test passes.
+- Target 80%+ coverage for active internal packages (`./internal/...`).
 
 ## Commit & PR Guidelines
 
