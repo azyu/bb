@@ -87,31 +87,20 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 - `write:issue:bitbucket`
 - `write:wiki:bitbucket`
 
-### 현재 CLI 기준
-- `bb repo list`: `read:repository:bitbucket`
-- `bb pr list`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`
-- `bb pr create`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`
-- `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
-- `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
-- `bb wiki list/get`: `read:repository:bitbucket`, `read:wiki:bitbucket`
-- `bb wiki put`: `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket`
-- `bb issue list`: `read:repository:bitbucket`, `read:issue:bitbucket`
-- `bb issue create/update`: `read:repository:bitbucket`, `read:issue:bitbucket`, `write:issue:bitbucket`
-- `bb api`로 user/workspace 엔드포인트를 호출할 경우: `read:user:bitbucket`, `read:workspace:bitbucket` 추가
-- `bb completion` / `bb version`: 추가 scope 불필요
-
-### 기능별 권장 scope 매트릭스
-| 사용 목적 | 권장 scope |
+### CLI Scope 매트릭스
+| 명령/사용 목적 | 권장 scope |
 | --- | --- |
-| 저장소 조회 | `read:repository:bitbucket` |
-| PR 조회 | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
-| PR 생성/수정 | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
-| Pipeline 조회 | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
-| Pipeline 실행/수정 | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
-| Wiki 조회 | `read:repository:bitbucket`, `read:wiki:bitbucket` |
-| Wiki 수정 | `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket` |
-| 이슈 조회 | `read:issue:bitbucket` |
-| 이슈 생성/수정 | `read:issue:bitbucket`, `write:issue:bitbucket` |
+| `bb repo list` (저장소 조회) | `read:repository:bitbucket` |
+| `bb pr list` (PR 조회) | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
+| `bb pr create` (PR 생성/수정) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
+| `bb pipeline list` (Pipeline 조회) | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
+| `bb pipeline run` (Pipeline 실행/수정) | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
+| `bb wiki list/get` (Wiki 조회) | `read:repository:bitbucket`, `read:wiki:bitbucket` |
+| `bb wiki put` (Wiki 수정) | `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket` |
+| `bb issue list` (이슈 조회) | `read:repository:bitbucket`, `read:issue:bitbucket` |
+| `bb issue create/update` (이슈 생성/수정) | `read:repository:bitbucket`, `read:issue:bitbucket`, `write:issue:bitbucket` |
+| `bb api` (user/workspace 엔드포인트) | `read:user:bitbucket`, `read:workspace:bitbucket` |
+| `bb completion`, `bb version` | 추가 scope 불필요 |
 
 ### 기본적으로 피할 권한
 - `admin:*`

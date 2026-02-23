@@ -87,31 +87,20 @@ If developers need to create/update PRs or trigger pipelines, add:
 - `write:issue:bitbucket`
 - `write:wiki:bitbucket`
 
-### Current CLI baseline
-- `bb repo list`: `read:repository:bitbucket`
-- `bb pr list`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`
-- `bb pr create`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`
-- `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
-- `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
-- `bb wiki list/get`: `read:repository:bitbucket`, `read:wiki:bitbucket`
-- `bb wiki put`: `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket`
-- `bb issue list`: `read:repository:bitbucket`, `read:issue:bitbucket`
-- `bb issue create/update`: `read:repository:bitbucket`, `read:issue:bitbucket`, `write:issue:bitbucket`
-- `bb api` against user/workspace endpoints: add `read:user:bitbucket`, `read:workspace:bitbucket`
-- `bb completion` / `bb version`: no additional scopes
-
-### Feature-based scope matrix
-| Use case | Recommended scopes |
+### CLI Scope Matrix
+| Command / use case | Recommended scopes |
 | --- | --- |
-| Repo list/read | `read:repository:bitbucket` |
-| PR read | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
-| PR create/update | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
-| Pipeline read | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
-| Pipeline run/update | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
-| Wiki read | `read:repository:bitbucket`, `read:wiki:bitbucket` |
-| Wiki write | `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket` |
-| Issue read | `read:issue:bitbucket` |
-| Issue create/update | `read:issue:bitbucket`, `write:issue:bitbucket` |
+| `bb repo list` (repo read) | `read:repository:bitbucket` |
+| `bb pr list` (PR read) | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
+| `bb pr create` (PR write) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
+| `bb pipeline list` (pipeline read) | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
+| `bb pipeline run` (pipeline write) | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
+| `bb wiki list/get` (wiki read) | `read:repository:bitbucket`, `read:wiki:bitbucket` |
+| `bb wiki put` (wiki write) | `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket` |
+| `bb issue list` (issue read) | `read:repository:bitbucket`, `read:issue:bitbucket` |
+| `bb issue create/update` (issue write) | `read:repository:bitbucket`, `read:issue:bitbucket`, `write:issue:bitbucket` |
+| `bb api` (user/workspace endpoints) | `read:user:bitbucket`, `read:workspace:bitbucket` |
+| `bb completion`, `bb version` | no additional scopes |
 
 ### Avoid by default
 - `admin:*`

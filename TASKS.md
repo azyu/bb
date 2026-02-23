@@ -15,6 +15,7 @@
 - [x] Extend git-remote inference to other repo-scoped commands (`repo/pr/pipeline/issue/wiki`) and update docs - owner: agent
 - [x] Improve `bb pr list` table output to `gh pr list`-like style (summary line + branch + created-at) - owner: agent
 - [x] Add ANSI color support for `bb pr list` table output with `BB_COLOR`/`NO_COLOR` control - owner: agent
+- [x] Consolidate duplicate token scope sections in README (single matrix table) - owner: agent
 - [x] Implement `bb pr` and `bb pipeline` concrete subcommands (replace stubs) - owner: agent
 - [x] Add shell completion generation command - owner: agent
 - [x] Implement `bb issue list` concrete subcommand - owner: agent
