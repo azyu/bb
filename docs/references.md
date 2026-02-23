@@ -76,6 +76,9 @@ Design note:
 - Avoid designing around deprecated auth paths as default behavior.
 - API token usage should support Basic auth (`username/email + token`).
 - Keep Bearer token mode for token types that require it.
+- For wiki Git operations, auth user may differ from REST auth user:
+  - Personal API token profiles (REST uses email) should use `x-bitbucket-api-token-auth` for wiki Git.
+  - Access-token-style profiles should use `x-token-auth` for wiki Git.
 
 ### 4.3 API Client Behavior
 Required client capabilities:

@@ -53,6 +53,9 @@ chmod +x ~/.local/bin/bb
 인증 모드:
 - API token(개인 토큰): Basic 인증(`username/email + token`) 사용
 - Access token 계열: Bearer 토큰 모드(사용자명 없이 토큰만)
+- Wiki Git 인증 사용자 매핑:
+  - Personal API token 프로파일(이메일 username) -> `x-bitbucket-api-token-auth`
+  - Access-token 계열 프로파일(username 비움) -> `x-token-auth`
 
 Bitbucket Cloud 기준 단계:
 1. Bitbucket Cloud에서 Personal settings로 이동합니다.

@@ -53,6 +53,9 @@ This CLI uses a Bitbucket token for authentication.
 Auth mode:
 - API token (personal): use Basic auth (`username/email + token`)
 - Access-token-style flows: Bearer token mode (no username)
+- Wiki Git auth mapping:
+  - Personal API token profile (email username) -> `x-bitbucket-api-token-auth`
+  - Access-token-style profile (no username) -> `x-token-auth`
 
 Steps (Bitbucket Cloud):
 1. Open Bitbucket Cloud and go to Personal settings.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -998,6 +999,48 @@ func TestWikiPutRequiresContentOrFile(t *testing.T) {
 	}, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("expected non-zero exit, stderr=%q", stderr.String())
+	}
+}
+
+func TestResolveWikiAuthUserWithPersonalTokenProfile(t *testing.T) {
+	got := resolveWikiAuthUser("dev@example.com")
+	if got != "x-bitbucket-api-token-auth" {
+		t.Fatalf("unexpected wiki auth user: %q", got)
+	}
+}
+
+func TestResolveWikiAuthUserWithAccessTokenProfile(t *testing.T) {
+	got := resolveWikiAuthUser("")
+	if got != "x-token-auth" {
+		t.Fatalf("unexpected wiki auth user: %q", got)
+	}
+}
+
+func TestResolveWikiAuthUserWithExplicitGitUsername(t *testing.T) {
+	got := resolveWikiAuthUser("workspace-bot")
+	if got != "workspace-bot" {
+		t.Fatalf("unexpected wiki auth user: %q", got)
+	}
+}
+
+func TestBuildWikiRemoteURLUsesTokenAuthUserForEmailProfile(t *testing.T) {
+	remote, err := buildWikiRemoteURL(config.Profile{
+		BaseURL:  "https://api.bitbucket.org/2.0",
+		Token:    "token-123",
+		Username: "dev@example.com",
+	}, "acme", "app")
+	if err != nil {
+		t.Fatalf("buildWikiRemoteURL failed: %v", err)
+	}
+	u, err := url.Parse(remote)
+	if err != nil {
+		t.Fatalf("parse remote URL failed: %v", err)
+	}
+	if u.User == nil {
+		t.Fatal("expected user info in remote URL")
+	}
+	if u.User.Username() != "x-bitbucket-api-token-auth" {
+		t.Fatalf("unexpected wiki auth user in URL: %q", u.User.Username())
 	}
 }
 

@@ -25,6 +25,12 @@ This document is the contract baseline for `bb` command behavior.
   - `--with-token` (read token from stdin)
 - Optional env:
   - `BITBUCKET_USERNAME` (same as `--username`)
+- Auth behavior notes:
+  - Personal API token: set `--username` to Atlassian account email (Basic auth for REST API).
+  - Access-token-style profile: omit `--username` (Bearer mode for REST API).
+  - Wiki Git operations map auth user automatically:
+    - email-based profile -> `x-bitbucket-api-token-auth`
+    - username-empty profile -> `x-token-auth`
 - Output:
   - Human: confirmation message with profile name
 - Failure behavior:

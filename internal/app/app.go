@@ -1545,10 +1545,7 @@ func buildWikiRemoteURL(p config.Profile, workspace, repo string) (string, error
 		}
 	}
 
-	user := strings.TrimSpace(p.Username)
-	if user == "" {
-		user = "x-token-auth"
-	}
+	user := resolveWikiAuthUser(p.Username)
 	if strings.TrimSpace(p.Token) == "" {
 		return "", fmt.Errorf("profile has no token configured")
 	}
@@ -1560,6 +1557,21 @@ func buildWikiRemoteURL(p config.Profile, workspace, repo string) (string, error
 		User:   url.UserPassword(user, p.Token),
 	}
 	return u.String(), nil
+}
+
+func resolveWikiAuthUser(profileUsername string) string {
+	user := strings.TrimSpace(profileUsername)
+	if user == "" {
+		// Access-token style flows (no API username in profile)
+		// authenticate wiki Git over HTTPS with x-token-auth.
+		return "x-token-auth"
+	}
+	if strings.Contains(user, "@") {
+		// Personal API token profiles use Atlassian account email for REST,
+		// but wiki Git over HTTPS expects token-auth style username.
+		return "x-bitbucket-api-token-auth"
+	}
+	return user
 }
 
 func runGitCommand(ctx context.Context, dir string, args ...string) ([]byte, error) {
