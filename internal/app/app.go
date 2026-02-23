@@ -11,6 +11,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -38,6 +42,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runPR(args[1:], stdout, stderr)
 	case "pipeline":
 		return runPipeline(args[1:], stdout, stderr)
+	case "wiki":
+		return runWiki(args[1:], stdout, stderr)
 	case "issue":
 		return runIssue(args[1:], stdout, stderr)
 	case "completion":
@@ -51,6 +57,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 }
+
+var wikiRemoteURLBuilder = buildWikiRemoteURL
+var gitCommandRunner = runGitCommand
 
 func runAuth(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
@@ -869,6 +878,280 @@ func runIssueUpdate(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
+func runWiki(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "usage: bb wiki <list|get|put>")
+		return 1
+	}
+	switch args[0] {
+	case "list":
+		return runWikiList(args[1:], stdout, stderr)
+	case "get":
+		return runWikiGet(args[1:], stdout, stderr)
+	case "put":
+		return runWikiPut(args[1:], stdout, stderr)
+	default:
+		fmt.Fprintf(stderr, "unknown wiki command: %s\n", args[0])
+		return 1
+	}
+}
+
+func runWikiList(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("wiki list", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	profile := fs.String("profile", "", "profile name override")
+	output := fs.String("output", "table", "output format: table|json")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+
+	p, err := profileFromConfig(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	ctx := context.Background()
+	repoDir, err := cloneWikiToTemp(ctx, p, *workspace, *repo)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	defer os.RemoveAll(repoDir)
+
+	rows, err := listWikiPages(repoDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, rows, stderr)
+	case "table":
+		return printWikiTable(stdout, rows, stderr)
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
+func runWikiGet(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("wiki get", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	page := fs.String("page", "", "wiki page path")
+	profile := fs.String("profile", "", "profile name override")
+	output := fs.String("output", "text", "output format: text|json")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+	cleanPage, err := normalizeWikiPagePath(*page)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	p, err := profileFromConfig(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	ctx := context.Background()
+	repoDir, err := cloneWikiToTemp(ctx, p, *workspace, *repo)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	defer os.RemoveAll(repoDir)
+
+	absPath := filepath.Join(repoDir, filepath.FromSlash(cleanPage))
+	raw, err := os.ReadFile(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintf(stderr, "wiki page not found: %s\n", cleanPage)
+			return 1
+		}
+		fmt.Fprintf(stderr, "read wiki page: %v\n", err)
+		return 1
+	}
+
+	switch *output {
+	case "text":
+		fmt.Fprint(stdout, string(raw))
+		return 0
+	case "json":
+		return printJSON(stdout, map[string]any{
+			"page":    cleanPage,
+			"content": string(raw),
+		}, stderr)
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
+func runWikiPut(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("wiki put", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	page := fs.String("page", "", "wiki page path")
+	content := fs.String("content", "", "wiki page content")
+	fileInput := fs.String("file", "", "read wiki page content from file path")
+	message := fs.String("message", "", "git commit message")
+	profile := fs.String("profile", "", "profile name override")
+	output := fs.String("output", "text", "output format: text|json")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+	cleanPage, err := normalizeWikiPagePath(*page)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+	if strings.TrimSpace(*content) == "" && strings.TrimSpace(*fileInput) == "" {
+		fmt.Fprintln(stderr, "either --content or --file is required")
+		return 1
+	}
+	if strings.TrimSpace(*content) != "" && strings.TrimSpace(*fileInput) != "" {
+		fmt.Fprintln(stderr, "use only one of --content or --file")
+		return 1
+	}
+
+	var pageContent string
+	if strings.TrimSpace(*fileInput) != "" {
+		raw, err := os.ReadFile(strings.TrimSpace(*fileInput))
+		if err != nil {
+			fmt.Fprintf(stderr, "read --file: %v\n", err)
+			return 1
+		}
+		pageContent = string(raw)
+	} else {
+		pageContent = *content
+	}
+
+	p, err := profileFromConfig(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	ctx := context.Background()
+	repoDir, err := cloneWikiToTemp(ctx, p, *workspace, *repo)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	defer os.RemoveAll(repoDir)
+
+	absPath := filepath.Join(repoDir, filepath.FromSlash(cleanPage))
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		fmt.Fprintf(stderr, "create wiki page directory: %v\n", err)
+		return 1
+	}
+	if err := os.WriteFile(absPath, []byte(pageContent), 0o644); err != nil {
+		fmt.Fprintf(stderr, "write wiki page: %v\n", err)
+		return 1
+	}
+
+	pageRelPath := filepath.ToSlash(filepath.FromSlash(cleanPage))
+	if _, err := gitCommandRunner(ctx, repoDir, "add", "--", pageRelPath); err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	statusOut, err := gitCommandRunner(ctx, repoDir, "status", "--porcelain", "--", pageRelPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	if strings.TrimSpace(string(statusOut)) == "" {
+		switch *output {
+		case "json":
+			return printJSON(stdout, map[string]any{
+				"page":   cleanPage,
+				"status": "no_change",
+			}, stderr)
+		case "text":
+			fmt.Fprintf(stdout, "No changes for wiki page: %s\n", cleanPage)
+			return 0
+		default:
+			fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+			return 1
+		}
+	}
+
+	commitMsg := strings.TrimSpace(*message)
+	if commitMsg == "" {
+		commitMsg = fmt.Sprintf("Update wiki page %s", cleanPage)
+	}
+
+	commitEmail := "bb-cli@local"
+	commitName := "bb-cli"
+	if strings.Contains(p.Username, "@") {
+		commitEmail = p.Username
+		commitName = strings.SplitN(p.Username, "@", 2)[0]
+	}
+	if _, err := gitCommandRunner(ctx, repoDir, "config", "user.name", commitName); err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	if _, err := gitCommandRunner(ctx, repoDir, "config", "user.email", commitEmail); err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	if _, err := gitCommandRunner(ctx, repoDir, "commit", "-m", commitMsg); err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	if _, err := gitCommandRunner(ctx, repoDir, "push", "origin", "HEAD"); err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, map[string]any{
+			"page":   cleanPage,
+			"status": "updated",
+		}, stderr)
+	case "text":
+		fmt.Fprintf(stdout, "Updated wiki page: %s\n", cleanPage)
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
 func runCompletion(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: bb completion <bash|zsh|fish|powershell>")
@@ -938,6 +1221,11 @@ type issueRow struct {
 			Href string `json:"href"`
 		} `json:"html"`
 	} `json:"links"`
+}
+
+type wikiPageRow struct {
+	Path string `json:"path"`
+	Size int64  `json:"size"`
 }
 
 func printRepoTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
@@ -1025,6 +1313,19 @@ func printIssueTable(stdout io.Writer, values []json.RawMessage, stderr io.Write
 	return 0
 }
 
+func printWikiTable(stdout io.Writer, rows []wikiPageRow, stderr io.Writer) int {
+	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "PATH\tSIZE")
+	for _, row := range rows {
+		fmt.Fprintf(tw, "%s\t%d\n", row.Path, row.Size)
+	}
+	if err := tw.Flush(); err != nil {
+		fmt.Fprintf(stderr, "flush table: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 func pipelineStateLabel(row pipelineRow) string {
 	if strings.TrimSpace(row.State.Result.Name) != "" {
 		return row.State.Result.Name
@@ -1043,18 +1344,26 @@ func printJSON(stdout io.Writer, v any, stderr io.Writer) int {
 }
 
 func newClientFromProfile(profileName string) (*api.Client, error) {
+	p, err := profileFromConfig(profileName)
+	if err != nil {
+		return nil, err
+	}
+	return api.NewClientWithUser(p.BaseURL, p.Username, p.Token, nil), nil
+}
+
+func profileFromConfig(profileName string) (config.Profile, error) {
 	cfg, err := config.Load()
 	if err != nil {
-		return nil, fmt.Errorf("load config: %w", err)
+		return config.Profile{}, fmt.Errorf("load config: %w", err)
 	}
 	p, _, err := cfg.ActiveProfile(profileName)
 	if err != nil {
-		return nil, fmt.Errorf("resolve profile: %w", err)
+		return config.Profile{}, fmt.Errorf("resolve profile: %w", err)
 	}
 	if strings.TrimSpace(p.Token) == "" {
-		return nil, fmt.Errorf("profile has no token configured")
+		return config.Profile{}, fmt.Errorf("profile has no token configured")
 	}
-	return api.NewClientWithUser(p.BaseURL, p.Username, p.Token, nil), nil
+	return p, nil
 }
 
 func printRootUsage(w io.Writer) {
@@ -1071,6 +1380,7 @@ func printRootUsage(w io.Writer) {
 	fmt.Fprintln(w, "  version    Show CLI version metadata")
 	fmt.Fprintln(w, "  pr         Pull request operations")
 	fmt.Fprintln(w, "  pipeline   Pipeline operations")
+	fmt.Fprintln(w, "  wiki       Wiki operations")
 	fmt.Fprintln(w, "  issue      Issue operations")
 	fmt.Fprintln(w, "  completion Shell completion")
 }
@@ -1098,19 +1408,136 @@ func setOptionalIssueField(body map[string]any, key, value string) {
 
 const bashCompletionScript = `_bb_complete() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
-  local cmds="auth api repo pr pipeline issue completion version help"
+  local cmds="auth api repo pr pipeline wiki issue completion version help"
   COMPREPLY=($(compgen -W "${cmds}" -- "${cur}"))
 }
 complete -F _bb_complete bb`
 
 const zshCompletionScript = `#compdef bb
-_arguments "1:command:(auth api repo pr pipeline issue completion version help)"`
+_arguments "1:command:(auth api repo pr pipeline wiki issue completion version help)"`
 
-const fishCompletionScript = `complete -c bb -f -a "auth api repo pr pipeline issue completion version help"`
+const fishCompletionScript = `complete -c bb -f -a "auth api repo pr pipeline wiki issue completion version help"`
 
 const powershellCompletionScript = `Register-ArgumentCompleter -CommandName bb -ScriptBlock {
   param($wordToComplete)
-  "auth","api","repo","pr","pipeline","issue","completion","version","help" |
+  "auth","api","repo","pr","pipeline","wiki","issue","completion","version","help" |
     Where-Object { $_ -like "$wordToComplete*" } |
     ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }
 }`
+
+func cloneWikiToTemp(ctx context.Context, p config.Profile, workspace, repo string) (string, error) {
+	remoteURL, err := wikiRemoteURLBuilder(p, workspace, repo)
+	if err != nil {
+		return "", err
+	}
+	tmpDir, err := os.MkdirTemp("", "bb-wiki-*")
+	if err != nil {
+		return "", fmt.Errorf("create temp dir: %w", err)
+	}
+	if _, err := gitCommandRunner(ctx, "", "clone", "--depth", "1", remoteURL, tmpDir); err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return "", err
+	}
+	return tmpDir, nil
+}
+
+func listWikiPages(repoDir string) ([]wikiPageRow, error) {
+	var rows []wikiPageRow
+	err := filepath.WalkDir(repoDir, func(filePath string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		rel, err := filepath.Rel(repoDir, filePath)
+		if err != nil {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		rows = append(rows, wikiPageRow{
+			Path: filepath.ToSlash(rel),
+			Size: info.Size(),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list wiki pages: %w", err)
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].Path < rows[j].Path
+	})
+	return rows, nil
+}
+
+func normalizeWikiPagePath(page string) (string, error) {
+	trimmed := strings.TrimSpace(page)
+	if trimmed == "" {
+		return "", fmt.Errorf("--page is required")
+	}
+	clean := path.Clean(trimmed)
+	if clean == "." || clean == "/" {
+		return "", fmt.Errorf("invalid --page value")
+	}
+	if strings.HasPrefix(clean, "../") || clean == ".." {
+		return "", fmt.Errorf("invalid --page value")
+	}
+	return clean, nil
+}
+
+func buildWikiRemoteURL(p config.Profile, workspace, repo string) (string, error) {
+	host := "bitbucket.org"
+	if parsed, err := url.Parse(strings.TrimSpace(p.BaseURL)); err == nil && parsed.Host != "" {
+		host = parsed.Host
+		if host == "api.bitbucket.org" {
+			host = "bitbucket.org"
+		}
+	}
+
+	user := strings.TrimSpace(p.Username)
+	if user == "" {
+		user = "x-token-auth"
+	}
+	if strings.TrimSpace(p.Token) == "" {
+		return "", fmt.Errorf("profile has no token configured")
+	}
+
+	u := url.URL{
+		Scheme: "https",
+		Host:   host,
+		Path:   fmt.Sprintf("/%s/%s.git/wiki", workspace, repo),
+		User:   url.UserPassword(user, p.Token),
+	}
+	return u.String(), nil
+}
+
+func runGitCommand(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	if strings.TrimSpace(dir) != "" {
+		cmd.Dir = dir
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("git command failed: %s", msg)
+	}
+	return out, nil
+}
+
+func redactToken(input, token string) string {
+	trimmedToken := strings.TrimSpace(token)
+	if trimmedToken == "" {
+		return input
+	}
+	return strings.ReplaceAll(input, trimmedToken, "***")
+}

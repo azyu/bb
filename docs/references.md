@@ -45,6 +45,8 @@ Core API groups for CLI MVP:
 - Pull Requests: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-pullrequests/
 - Pipelines: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-pipelines/
 - Issues: https://developer.atlassian.com/cloud/bitbucket/rest/api-group-issue-tracker/
+- Wiki (git-based operations): https://support.atlassian.com/bitbucket-cloud/docs/set-up-and-use-wiki-in-bitbucket-cloud/
+- Wiki clone/update reference: https://support.atlassian.com/bitbucket-cloud/docs/view-and-configure-a-repositorys-wiki/
 
 ## 4) Technical Requirements for Bitbucket CLI (MVP)
 
@@ -54,6 +56,7 @@ Recommended top-level commands:
 - `bb repo`
 - `bb pr`
 - `bb pipeline`
+- `bb wiki`
 - `bb issue`
 - `bb api`
 - `bb completion`
@@ -105,6 +108,8 @@ Operational UX:
 - `GET /repositories/{workspace}/{repo_slug}/pipelines`
 - `POST /repositories/{workspace}/{repo_slug}/pipelines`
 - `GET /repositories/{workspace}/{repo_slug}/issues`
+- Wiki operations via Git remote:
+  - `https://bitbucket.org/{workspace}/{repo_slug}.git/wiki`
 
 ## 6) Risks and Boundaries
 - Bitbucket Cloud and Bitbucket Data Center APIs differ significantly.
@@ -121,6 +126,7 @@ General developer preset (recommended):
 - `read:pullrequest:bitbucket`
 - `read:pipeline:bitbucket`
 - `read:issue:bitbucket`
+- `read:wiki:bitbucket`
 - `read:user:bitbucket`
 - `read:workspace:bitbucket`
 
@@ -128,6 +134,7 @@ Add only when needed:
 - PR create/update: `write:pullrequest:bitbucket`
 - Pipeline run/update: `write:pipeline:bitbucket`
 - Issue create/update: `write:issue:bitbucket`
+- Wiki create/update: `write:wiki:bitbucket`
 - During development, run write-scope flows against a dedicated test repository/workspace first.
 
 Avoid by default:
@@ -145,16 +152,17 @@ Implemented:
 - `bb repo list`
 - `bb pr list`, `bb pr create`
 - `bb pipeline list`, `bb pipeline run`
+- `bb wiki list`, `bb wiki get`, `bb wiki put` (git-based wiki repository operations)
 - `bb issue list`, `bb issue create`, `bb issue update`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version` and root help version display
 
 Remaining wrappers:
-- wiki wrappers (planned)
+- None in current MVP command set
 
 ## 9) Implementation Direction (Next)
-1. Add wiki wrappers (`bb wiki`) now that issue/wiki can be enabled in target repos.
-2. Improve ergonomics (global debug flag, optional local Git remote inference).
+1. Improve ergonomics (global debug flag, optional local Git remote inference).
+2. Add stronger secret handling for git-based wiki auth flows (avoid credential exposure in process args).
 3. Harden auth storage strategy beyond plaintext config for post-MVP.
 
 ## 10) Versioning Strategy

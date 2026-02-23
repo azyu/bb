@@ -4,9 +4,9 @@ This document is the contract baseline for `bb` command behavior.
 
 ## Global
 
-- Target: Bitbucket Cloud REST API
+- Target: Bitbucket Cloud REST API + wiki Git repository flow
 - Profile source: config file (`BB_CONFIG_PATH` override supported)
-- Auth: bearer token per profile
+- Auth: per-profile token with optional Basic auth username (`--username` / `BITBUCKET_USERNAME`) and Bearer fallback
 - Versioning: SemVer + short git hash build metadata (e.g. `0.0.1+abc1234`)
 - Output policy:
   - Human output for operator use (`table` or concise text)
@@ -218,6 +218,63 @@ This document is the contract baseline for `bb` command behavior.
   - Missing required flags -> non-zero exit
   - No update field provided -> non-zero exit
   - Unsupported output -> non-zero exit
+
+## `bb wiki`
+
+Implementation note:
+- Bitbucket Cloud wiki operations are handled through the wiki Git repository (`.../<repo>.git/wiki`) instead of REST wiki endpoints.
+
+### `bb wiki list`
+- Purpose: List wiki files/pages.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+- Optional flags:
+  - `--profile`
+  - `--output` (`table` default, `json`)
+- Output:
+  - `table`: `PATH`, `SIZE`
+  - `json`: array of wiki file objects
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Clone/auth failure -> non-zero exit
+
+### `bb wiki get`
+- Purpose: Read a wiki page/file content.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+  - `--page`
+- Optional flags:
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: raw file content
+  - `json`: `{page, content}`
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Invalid page path -> non-zero exit
+  - Page not found -> non-zero exit
+
+### `bb wiki put`
+- Purpose: Create or update a wiki page/file and push the change.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+  - `--page`
+  - one of `--content` or `--file`
+- Optional flags:
+  - `--message` (git commit message)
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: update/no-change summary
+  - `json`: `{page, status}`
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Invalid page path -> non-zero exit
+  - Both `--content` and `--file` set -> non-zero exit
+  - Git commit/push failure -> non-zero exit
 
 ## `bb completion`
 

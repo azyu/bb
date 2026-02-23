@@ -14,6 +14,9 @@ Implemented commands:
 - `bb pr create`
 - `bb pipeline list`
 - `bb pipeline run`
+- `bb wiki list`
+- `bb wiki get`
+- `bb wiki put`
 - `bb issue list`
 - `bb issue create`
 - `bb issue update`
@@ -70,12 +73,15 @@ Default profile (safe baseline):
 - `read:pullrequest:bitbucket`
 - `read:pipeline:bitbucket`
 - `read:issue:bitbucket`
+- `read:wiki:bitbucket`
 - `read:user:bitbucket`
 - `read:workspace:bitbucket`
 
 If developers need to create/update PRs or trigger pipelines, add:
 - `write:pullrequest:bitbucket`
 - `write:pipeline:bitbucket`
+- `write:issue:bitbucket`
+- `write:wiki:bitbucket`
 
 ### Current CLI baseline
 - `bb repo list`: `read:repository:bitbucket`
@@ -83,6 +89,8 @@ If developers need to create/update PRs or trigger pipelines, add:
 - `bb pr create`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`
 - `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
 - `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
+- `bb wiki list/get`: `read:repository:bitbucket`, `read:wiki:bitbucket`
+- `bb wiki put`: `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket`
 - `bb issue list`: `read:repository:bitbucket`, `read:issue:bitbucket`
 - `bb issue create/update`: `read:repository:bitbucket`, `read:issue:bitbucket`, `write:issue:bitbucket`
 - `bb api` against user/workspace endpoints: add `read:user:bitbucket`, `read:workspace:bitbucket`
@@ -96,6 +104,8 @@ If developers need to create/update PRs or trigger pipelines, add:
 | PR create/update | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
 | Pipeline read | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
 | Pipeline run/update | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
+| Wiki read | `read:repository:bitbucket`, `read:wiki:bitbucket` |
+| Wiki write | `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket` |
 | Issue read | `read:issue:bitbucket` |
 | Issue create/update | `read:issue:bitbucket`, `write:issue:bitbucket` |
 
@@ -181,8 +191,23 @@ bb issue create --workspace <workspace-slug> --repo <repo-slug> --title "My issu
 bb issue update --workspace <workspace-slug> --repo <repo-slug> --id 1 --state resolved
 ```
 
+14. List wiki files:
+```bash
+bb wiki list --workspace <workspace-slug> --repo <repo-slug>
+```
+
+15. Read wiki page:
+```bash
+bb wiki get --workspace <workspace-slug> --repo <repo-slug> --page Home.md
+```
+
+16. Update wiki page (write scope required):
+```bash
+bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --content "# Updated"
+```
+
 ## Write Operation Safety
-- Use a dedicated test repository for write operations (`bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update`) during development.
+- Use a dedicated test repository for write operations (`bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update`, `bb wiki put`) during development.
 - Keep production repos on read-only tokens unless write access is explicitly needed.
 
 ## Configuration

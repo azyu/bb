@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -780,6 +781,127 @@ func TestIssueUpdateRequiresAnyField(t *testing.T) {
 	}
 }
 
+func TestWikiGetText(t *testing.T) {
+	requireGit(t)
+	remote := initLocalWikiRemote(t, map[string]string{
+		"Home.md": "# Hello Wiki\n",
+	})
+
+	origBuilder := wikiRemoteURLBuilder
+	wikiRemoteURLBuilder = func(_ config.Profile, _, _ string) (string, error) {
+		return remote, nil
+	}
+	defer func() { wikiRemoteURLBuilder = origBuilder }()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", "https://api.bitbucket.org/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"wiki", "get", "--workspace", "acme", "--repo", "app", "--page", "Home.md"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Hello Wiki") {
+		t.Fatalf("unexpected wiki get output: %q", stdout.String())
+	}
+}
+
+func TestWikiListJSON(t *testing.T) {
+	requireGit(t)
+	remote := initLocalWikiRemote(t, map[string]string{
+		"Home.md":         "# Home\n",
+		"docs/Runbook.md": "runbook\n",
+	})
+
+	origBuilder := wikiRemoteURLBuilder
+	wikiRemoteURLBuilder = func(_ config.Profile, _, _ string) (string, error) {
+		return remote, nil
+	}
+	defer func() { wikiRemoteURLBuilder = origBuilder }()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", "https://api.bitbucket.org/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"wiki", "list", "--workspace", "acme", "--repo", "app", "--output", "json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "\"path\": \"Home.md\"") {
+		t.Fatalf("expected Home.md in output, got %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "\"path\": \"docs/Runbook.md\"") {
+		t.Fatalf("expected docs/Runbook.md in output, got %q", stdout.String())
+	}
+}
+
+func TestWikiPutUpdatesRemote(t *testing.T) {
+	requireGit(t)
+	remote := initLocalWikiRemote(t, map[string]string{
+		"Home.md": "# Old\n",
+	})
+
+	origBuilder := wikiRemoteURLBuilder
+	wikiRemoteURLBuilder = func(_ config.Profile, _, _ string) (string, error) {
+		return remote, nil
+	}
+	defer func() { wikiRemoteURLBuilder = origBuilder }()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", "https://api.bitbucket.org/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"wiki", "put",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--page", "Home.md",
+		"--content", "# Updated\n",
+		"--message", "test update",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Updated wiki page: Home.md") {
+		t.Fatalf("unexpected put output: %q", stdout.String())
+	}
+
+	checkoutDir := filepath.Join(t.TempDir(), "checkout")
+	runGitLocal(t, "", "clone", "--depth", "1", remote, checkoutDir)
+	raw, err := os.ReadFile(filepath.Join(checkoutDir, "Home.md"))
+	if err != nil {
+		t.Fatalf("read checkout file failed: %v", err)
+	}
+	if string(raw) != "# Updated\n" {
+		t.Fatalf("unexpected wiki content: %q", string(raw))
+	}
+}
+
+func TestWikiPutRequiresContentOrFile(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"wiki", "put",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--page", "Home.md",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit, stderr=%q", stderr.String())
+	}
+}
+
 func TestAuthUnknownSubcommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"auth", "whoami"}, &stdout, &stderr)
@@ -802,6 +924,49 @@ func TestRepoUnknownSubcommand(t *testing.T) {
 	if code == 0 {
 		t.Fatalf("expected non-zero exit, stderr=%q", stderr.String())
 	}
+}
+
+func requireGit(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not available")
+	}
+}
+
+func runGitLocal(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	if strings.TrimSpace(dir) != "" {
+		cmd.Dir = dir
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, string(out))
+	}
+}
+
+func initLocalWikiRemote(t *testing.T, files map[string]string) string {
+	t.Helper()
+	base := t.TempDir()
+	remote := filepath.Join(base, "remote.git")
+	seed := filepath.Join(base, "seed")
+	runGitLocal(t, "", "init", "--bare", remote)
+	runGitLocal(t, "", "clone", remote, seed)
+	runGitLocal(t, seed, "config", "user.name", "tester")
+	runGitLocal(t, seed, "config", "user.email", "tester@example.com")
+	for rel, content := range files {
+		abs := filepath.Join(seed, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+			t.Fatalf("mkdir for seed file failed: %v", err)
+		}
+		if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+			t.Fatalf("write seed file failed: %v", err)
+		}
+	}
+	runGitLocal(t, seed, "add", ".")
+	runGitLocal(t, seed, "commit", "-m", "init")
+	runGitLocal(t, seed, "push", "origin", "HEAD")
+	return remote
 }
 
 func TestAPIUsageErrorWithoutEndpoint(t *testing.T) {

@@ -14,6 +14,9 @@
 - `bb pr create`
 - `bb pipeline list`
 - `bb pipeline run`
+- `bb wiki list`
+- `bb wiki get`
+- `bb wiki put`
 - `bb issue list`
 - `bb issue create`
 - `bb issue update`
@@ -70,12 +73,15 @@ Bitbucket Cloud 기준 단계:
 - `read:pullrequest:bitbucket`
 - `read:pipeline:bitbucket`
 - `read:issue:bitbucket`
+- `read:wiki:bitbucket`
 - `read:user:bitbucket`
 - `read:workspace:bitbucket`
 
 PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 - `write:pullrequest:bitbucket`
 - `write:pipeline:bitbucket`
+- `write:issue:bitbucket`
+- `write:wiki:bitbucket`
 
 ### 현재 CLI 기준
 - `bb repo list`: `read:repository:bitbucket`
@@ -83,6 +89,8 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 - `bb pr create`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`
 - `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
 - `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
+- `bb wiki list/get`: `read:repository:bitbucket`, `read:wiki:bitbucket`
+- `bb wiki put`: `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket`
 - `bb issue list`: `read:repository:bitbucket`, `read:issue:bitbucket`
 - `bb issue create/update`: `read:repository:bitbucket`, `read:issue:bitbucket`, `write:issue:bitbucket`
 - `bb api`로 user/workspace 엔드포인트를 호출할 경우: `read:user:bitbucket`, `read:workspace:bitbucket` 추가
@@ -96,6 +104,8 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 | PR 생성/수정 | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
 | Pipeline 조회 | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
 | Pipeline 실행/수정 | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
+| Wiki 조회 | `read:repository:bitbucket`, `read:wiki:bitbucket` |
+| Wiki 수정 | `read:repository:bitbucket`, `read:wiki:bitbucket`, `write:wiki:bitbucket` |
 | 이슈 조회 | `read:issue:bitbucket` |
 | 이슈 생성/수정 | `read:issue:bitbucket`, `write:issue:bitbucket` |
 
@@ -181,8 +191,23 @@ bb issue create --workspace <workspace-slug> --repo <repo-slug> --title "My issu
 bb issue update --workspace <workspace-slug> --repo <repo-slug> --id 1 --state resolved
 ```
 
+14. Wiki 파일 목록 조회:
+```bash
+bb wiki list --workspace <workspace-slug> --repo <repo-slug>
+```
+
+15. Wiki 페이지 읽기:
+```bash
+bb wiki get --workspace <workspace-slug> --repo <repo-slug> --page Home.md
+```
+
+16. Wiki 페이지 수정 (쓰기 scope 필요):
+```bash
+bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --content "# Updated"
+```
+
 ## 쓰기 작업 안전 가이드
-- 개발 중 `bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update` 같은 쓰기 명령은 테스트용 저장소에서 먼저 실행하세요.
+- 개발 중 `bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update`, `bb wiki put` 같은 쓰기 명령은 테스트용 저장소에서 먼저 실행하세요.
 - 운영 저장소에는 필요 시점 전까지 읽기 전용 토큰 사용을 권장합니다.
 
 ## 설정 파일 위치
