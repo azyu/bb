@@ -46,6 +46,29 @@ Bitbucket Cloud 기준 단계:
 - https://support.atlassian.com/bitbucket-cloud/docs/create-an-api-token/
 - https://support.atlassian.com/bitbucket-cloud/docs/api-token-permissions/
 
+## 권장 Token Scope
+최소 권한 원칙으로 시작하고, 필요한 기능에 맞춰 scope를 추가하세요.
+
+### 현재 CLI 기준
+- `bb repo list`: `read:repository:bitbucket`
+- `bb api`로 user/workspace 엔드포인트를 호출할 경우: `read:user:bitbucket`, `read:workspace:bitbucket` 추가
+
+### 기능별 권장 scope 매트릭스
+| 사용 목적 | 권장 scope |
+| --- | --- |
+| 저장소 조회 | `read:repository:bitbucket` |
+| PR 조회 | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
+| PR 생성/수정 | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
+| Pipeline 조회 | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
+| Pipeline 실행/수정 | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
+| 이슈 조회 | `read:issue:bitbucket` |
+| 이슈 생성/수정 | `read:issue:bitbucket`, `write:issue:bitbucket` |
+
+### 기본적으로 피할 권한
+- `admin:*`
+- `delete:*`
+- 명시적 필요가 없는 `write:permission:bitbucket`
+
 ## 빠른 시작
 1. 토큰으로 로그인:
 ```bash

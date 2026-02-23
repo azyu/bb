@@ -46,6 +46,29 @@ Official docs:
 - https://support.atlassian.com/bitbucket-cloud/docs/create-an-api-token/
 - https://support.atlassian.com/bitbucket-cloud/docs/api-token-permissions/
 
+## Recommended Token Scopes
+Use least privilege. Start with the minimum required scopes and add only what is needed.
+
+### Current CLI baseline
+- `bb repo list`: `read:repository:bitbucket`
+- `bb api` against user/workspace endpoints: add `read:user:bitbucket`, `read:workspace:bitbucket`
+
+### Feature-based scope matrix
+| Use case | Recommended scopes |
+| --- | --- |
+| Repo list/read | `read:repository:bitbucket` |
+| PR read | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
+| PR create/update | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
+| Pipeline read | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
+| Pipeline run/update | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
+| Issue read | `read:issue:bitbucket` |
+| Issue create/update | `read:issue:bitbucket`, `write:issue:bitbucket` |
+
+### Avoid by default
+- `admin:*`
+- `delete:*`
+- `write:permission:bitbucket` unless explicitly required
+
 ## Quick Start
 1. Login with token:
 ```bash
