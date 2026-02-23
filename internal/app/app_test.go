@@ -535,6 +535,106 @@ func TestPRListJSON(t *testing.T) {
 	}
 }
 
+func TestPRListInfersWorkspaceRepoFromGitOrigin(t *testing.T) {
+	requireGit(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/acme/app/pullrequests" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				{
+					"id":    12,
+					"title": "Add feature",
+					"state": "OPEN",
+					"source": map[string]any{
+						"branch": map[string]any{"name": "feature"},
+					},
+					"destination": map[string]any{
+						"branch": map[string]any{"name": "main"},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	repoDir := filepath.Join(t.TempDir(), "repo")
+	runGitLocal(t, "", "init", repoDir)
+	runGitLocal(t, repoDir, "remote", "add", "origin", "https://bitbucket.org/acme/app.git")
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	if err := os.Chdir(repoDir); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(wd)
+	})
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"pr", "list", "--output", "json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "\"title\": \"Add feature\"") {
+		t.Fatalf("expected pr list output, got %q", stdout.String())
+	}
+}
+
+func TestParseBitbucketRemote(t *testing.T) {
+	tests := []struct {
+		name      string
+		remote    string
+		workspace string
+		repo      string
+		ok        bool
+	}{
+		{
+			name:      "https",
+			remote:    "https://bitbucket.org/acme/app.git",
+			workspace: "acme",
+			repo:      "app",
+			ok:        true,
+		},
+		{
+			name:      "ssh",
+			remote:    "git@bitbucket.org:acme/app.git",
+			workspace: "acme",
+			repo:      "app",
+			ok:        true,
+		},
+		{
+			name:   "github host",
+			remote: "https://github.com/acme/app.git",
+			ok:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workspace, repo, ok := parseBitbucketRemote(tt.remote)
+			if ok != tt.ok {
+				t.Fatalf("expected ok=%v, got %v", tt.ok, ok)
+			}
+			if workspace != tt.workspace || repo != tt.repo {
+				t.Fatalf("unexpected parse result: %q/%q", workspace, repo)
+			}
+		})
+	}
+}
+
 func TestPRCreate(t *testing.T) {
 	var gotMethod string
 	var gotPath string

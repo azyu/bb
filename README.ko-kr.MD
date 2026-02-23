@@ -165,6 +165,7 @@ bb api --paginate /repositories/<workspace-slug>
 ```bash
 bb pr list --workspace <workspace-slug> --repo <repo-slug>
 ```
+Bitbucket Git 저장소 디렉토리에서 실행하면 `bb pr list`는 `remote.origin.url`에서 `<workspace>/<repo>`를 자동 추론할 수 있습니다.
 
 7. PR 생성 (쓰기 scope 필요):
 ```bash

@@ -154,6 +154,7 @@ Implemented:
 - `bb api`
 - `bb repo list`
 - `bb pr list`, `bb pr create`
+- `bb pr list` supports local Git `origin` inference for Bitbucket remotes when `--workspace/--repo` are omitted
 - `bb pipeline list`, `bb pipeline run`
 - `bb wiki list`, `bb wiki get`, `bb wiki put` (git-based wiki repository operations)
 - `bb issue list`, `bb issue create`, `bb issue update`

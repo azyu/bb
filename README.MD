@@ -165,6 +165,7 @@ bb api --paginate /repositories/<workspace-slug>
 ```bash
 bb pr list --workspace <workspace-slug> --repo <repo-slug>
 ```
+If you run this inside a Bitbucket Git repository, `bb pr list` can infer `<workspace>/<repo>` from `remote.origin.url`.
 
 7. Create PR (write scope required):
 ```bash

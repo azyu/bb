@@ -408,11 +408,26 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
+
+	workspaceSlug := strings.TrimSpace(*workspace)
+	repoSlug := strings.TrimSpace(*repo)
+	if workspaceSlug == "" || repoSlug == "" {
+		inferredWorkspace, inferredRepo, err := inferBitbucketRepoFromGit(context.Background(), "")
+		if err == nil {
+			if workspaceSlug == "" {
+				workspaceSlug = inferredWorkspace
+			}
+			if repoSlug == "" {
+				repoSlug = inferredRepo
+			}
+		}
+	}
+
+	if workspaceSlug == "" {
 		fmt.Fprintln(stderr, "--workspace is required")
 		return 1
 	}
-	if strings.TrimSpace(*repo) == "" {
+	if repoSlug == "" {
 		fmt.Fprintln(stderr, "--repo is required")
 		return 1
 	}
@@ -429,7 +444,7 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 	setQueryIfNotEmpty(query, "sort", *sort)
 	setQueryIfNotEmpty(query, "fields", *fields)
 
-	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", *workspace, *repo)
+	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", workspaceSlug, repoSlug)
 	var values []json.RawMessage
 	if *all {
 		values, err = client.GetAllValues(context.Background(), path, query)
@@ -1448,6 +1463,69 @@ func setOptionalIssueField(body map[string]any, key, value string) {
 	if trimmed != "" {
 		body[key] = trimmed
 	}
+}
+
+func inferBitbucketRepoFromGit(ctx context.Context, dir string) (string, string, error) {
+	out, err := gitCommandRunner(ctx, dir, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return "", "", err
+	}
+	remote := strings.TrimSpace(string(out))
+	if remote == "" {
+		return "", "", fmt.Errorf("remote.origin.url not set")
+	}
+
+	workspace, repo, ok := parseBitbucketRemote(remote)
+	if !ok {
+		return "", "", fmt.Errorf("origin remote is not a Bitbucket repository")
+	}
+	return workspace, repo, nil
+}
+
+func parseBitbucketRemote(remote string) (string, string, bool) {
+	trimmed := strings.TrimSpace(remote)
+	if trimmed == "" {
+		return "", "", false
+	}
+
+	if strings.Contains(trimmed, "://") {
+		u, err := url.Parse(trimmed)
+		if err != nil {
+			return "", "", false
+		}
+		if strings.ToLower(u.Hostname()) != "bitbucket.org" {
+			return "", "", false
+		}
+		return parseBitbucketPath(u.Path)
+	}
+
+	hostPart, pathPart, ok := strings.Cut(trimmed, ":")
+	if !ok {
+		return "", "", false
+	}
+	if at := strings.LastIndex(hostPart, "@"); at >= 0 {
+		hostPart = hostPart[at+1:]
+	}
+	if strings.ToLower(strings.TrimSpace(hostPart)) != "bitbucket.org" {
+		return "", "", false
+	}
+	return parseBitbucketPath(pathPart)
+}
+
+func parseBitbucketPath(rawPath string) (string, string, bool) {
+	path := strings.TrimSpace(rawPath)
+	path = strings.TrimPrefix(path, "/")
+	path = strings.TrimSuffix(path, "/")
+	parts := strings.Split(path, "/")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	workspace := strings.TrimSpace(parts[0])
+	repo := strings.TrimSpace(strings.TrimSuffix(parts[1], ".git"))
+	if workspace == "" || repo == "" {
+		return "", "", false
+	}
+	return workspace, repo, true
 }
 
 const bashCompletionScript = `_bb_complete() {

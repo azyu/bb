@@ -106,8 +106,7 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb pr list`
 - Purpose: List pull requests for a repository.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Git `remote.origin.url` pointing to Bitbucket (`https://bitbucket.org/<workspace>/<repo>.git` or `git@bitbucket.org:<workspace>/<repo>.git`)
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all` (follow pagination)
