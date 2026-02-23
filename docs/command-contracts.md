@@ -8,6 +8,7 @@ This document is the contract baseline for `bb` command behavior.
 - Profile source: config file (`BB_CONFIG_PATH` override supported)
 - Auth: per-profile token with optional Basic auth username (`--username` / `BITBUCKET_USERNAME`) and Bearer fallback
 - Versioning: SemVer + short git hash build metadata (e.g. `0.0.1+abc1234`)
+- Repo context inference: for repo-scoped commands, `--workspace`/`--repo` can be inferred from local Bitbucket `remote.origin.url` (`https://bitbucket.org/<workspace>/<repo>.git` or `git@bitbucket.org:<workspace>/<repo>.git`) when omitted
 - Output policy:
   - Human output for operator use (`table` or concise text)
   - JSON output for automation where supported
@@ -77,7 +78,7 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb repo list`
 - Purpose: List repositories in a workspace.
 - Required flags:
-  - `--workspace`
+  - `--workspace` unless it can be inferred from local Bitbucket `remote.origin.url`
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all` (follow pagination)
@@ -123,8 +124,7 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb pr create`
 - Purpose: Create a pull request for a repository.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - `--title`
   - `--source`
   - `--destination`
@@ -144,8 +144,7 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb pipeline list`
 - Purpose: List pipelines for a repository.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all` (follow pagination)
@@ -161,8 +160,7 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb pipeline run`
 - Purpose: Trigger a pipeline by branch reference.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - `--branch`
 - Optional flags:
   - `--profile`
@@ -179,8 +177,7 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb issue list`
 - Purpose: List issues for a repository.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all` (follow pagination)
@@ -196,8 +193,7 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb issue create`
 - Purpose: Create an issue for a repository.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - `--title`
 - Optional flags:
   - `--content` (mapped to `content.raw`)
@@ -216,8 +212,7 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb issue update`
 - Purpose: Update selected fields of an existing issue.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - `--id`
 - Optional flags (at least one required):
   - `--title`
@@ -243,8 +238,7 @@ Implementation note:
 ### `bb wiki list`
 - Purpose: List wiki files/pages.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
 - Optional flags:
   - `--profile`
   - `--output` (`table` default, `json`)
@@ -258,8 +252,7 @@ Implementation note:
 ### `bb wiki get`
 - Purpose: Read a wiki page/file content.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - `--page`
 - Optional flags:
   - `--profile`
@@ -275,8 +268,7 @@ Implementation note:
 ### `bb wiki put`
 - Purpose: Create or update a wiki page/file and push the change.
 - Required flags:
-  - `--workspace`
-  - `--repo`
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - `--page`
   - one of `--content` or `--file`
 - Optional flags:

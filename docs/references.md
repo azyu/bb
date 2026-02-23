@@ -154,7 +154,12 @@ Implemented:
 - `bb api`
 - `bb repo list`
 - `bb pr list`, `bb pr create`
-- `bb pr list` supports local Git `origin` inference for Bitbucket remotes when `--workspace/--repo` are omitted
+- Repo-scoped commands support local Git `origin` inference for Bitbucket remotes when `--workspace/--repo` are omitted:
+  - `bb pr list`, `bb pr create`
+  - `bb pipeline list`, `bb pipeline run`
+  - `bb issue list`, `bb issue create`, `bb issue update`
+  - `bb wiki list`, `bb wiki get`, `bb wiki put`
+  - `bb repo list` infers `--workspace`
 - `bb pipeline list`, `bb pipeline run`
 - `bb wiki list`, `bb wiki get`, `bb wiki put` (git-based wiki repository operations)
 - `bb issue list`, `bb issue create`, `bb issue update`
@@ -165,7 +170,7 @@ Remaining wrappers:
 - None in current MVP command set
 
 ## 9) Implementation Direction (Next)
-1. Improve ergonomics (global debug flag, optional local Git remote inference).
+1. Improve ergonomics (global debug flag and clearer repo-context diagnostics for local Git remote inference).
 2. Add stronger secret handling for git-based wiki auth flows (avoid credential exposure in process args).
 3. Harden auth storage strategy beyond plaintext config for post-MVP.
 

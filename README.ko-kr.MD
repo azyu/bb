@@ -154,6 +154,7 @@ bb version
 ```bash
 bb repo list --workspace <workspace-slug>
 ```
+Bitbucket 저장소 디렉토리에서 실행하면 `bb repo list`는 `remote.origin.url`에서 `<workspace>`를 자동 추론할 수 있습니다.
 
 5. API 직접 호출:
 ```bash
@@ -165,7 +166,19 @@ bb api --paginate /repositories/<workspace-slug>
 ```bash
 bb pr list --workspace <workspace-slug> --repo <repo-slug>
 ```
-Bitbucket Git 저장소 디렉토리에서 실행하면 `bb pr list`는 `remote.origin.url`에서 `<workspace>/<repo>`를 자동 추론할 수 있습니다.
+Bitbucket 저장소 디렉토리에서 실행하면 repo 대상 명령은 `remote.origin.url`에서 `<workspace>/<repo>`를 자동 추론할 수 있습니다:
+```bash
+bb pr list
+bb pr create --title "My PR" --source feature --destination main
+bb pipeline list
+bb pipeline run --branch main
+bb issue list
+bb issue create --title "My issue" --content "details"
+bb issue update --id 1 --state resolved
+bb wiki list
+bb wiki get --page Home.md
+bb wiki put --page Home.md --content "# Updated"
+```
 
 7. PR 생성 (쓰기 scope 필요):
 ```bash

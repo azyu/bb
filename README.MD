@@ -154,6 +154,7 @@ bb version
 ```bash
 bb repo list --workspace <workspace-slug>
 ```
+Inside a Bitbucket repository, `bb repo list` can infer `<workspace>` from `remote.origin.url`.
 
 5. Call API directly:
 ```bash
@@ -165,7 +166,19 @@ bb api --paginate /repositories/<workspace-slug>
 ```bash
 bb pr list --workspace <workspace-slug> --repo <repo-slug>
 ```
-If you run this inside a Bitbucket Git repository, `bb pr list` can infer `<workspace>/<repo>` from `remote.origin.url`.
+Inside a Bitbucket repository, repo-scoped commands can infer `<workspace>/<repo>` from `remote.origin.url` when omitted:
+```bash
+bb pr list
+bb pr create --title "My PR" --source feature --destination main
+bb pipeline list
+bb pipeline run --branch main
+bb issue list
+bb issue create --title "My issue" --content "details"
+bb issue update --id 1 --state resolved
+bb wiki list
+bb wiki get --page Home.md
+bb wiki put --page Home.md --content "# Updated"
+```
 
 7. Create PR (write scope required):
 ```bash

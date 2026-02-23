@@ -494,6 +494,40 @@ func TestRepoListUnsupportedOutput(t *testing.T) {
 	}
 }
 
+func TestRepoListInfersWorkspaceFromGitOrigin(t *testing.T) {
+	requireGit(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/acme" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				{"slug": "one", "full_name": "acme/one"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	withBitbucketOriginCwd(t, "https://bitbucket.org/acme/app.git")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"repo", "list", "--output", "json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "\"full_name\": \"acme/one\"") {
+		t.Fatalf("unexpected repo list output: %q", stdout.String())
+	}
+}
+
 func TestPRListJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/2.0/repositories/acme/app/pullrequests" {
@@ -693,6 +727,43 @@ func TestPRCreate(t *testing.T) {
 	}
 }
 
+func TestPRCreateInfersWorkspaceRepoFromGitOrigin(t *testing.T) {
+	requireGit(t)
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "OPEN",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	withBitbucketOriginCwd(t, "git@bitbucket.org:acme/app.git")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "create",
+		"--title", "Add feature",
+		"--source", "feature",
+		"--destination", "main",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotPath != "/2.0/repositories/acme/app/pullrequests" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+}
+
 func TestPipelineListJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/2.0/repositories/acme/app/pipelines" {
@@ -783,6 +854,42 @@ func TestPipelineRun(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "Triggered pipeline {pipeline-2}") {
 		t.Fatalf("unexpected output: %q", stdout.String())
+	}
+}
+
+func TestPipelineRunInfersWorkspaceRepoFromGitOrigin(t *testing.T) {
+	requireGit(t)
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"uuid": "{pipeline-2}",
+			"state": map[string]any{
+				"name": "PENDING",
+			},
+			"target": map[string]any{
+				"ref_name": "main",
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	withBitbucketOriginCwd(t, "https://bitbucket.org/acme/app.git")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"pipeline", "run", "--branch", "main"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotPath != "/2.0/repositories/acme/app/pipelines" {
+		t.Fatalf("unexpected path: %q", gotPath)
 	}
 }
 
@@ -968,6 +1075,38 @@ func TestIssueUpdate(t *testing.T) {
 	}
 }
 
+func TestIssueUpdateInfersWorkspaceRepoFromGitOrigin(t *testing.T) {
+	requireGit(t)
+	var gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    7,
+			"title": "Fix bug",
+			"state": "resolved",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	withBitbucketOriginCwd(t, "https://bitbucket.org/acme/app.git")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"issue", "update", "--id", "7", "--state", "resolved"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotPath != "/2.0/repositories/acme/app/issues/7" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+}
+
 func TestIssueUpdateRequiresAnyField(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{
@@ -1040,6 +1179,37 @@ func TestWikiListJSON(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "\"path\": \"docs/Runbook.md\"") {
 		t.Fatalf("expected docs/Runbook.md in output, got %q", stdout.String())
+	}
+}
+
+func TestWikiListInfersWorkspaceRepoFromGitOrigin(t *testing.T) {
+	requireGit(t)
+	remote := initLocalWikiRemote(t, map[string]string{
+		"Home.md": "# Home\n",
+	})
+
+	origBuilder := wikiRemoteURLBuilder
+	wikiRemoteURLBuilder = func(_ config.Profile, _, _ string) (string, error) {
+		return remote, nil
+	}
+	defer func() { wikiRemoteURLBuilder = origBuilder }()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", "https://api.bitbucket.org/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	withBitbucketOriginCwd(t, "https://bitbucket.org/acme/app.git")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"wiki", "list", "--output", "json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "\"path\": \"Home.md\"") {
+		t.Fatalf("expected Home.md in output, got %q", stdout.String())
 	}
 }
 
@@ -1173,6 +1343,24 @@ func requireGit(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not available")
 	}
+}
+
+func withBitbucketOriginCwd(t *testing.T, remote string) {
+	t.Helper()
+	repoDir := filepath.Join(t.TempDir(), "repo")
+	runGitLocal(t, "", "init", repoDir)
+	runGitLocal(t, repoDir, "remote", "add", "origin", remote)
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	if err := os.Chdir(repoDir); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(wd)
+	})
 }
 
 func runGitLocal(t *testing.T, dir string, args ...string) {

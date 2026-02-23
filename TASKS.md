@@ -12,6 +12,7 @@
 - [x] Distinguish wiki Git auth user for personal API token vs access-token style profiles - owner: agent
 - [x] Run live smoke tests on `locomotivelabs/playground` for previously failing write flows (issue/wiki write OK; pipeline run returned upstream 404 on repo settings) - owner: agent
 - [x] Add git-remote inference for `bb pr list` so `--workspace/--repo` are optional in Bitbucket repos - owner: agent
+- [x] Extend git-remote inference to other repo-scoped commands (`repo/pr/pipeline/issue/wiki`) and update docs - owner: agent
 - [x] Implement `bb pr` and `bb pipeline` concrete subcommands (replace stubs) - owner: agent
 - [x] Add shell completion generation command - owner: agent
 - [x] Implement `bb issue list` concrete subcommand - owner: agent

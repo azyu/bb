@@ -325,8 +325,9 @@ func runRepoList(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
+	workspaceSlug, _, err := resolveRepoTarget(*workspace, "", false)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 
@@ -347,7 +348,7 @@ func runRepoList(args []string, stdout, stderr io.Writer) int {
 		query.Set("fields", *fields)
 	}
 
-	path := fmt.Sprintf("/repositories/%s", *workspace)
+	path := fmt.Sprintf("/repositories/%s", workspaceSlug)
 	var values []json.RawMessage
 	if *all {
 		values, err = client.GetAllValues(context.Background(), path, query)
@@ -408,27 +409,9 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-
-	workspaceSlug := strings.TrimSpace(*workspace)
-	repoSlug := strings.TrimSpace(*repo)
-	if workspaceSlug == "" || repoSlug == "" {
-		inferredWorkspace, inferredRepo, err := inferBitbucketRepoFromGit(context.Background(), "")
-		if err == nil {
-			if workspaceSlug == "" {
-				workspaceSlug = inferredWorkspace
-			}
-			if repoSlug == "" {
-				repoSlug = inferredRepo
-			}
-		}
-	}
-
-	if workspaceSlug == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if repoSlug == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 
@@ -488,12 +471,9 @@ func runPRCreate(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 	if strings.TrimSpace(*title) == "" {
@@ -537,7 +517,7 @@ func runPRCreate(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", *workspace, *repo)
+	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", workspaceSlug, repoSlug)
 	var created pullRequestRow
 	if err := client.DoJSON(context.Background(), http.MethodPost, path, nil, bytes.NewReader(payload), &created); err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
@@ -588,12 +568,9 @@ func runPipelineList(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 
@@ -607,7 +584,7 @@ func runPipelineList(args []string, stdout, stderr io.Writer) int {
 	setQueryIfNotEmpty(query, "sort", *sort)
 	setQueryIfNotEmpty(query, "fields", *fields)
 
-	path := fmt.Sprintf("/repositories/%s/%s/pipelines", *workspace, *repo)
+	path := fmt.Sprintf("/repositories/%s/%s/pipelines", workspaceSlug, repoSlug)
 	var values []json.RawMessage
 	if *all {
 		values, err = client.GetAllValues(context.Background(), path, query)
@@ -648,12 +625,9 @@ func runPipelineRun(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 	if strings.TrimSpace(*branch) == "" {
@@ -680,7 +654,7 @@ func runPipelineRun(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	path := fmt.Sprintf("/repositories/%s/%s/pipelines", *workspace, *repo)
+	path := fmt.Sprintf("/repositories/%s/%s/pipelines", workspaceSlug, repoSlug)
 	var triggered pipelineRow
 	if err := client.DoJSON(context.Background(), http.MethodPost, path, nil, bytes.NewReader(payload), &triggered); err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
@@ -735,12 +709,9 @@ func runIssueList(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 
@@ -755,7 +726,7 @@ func runIssueList(args []string, stdout, stderr io.Writer) int {
 	setQueryIfNotEmpty(query, "sort", *sort)
 	setQueryIfNotEmpty(query, "fields", *fields)
 
-	path := fmt.Sprintf("/repositories/%s/%s/issues", *workspace, *repo)
+	path := fmt.Sprintf("/repositories/%s/%s/issues", workspaceSlug, repoSlug)
 	var values []json.RawMessage
 	if *all {
 		values, err = client.GetAllValues(context.Background(), path, query)
@@ -800,12 +771,9 @@ func runIssueCreate(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 	if strings.TrimSpace(*title) == "" {
@@ -837,7 +805,7 @@ func runIssueCreate(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	path := fmt.Sprintf("/repositories/%s/%s/issues", *workspace, *repo)
+	path := fmt.Sprintf("/repositories/%s/%s/issues", workspaceSlug, repoSlug)
 	var created issueRow
 	if err := client.DoJSON(context.Background(), http.MethodPost, path, nil, bytes.NewReader(payload), &created); err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
@@ -875,12 +843,9 @@ func runIssueUpdate(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 	if *id <= 0 {
@@ -915,7 +880,7 @@ func runIssueUpdate(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	path := fmt.Sprintf("/repositories/%s/%s/issues/%d", *workspace, *repo, *id)
+	path := fmt.Sprintf("/repositories/%s/%s/issues/%d", workspaceSlug, repoSlug, *id)
 	var updated issueRow
 	if err := client.DoJSON(context.Background(), http.MethodPut, path, nil, bytes.NewReader(payload), &updated); err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
@@ -965,12 +930,9 @@ func runWikiList(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 
@@ -981,7 +943,7 @@ func runWikiList(args []string, stdout, stderr io.Writer) int {
 	}
 
 	ctx := context.Background()
-	repoDir, err := cloneWikiToTemp(ctx, p, *workspace, *repo)
+	repoDir, err := cloneWikiToTemp(ctx, p, workspaceSlug, repoSlug)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
 		return 1
@@ -1016,12 +978,9 @@ func runWikiGet(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 	cleanPage, err := normalizeWikiPagePath(*page)
@@ -1037,7 +996,7 @@ func runWikiGet(args []string, stdout, stderr io.Writer) int {
 	}
 
 	ctx := context.Background()
-	repoDir, err := cloneWikiToTemp(ctx, p, *workspace, *repo)
+	repoDir, err := cloneWikiToTemp(ctx, p, workspaceSlug, repoSlug)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
 		return 1
@@ -1084,12 +1043,9 @@ func runWikiPut(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
-	if strings.TrimSpace(*workspace) == "" {
-		fmt.Fprintln(stderr, "--workspace is required")
-		return 1
-	}
-	if strings.TrimSpace(*repo) == "" {
-		fmt.Fprintln(stderr, "--repo is required")
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
 	cleanPage, err := normalizeWikiPagePath(*page)
@@ -1125,7 +1081,7 @@ func runWikiPut(args []string, stdout, stderr io.Writer) int {
 	}
 
 	ctx := context.Background()
-	repoDir, err := cloneWikiToTemp(ctx, p, *workspace, *repo)
+	repoDir, err := cloneWikiToTemp(ctx, p, workspaceSlug, repoSlug)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
 		return 1
@@ -1463,6 +1419,29 @@ func setOptionalIssueField(body map[string]any, key, value string) {
 	if trimmed != "" {
 		body[key] = trimmed
 	}
+}
+
+func resolveRepoTarget(workspaceValue, repoValue string, requireRepo bool) (string, string, error) {
+	workspace := strings.TrimSpace(workspaceValue)
+	repo := strings.TrimSpace(repoValue)
+	if workspace == "" || (requireRepo && repo == "") {
+		inferredWorkspace, inferredRepo, err := inferBitbucketRepoFromGit(context.Background(), "")
+		if err == nil {
+			if workspace == "" {
+				workspace = inferredWorkspace
+			}
+			if repo == "" {
+				repo = inferredRepo
+			}
+		}
+	}
+	if workspace == "" {
+		return "", "", fmt.Errorf("--workspace is required")
+	}
+	if requireRepo && repo == "" {
+		return "", "", fmt.Errorf("--repo is required")
+	}
+	return workspace, repo, nil
 }
 
 func inferBitbucketRepoFromGit(ctx context.Context, dir string) (string, string, error) {
