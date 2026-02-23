@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -68,21 +69,32 @@ func runAuth(args []string, stdout, stderr io.Writer) int {
 }
 
 func runAuthLogin(args []string, stdout, stderr io.Writer) int {
+	args = normalizeAuthLoginArgs(args)
+
 	fs := flag.NewFlagSet("auth login", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	profile := fs.String("profile", "default", "profile name")
-	token := fs.String("token", "", "API token (or use BITBUCKET_TOKEN)")
+	token := fs.String("token", "", "API token value")
+	withToken := fs.Bool("with-token", false, "read API token from stdin")
 	baseURL := fs.String("base-url", "", "Bitbucket API base URL")
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
 
 	resolvedToken := strings.TrimSpace(*token)
+	if resolvedToken == "" && *withToken {
+		var err error
+		resolvedToken, err = readTokenFromStdin()
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+	}
 	if resolvedToken == "" {
 		resolvedToken = strings.TrimSpace(os.Getenv("BITBUCKET_TOKEN"))
 	}
 	if resolvedToken == "" {
-		fmt.Fprintln(stderr, "token is required: use --token or BITBUCKET_TOKEN")
+		fmt.Fprintln(stderr, "token is required: use --token <value>, --with-token, or BITBUCKET_TOKEN")
 		return 1
 	}
 
@@ -99,6 +111,39 @@ func runAuthLogin(args []string, stdout, stderr io.Writer) int {
 
 	fmt.Fprintf(stdout, "authenticated profile %q\n", *profile)
 	return 0
+}
+
+func normalizeAuthLoginArgs(args []string) []string {
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--token" || arg == "-token" {
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				out = append(out, arg, args[i+1])
+				i++
+				continue
+			}
+			out = append(out, "--with-token")
+			continue
+		}
+		out = append(out, arg)
+	}
+	return out
+}
+
+func readTokenFromStdin() (string, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return "", fmt.Errorf("read token from stdin: %w", err)
+		}
+		return "", fmt.Errorf("no token provided on stdin")
+	}
+	token := strings.TrimSpace(scanner.Text())
+	if token == "" {
+		return "", fmt.Errorf("no token provided on stdin")
+	}
+	return token, nil
 }
 
 func runAuthStatus(args []string, stdout, stderr io.Writer) int {

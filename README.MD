@@ -35,6 +35,16 @@ chmod +x ~/.local/bin/bb
 ### Quick Start
 1. Login with token:
 ```bash
+bb auth login --token "<your-token>" --profile default
+```
+
+Alternative (stdin):
+```bash
+echo "<your-token>" | bb auth login --with-token --profile default
+```
+
+Alternative (env):
+```bash
 BITBUCKET_TOKEN="<your-token>" bb auth login --profile default
 ```
 
@@ -117,6 +127,16 @@ chmod +x ~/.local/bin/bb
 
 ### 빠른 시작
 1. 토큰으로 로그인:
+```bash
+bb auth login --token "<your-token>" --profile default
+```
+
+대안 (stdin):
+```bash
+echo "<your-token>" | bb auth login --with-token --profile default
+```
+
+대안 (환경변수):
 ```bash
 BITBUCKET_TOKEN="<your-token>" bb auth login --profile default
 ```

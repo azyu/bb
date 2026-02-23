@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -107,6 +108,69 @@ func TestAuthLoginRequiresToken(t *testing.T) {
 	code := Run([]string{"auth", "login", "--profile", "default"}, &stdout, &stderr)
 	if code == 0 {
 		t.Fatalf("expected non-zero exit, stderr=%q", stderr.String())
+	}
+}
+
+func TestAuthLoginWithTokenFlagValue(t *testing.T) {
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	t.Setenv("BITBUCKET_TOKEN", "")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"auth", "login", "--profile", "default", "--token", "token-from-flag"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected zero exit, got %d, stderr=%q", code, stderr.String())
+	}
+}
+
+func TestAuthLoginWithTokenFromStdin(t *testing.T) {
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	t.Setenv("BITBUCKET_TOKEN", "")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe failed: %v", err)
+	}
+	if _, err := w.WriteString("token-from-stdin\n"); err != nil {
+		t.Fatalf("write pipe failed: %v", err)
+	}
+	_ = w.Close()
+	os.Stdin = r
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"auth", "login", "--with-token"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected zero exit, got %d, stderr=%q", code, stderr.String())
+	}
+}
+
+func TestAuthLoginBareTokenFlagMapsToWithToken(t *testing.T) {
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	t.Setenv("BITBUCKET_TOKEN", "")
+
+	oldStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe failed: %v", err)
+	}
+	if _, err := w.WriteString("token-from-stdin\n"); err != nil {
+		t.Fatalf("write pipe failed: %v", err)
+	}
+	_ = w.Close()
+	os.Stdin = r
+	defer func() {
+		os.Stdin = oldStdin
+		_ = r.Close()
+	}()
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"auth", "login", "--token"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected zero exit, got %d, stderr=%q", code, stderr.String())
 	}
 }
 

@@ -16,10 +16,11 @@ This document is the contract baseline for `bb` command behavior.
 ### `bb auth login`
 - Purpose: Save token/base URL into a named profile and set it active.
 - Required inputs:
-  - `--token` or `BITBUCKET_TOKEN` environment variable
+  - `--token <value>` or `--with-token` or `BITBUCKET_TOKEN` environment variable
 - Optional flags:
   - `--profile` (default: `default`)
   - `--base-url` (default: `https://api.bitbucket.org/2.0`)
+  - `--with-token` (read token from stdin)
 - Output:
   - Human: confirmation message with profile name
 - Failure behavior:
