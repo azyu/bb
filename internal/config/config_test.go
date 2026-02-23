@@ -113,14 +113,66 @@ func TestSetProfileDefaults(t *testing.T) {
 
 func TestDefaultPathFallback(t *testing.T) {
 	t.Setenv("BB_CONFIG_PATH", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
 	p, err := DefaultPath()
 	if err != nil {
 		t.Fatalf("DefaultPath returned error: %v", err)
 	}
-	if p == "" {
-		t.Fatal("expected non-empty default path")
+	want := filepath.Join(home, ".config", "bb", "config.json")
+	if p != want {
+		t.Fatalf("expected %q, got %q", want, p)
 	}
-	if filepath.Base(p) != "config.json" {
-		t.Fatalf("expected config.json filename, got %q", p)
+}
+
+func TestDefaultPathUsesXDGConfigHome(t *testing.T) {
+	t.Setenv("BB_CONFIG_PATH", "")
+	t.Setenv("HOME", t.TempDir())
+	xdg := filepath.Join(t.TempDir(), "xdg-config")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	p, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath returned error: %v", err)
+	}
+	want := filepath.Join(xdg, "bb", "config.json")
+	if p != want {
+		t.Fatalf("expected %q, got %q", want, p)
+	}
+}
+
+func TestLoadFallbackToLegacyPath(t *testing.T) {
+	t.Setenv("BB_CONFIG_PATH", "")
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "new-config"))
+	t.Setenv("HOME", t.TempDir())
+
+	legacyBase, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatalf("UserConfigDir returned error: %v", err)
+	}
+	legacyPath := filepath.Join(legacyBase, "bb", "config.json")
+	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o700); err != nil {
+		t.Fatalf("mkdir legacy config dir failed: %v", err)
+	}
+	payload := []byte(`{"current":"default","profiles":{"default":{"base_url":"https://api.bitbucket.org/2.0","token":"legacy-token"}}}`)
+	if err := os.WriteFile(legacyPath, payload, 0o600); err != nil {
+		t.Fatalf("write legacy config failed: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	p, name, err := cfg.ActiveProfile("")
+	if err != nil {
+		t.Fatalf("ActiveProfile returned error: %v", err)
+	}
+	if name != "default" {
+		t.Fatalf("expected profile name default, got %q", name)
+	}
+	if p.Token != "legacy-token" {
+		t.Fatalf("expected legacy token, got %q", p.Token)
 	}
 }

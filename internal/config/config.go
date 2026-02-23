@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const defaultBaseURL = "https://api.bitbucket.org/2.0"
@@ -30,13 +31,20 @@ func (c *Config) normalize() {
 
 // DefaultPath returns the configuration file path.
 func DefaultPath() (string, error) {
-	if v := os.Getenv("BB_CONFIG_PATH"); v != "" {
+	if v := explicitConfigPath(); v != "" {
 		return v, nil
 	}
-	base, err := os.UserConfigDir()
+
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("get user config dir: %w", err)
+		return "", fmt.Errorf("get user home dir: %w", err)
 	}
+
+	base := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME"))
+	if base == "" {
+		base = filepath.Join(home, ".config")
+	}
+
 	return filepath.Join(base, "bb", "config.json"), nil
 }
 
@@ -50,11 +58,22 @@ func Load() (*Config, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &Config{Profiles: map[string]Profile{}}, nil
+			raw, err = readLegacyConfig()
+			if err != nil {
+				return nil, err
+			}
+			if len(raw) == 0 {
+				return &Config{Profiles: map[string]Profile{}}, nil
+			}
+		} else {
+			return nil, fmt.Errorf("read config: %w", err)
 		}
-		return nil, fmt.Errorf("read config: %w", err)
 	}
 
+	return decode(raw)
+}
+
+func decode(raw []byte) (*Config, error) {
 	var cfg Config
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, fmt.Errorf("decode config: %w", err)
@@ -125,4 +144,38 @@ func (c *Config) ActiveProfile(override string) (Profile, string, error) {
 		p.BaseURL = defaultBaseURL
 	}
 	return p, name, nil
+}
+
+func explicitConfigPath() string {
+	return strings.TrimSpace(os.Getenv("BB_CONFIG_PATH"))
+}
+
+func readLegacyConfig() ([]byte, error) {
+	// If a config path is explicitly set, do not attempt fallback paths.
+	if explicitConfigPath() != "" {
+		return nil, nil
+	}
+
+	legacyBase, err := os.UserConfigDir()
+	if err != nil {
+		return nil, nil
+	}
+	legacyPath := filepath.Join(legacyBase, "bb", "config.json")
+
+	newPath, err := DefaultPath()
+	if err != nil {
+		return nil, nil
+	}
+	if legacyPath == newPath {
+		return nil, nil
+	}
+
+	raw, err := os.ReadFile(legacyPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read legacy config: %w", err)
+	}
+	return raw, nil
 }
