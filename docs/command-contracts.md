@@ -115,7 +115,7 @@ This document is the contract baseline for `bb` command behavior.
   - `--state` (`OPEN|MERGED|DECLINED`)
   - `--q`, `--sort`, `--fields`
 - Output:
-  - `table`: `ID`, `STATE`, `SOURCE`, `DEST`, `TITLE`
+  - `table`: summary line (`Showing <n> [of <total>] <state> pull requests in <workspace>/<repo>`) and columns `ID`, `TITLE`, `BRANCH`, `CREATED AT` (relative time)
   - `json`: array of pull request objects
 - Failure behavior:
   - Missing required flags -> non-zero exit

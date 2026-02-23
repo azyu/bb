@@ -163,6 +163,7 @@ Implemented:
 - `bb pipeline list`, `bb pipeline run`
 - `bb wiki list`, `bb wiki get`, `bb wiki put` (git-based wiki repository operations)
 - `bb issue list`, `bb issue create`, `bb issue update`
+- `bb pr list` table output follows a `gh pr list`-like summary + columns layout
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version` and root help version display
 

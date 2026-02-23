@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"bitbucket-cli/internal/config"
 	"bitbucket-cli/internal/version"
@@ -566,6 +567,65 @@ func TestPRListJSON(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "\"title\": \"Add feature\"") {
 		t.Fatalf("expected pr list output, got %q", stdout.String())
+	}
+}
+
+func TestPRListTableGhStyleOutput(t *testing.T) {
+	created := time.Now().Add(-19*time.Hour - 5*time.Minute).Format(time.RFC3339)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/acme/app/pullrequests" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"size": 42,
+			"values": []map[string]any{
+				{
+					"id":         12,
+					"title":      "Add feature",
+					"state":      "OPEN",
+					"created_on": created,
+					"source": map[string]any{
+						"branch": map[string]any{"name": "feature"},
+					},
+					"destination": map[string]any{
+						"branch": map[string]any{"name": "main"},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "list",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--state", "OPEN",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "Showing 1 of 42 open pull requests in acme/app") {
+		t.Fatalf("missing summary line in output: %q", out)
+	}
+	if !strings.Contains(out, "ID") || !strings.Contains(out, "CREATED AT") {
+		t.Fatalf("missing table headers in output: %q", out)
+	}
+	if !strings.Contains(out, "#12") || !strings.Contains(out, "feature") {
+		t.Fatalf("missing row content in output: %q", out)
+	}
+	if !strings.Contains(out, "hours ago") {
+		t.Fatalf("expected relative created-at text, got %q", out)
 	}
 }
 

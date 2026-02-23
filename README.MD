@@ -166,6 +166,7 @@ bb api --paginate /repositories/<workspace-slug>
 ```bash
 bb pr list --workspace <workspace-slug> --repo <repo-slug>
 ```
+`table` output is shown in a `gh pr list`-like layout (summary line + `ID/TITLE/BRANCH/CREATED AT`).
 Inside a Bitbucket repository, repo-scoped commands can infer `<workspace>/<repo>` from `remote.origin.url` when omitted:
 ```bash
 bb pr list

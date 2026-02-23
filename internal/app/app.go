@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"bitbucket-cli/internal/api"
 	"bitbucket-cli/internal/config"
@@ -422,13 +423,15 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 	}
 
 	query := url.Values{}
-	setQueryIfNotEmpty(query, "state", strings.ToUpper(strings.TrimSpace(*state)))
+	stateFilter := strings.ToUpper(strings.TrimSpace(*state))
+	setQueryIfNotEmpty(query, "state", stateFilter)
 	setQueryIfNotEmpty(query, "q", *q)
 	setQueryIfNotEmpty(query, "sort", *sort)
 	setQueryIfNotEmpty(query, "fields", *fields)
 
 	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", workspaceSlug, repoSlug)
 	var values []json.RawMessage
+	totalCount := -1
 	if *all {
 		values, err = client.GetAllValues(context.Background(), path, query)
 		if err != nil {
@@ -438,19 +441,23 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 	} else {
 		var page struct {
 			Values []json.RawMessage `json:"values"`
+			Size   int               `json:"size"`
 		}
 		if err := client.DoJSON(context.Background(), http.MethodGet, path, query, nil, &page); err != nil {
 			fmt.Fprintf(stderr, "%v\n", err)
 			return 1
 		}
 		values = page.Values
+		if page.Size > 0 {
+			totalCount = page.Size
+		}
 	}
 
 	switch *output {
 	case "json":
 		return printJSON(stdout, values, stderr)
 	case "table":
-		return printPRTable(stdout, values, stderr)
+		return printPRTable(stdout, values, workspaceSlug, repoSlug, stateFilter, totalCount, stderr)
 	default:
 		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
 		return 1
@@ -1192,10 +1199,11 @@ func runCompletion(args []string, stdout, stderr io.Writer) int {
 }
 
 type pullRequestRow struct {
-	ID    int    `json:"id"`
-	Title string `json:"title"`
-	State string `json:"state"`
-	Links struct {
+	ID        int    `json:"id"`
+	Title     string `json:"title"`
+	State     string `json:"state"`
+	CreatedOn string `json:"created_on"`
+	Links     struct {
 		HTML struct {
 			Href string `json:"href"`
 		} `json:"html"`
@@ -1266,30 +1274,107 @@ func printRepoTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer
 	return 0
 }
 
-func printPRTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
-	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tSTATE\tSOURCE\tDEST\tTITLE")
+func printPRTable(stdout io.Writer, values []json.RawMessage, workspace, repo, stateFilter string, totalCount int, stderr io.Writer) int {
+	rows := make([]pullRequestRow, 0, len(values))
 	for _, raw := range values {
 		var row pullRequestRow
 		if err := json.Unmarshal(raw, &row); err != nil {
 			fmt.Fprintf(stderr, "decode pull request row: %v\n", err)
 			return 1
 		}
-		fmt.Fprintf(
-			tw,
-			"%d\t%s\t%s\t%s\t%s\n",
-			row.ID,
-			row.State,
-			row.Source.Branch.Name,
-			row.Destination.Branch.Name,
-			row.Title,
-		)
+		rows = append(rows, row)
+	}
+
+	stateLabel := describePRListState(stateFilter)
+	if totalCount > len(rows) {
+		fmt.Fprintf(stdout, "Showing %d of %d %s in %s/%s\n\n", len(rows), totalCount, stateLabel, workspace, repo)
+	} else {
+		fmt.Fprintf(stdout, "Showing %d %s in %s/%s\n\n", len(rows), stateLabel, workspace, repo)
+	}
+
+	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "ID\tTITLE\tBRANCH\tCREATED AT")
+	for _, row := range rows {
+		branch := strings.TrimSpace(row.Source.Branch.Name)
+		if branch == "" {
+			branch = "-"
+		}
+		fmt.Fprintf(tw, "#%d\t%s\t%s\t%s\n", row.ID, row.Title, branch, relativeTimeLabel(row.CreatedOn))
 	}
 	if err := tw.Flush(); err != nil {
 		fmt.Fprintf(stderr, "flush table: %v\n", err)
 		return 1
 	}
 	return 0
+}
+
+func describePRListState(stateFilter string) string {
+	state := strings.ToUpper(strings.TrimSpace(stateFilter))
+	switch state {
+	case "OPEN":
+		return "open pull requests"
+	case "MERGED":
+		return "merged pull requests"
+	case "DECLINED":
+		return "declined pull requests"
+	case "":
+		return "pull requests"
+	default:
+		return strings.ToLower(state) + " pull requests"
+	}
+}
+
+func relativeTimeLabel(createdOn string) string {
+	trimmed := strings.TrimSpace(createdOn)
+	if trimmed == "" {
+		return "-"
+	}
+	createdAt, err := time.Parse(time.RFC3339Nano, trimmed)
+	if err != nil {
+		return trimmed
+	}
+	return humanizeSince(createdAt, time.Now())
+}
+
+func humanizeSince(createdAt, now time.Time) string {
+	if now.Before(createdAt) {
+		return "just now"
+	}
+	d := now.Sub(createdAt)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		minutes := int(d / time.Minute)
+		if minutes == 1 {
+			return "about 1 minute ago"
+		}
+		return fmt.Sprintf("about %d minutes ago", minutes)
+	case d < 24*time.Hour:
+		hours := int(d / time.Hour)
+		if hours == 1 {
+			return "about 1 hour ago"
+		}
+		return fmt.Sprintf("about %d hours ago", hours)
+	case d < 30*24*time.Hour:
+		days := int(d / (24 * time.Hour))
+		if days == 1 {
+			return "about 1 day ago"
+		}
+		return fmt.Sprintf("about %d days ago", days)
+	case d < 365*24*time.Hour:
+		months := int(d / (30 * 24 * time.Hour))
+		if months <= 1 {
+			return "about 1 month ago"
+		}
+		return fmt.Sprintf("about %d months ago", months)
+	default:
+		years := int(d / (365 * 24 * time.Hour))
+		if years <= 1 {
+			return "about 1 year ago"
+		}
+		return fmt.Sprintf("about %d years ago", years)
+	}
 }
 
 func printPipelineTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
