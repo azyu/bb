@@ -15,11 +15,10 @@ Implemented commands:
 - `bb pipeline list`
 - `bb pipeline run`
 - `bb issue list`
+- `bb issue create`
+- `bb issue update`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
-
-Planned subcommands:
-- `bb issue create`
 
 ## Requirements
 - Go `1.26+`
@@ -81,6 +80,7 @@ If developers need to create/update PRs or trigger pipelines, add:
 - `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
 - `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
 - `bb issue list`: `read:repository:bitbucket`, `read:issue:bitbucket`
+- `bb issue create/update`: `read:repository:bitbucket`, `read:issue:bitbucket`, `write:issue:bitbucket`
 - `bb api` against user/workspace endpoints: add `read:user:bitbucket`, `read:workspace:bitbucket`
 - `bb completion` / `bb version`: no additional scopes
 
@@ -167,8 +167,18 @@ bb completion zsh
 bb issue list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
+12. Create issue (write scope required):
+```bash
+bb issue create --workspace <workspace-slug> --repo <repo-slug> --title "My issue" --content "details"
+```
+
+13. Update issue (write scope required):
+```bash
+bb issue update --workspace <workspace-slug> --repo <repo-slug> --id 1 --state resolved
+```
+
 ## Write Operation Safety
-- Use a dedicated test repository for write operations (`bb pr create`, `bb pipeline run`) during development.
+- Use a dedicated test repository for write operations (`bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update`) during development.
 - Keep production repos on read-only tokens unless write access is explicitly needed.
 
 ## Configuration

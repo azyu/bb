@@ -174,6 +174,48 @@ This document is the contract baseline for `bb` command behavior.
   - Missing required flags -> non-zero exit
   - Unsupported output -> non-zero exit
 
+### `bb issue create`
+- Purpose: Create an issue for a repository.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+  - `--title`
+- Optional flags:
+  - `--content` (mapped to `content.raw`)
+  - `--state`
+  - `--kind` (`bug|enhancement|proposal|task`)
+  - `--priority` (`trivial|minor|major|critical|blocker`)
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: created issue summary and URL when provided by API
+  - `json`: created issue object
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Unsupported output -> non-zero exit
+
+### `bb issue update`
+- Purpose: Update selected fields of an existing issue.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+  - `--id`
+- Optional flags (at least one required):
+  - `--title`
+  - `--content` (mapped to `content.raw`)
+  - `--state`
+  - `--kind`
+  - `--priority`
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: updated issue summary and URL when provided by API
+  - `json`: updated issue object
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - No update field provided -> non-zero exit
+  - Unsupported output -> non-zero exit
+
 ## `bb completion`
 
 ### `bb completion <bash|zsh|fish|powershell>`

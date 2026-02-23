@@ -142,15 +142,15 @@ Implemented:
 - `bb repo list`
 - `bb pr list`, `bb pr create`
 - `bb pipeline list`, `bb pipeline run`
-- `bb issue list`
+- `bb issue list`, `bb issue create`, `bb issue update`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version` and root help version display
 
 Remaining wrappers:
-- `bb issue` write flows (planned)
+- wiki wrappers (planned)
 
 ## 9) Implementation Direction (Next)
-1. Add `bb issue` write flows (create/update) and scope guidance updates.
+1. Add wiki wrappers (`bb wiki`) now that issue/wiki can be enabled in target repos.
 2. Improve ergonomics (global debug flag, optional local Git remote inference).
 3. Harden auth storage strategy beyond plaintext config for post-MVP.
 

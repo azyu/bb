@@ -15,11 +15,10 @@
 - `bb pipeline list`
 - `bb pipeline run`
 - `bb issue list`
+- `bb issue create`
+- `bb issue update`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
-
-예정 하위 명령:
-- `bb issue create`
 
 ## 요구사항
 - Go `1.26+`
@@ -81,6 +80,7 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 - `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
 - `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
 - `bb issue list`: `read:repository:bitbucket`, `read:issue:bitbucket`
+- `bb issue create/update`: `read:repository:bitbucket`, `read:issue:bitbucket`, `write:issue:bitbucket`
 - `bb api`로 user/workspace 엔드포인트를 호출할 경우: `read:user:bitbucket`, `read:workspace:bitbucket` 추가
 - `bb completion` / `bb version`: 추가 scope 불필요
 
@@ -167,8 +167,18 @@ bb completion zsh
 bb issue list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
+12. 이슈 생성 (쓰기 scope 필요):
+```bash
+bb issue create --workspace <workspace-slug> --repo <repo-slug> --title "My issue" --content "details"
+```
+
+13. 이슈 수정 (쓰기 scope 필요):
+```bash
+bb issue update --workspace <workspace-slug> --repo <repo-slug> --id 1 --state resolved
+```
+
 ## 쓰기 작업 안전 가이드
-- 개발 중 `bb pr create`, `bb pipeline run` 같은 쓰기 명령은 테스트용 저장소에서 먼저 실행하세요.
+- 개발 중 `bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update` 같은 쓰기 명령은 테스트용 저장소에서 먼저 실행하세요.
 - 운영 저장소에는 필요 시점 전까지 읽기 전용 토큰 사용을 권장합니다.
 
 ## 설정 파일 위치

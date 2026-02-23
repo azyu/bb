@@ -17,4 +17,4 @@
 ## Current Phase
 - Phase: 4 (Validation and release readiness)
 - Owner: agent
-- Notes: Core wrappers for `auth`, `api`, `repo list`, `pr list/create`, `pipeline list/run`, `issue list`, and `completion` are implemented with tests. Next focus is release hardening and remaining write flows.
+- Notes: Core wrappers for `auth`, `api`, `repo list`, `pr list/create`, `pipeline list/run`, `issue list/create/update`, and `completion` are implemented with tests. Next focus is release hardening and wiki wrappers.

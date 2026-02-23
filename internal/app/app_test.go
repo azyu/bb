@@ -588,6 +588,137 @@ func TestIssueListRequiresWorkspace(t *testing.T) {
 	}
 }
 
+func TestIssueCreate(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    9,
+			"title": "Add docs",
+			"state": "new",
+			"links": map[string]any{
+				"html": map[string]any{
+					"href": "https://bitbucket.org/acme/app/issues/9",
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"issue", "create",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--title", "Add docs",
+		"--content", "body text",
+		"--kind", "task",
+		"--priority", "minor",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotMethod != http.MethodPost {
+		t.Fatalf("expected POST method, got %q", gotMethod)
+	}
+	if gotPath != "/2.0/repositories/acme/app/issues" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if gotBody["title"] != "Add docs" {
+		t.Fatalf("unexpected body title: %#v", gotBody["title"])
+	}
+	content, ok := gotBody["content"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing content in body: %#v", gotBody)
+	}
+	if content["raw"] != "body text" {
+		t.Fatalf("unexpected content raw: %#v", content["raw"])
+	}
+	if !strings.Contains(stdout.String(), "Created issue #9") {
+		t.Fatalf("unexpected output: %q", stdout.String())
+	}
+}
+
+func TestIssueUpdate(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    7,
+			"title": "Fix bug",
+			"state": "resolved",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"issue", "update",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--id", "7",
+		"--state", "resolved",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotMethod != http.MethodPut {
+		t.Fatalf("expected PUT method, got %q", gotMethod)
+	}
+	if gotPath != "/2.0/repositories/acme/app/issues/7" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if gotBody["state"] != "resolved" {
+		t.Fatalf("unexpected state body: %#v", gotBody["state"])
+	}
+	if !strings.Contains(stdout.String(), "Updated issue #7") {
+		t.Fatalf("unexpected output: %q", stdout.String())
+	}
+}
+
+func TestIssueUpdateRequiresAnyField(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"issue", "update",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--id", "7",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit, stderr=%q", stderr.String())
+	}
+}
+
 func TestAuthUnknownSubcommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"auth", "whoami"}, &stdout, &stderr)

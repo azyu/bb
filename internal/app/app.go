@@ -622,12 +622,16 @@ func runPipelineRun(args []string, stdout, stderr io.Writer) int {
 
 func runIssue(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: bb issue <list>")
+		fmt.Fprintln(stderr, "usage: bb issue <list|create|update>")
 		return 1
 	}
 	switch args[0] {
 	case "list":
 		return runIssueList(args[1:], stdout, stderr)
+	case "create":
+		return runIssueCreate(args[1:], stdout, stderr)
+	case "update":
+		return runIssueUpdate(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown issue command: %s\n", args[0])
 		return 1
@@ -698,6 +702,158 @@ func runIssueList(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
+func runIssueCreate(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("issue create", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	title := fs.String("title", "", "issue title")
+	content := fs.String("content", "", "issue content (raw text)")
+	state := fs.String("state", "", "issue state")
+	kind := fs.String("kind", "", "issue kind (bug|enhancement|proposal|task)")
+	priority := fs.String("priority", "", "issue priority (trivial|minor|major|critical|blocker)")
+	profile := fs.String("profile", "", "profile name override")
+	output := fs.String("output", "text", "output format: text|json")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+	if strings.TrimSpace(*title) == "" {
+		fmt.Fprintln(stderr, "--title is required")
+		return 1
+	}
+
+	client, err := newClientFromProfile(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	body := map[string]any{
+		"title": *title,
+	}
+	if trimmed := strings.TrimSpace(*content); trimmed != "" {
+		body["content"] = map[string]any{
+			"raw": trimmed,
+		}
+	}
+	setOptionalIssueField(body, "state", *state)
+	setOptionalIssueField(body, "kind", *kind)
+	setOptionalIssueField(body, "priority", *priority)
+
+	payload, err := json.Marshal(body)
+	if err != nil {
+		fmt.Fprintf(stderr, "encode request body: %v\n", err)
+		return 1
+	}
+
+	path := fmt.Sprintf("/repositories/%s/%s/issues", *workspace, *repo)
+	var created issueRow
+	if err := client.DoJSON(context.Background(), http.MethodPost, path, nil, bytes.NewReader(payload), &created); err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, created, stderr)
+	case "text":
+		fmt.Fprintf(stdout, "Created issue #%d (%s): %s\n", created.ID, created.State, created.Title)
+		if strings.TrimSpace(created.Links.HTML.Href) != "" {
+			fmt.Fprintf(stdout, "URL: %s\n", created.Links.HTML.Href)
+		}
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
+func runIssueUpdate(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("issue update", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	id := fs.Int("id", 0, "issue id")
+	title := fs.String("title", "", "issue title")
+	content := fs.String("content", "", "issue content (raw text)")
+	state := fs.String("state", "", "issue state")
+	kind := fs.String("kind", "", "issue kind (bug|enhancement|proposal|task)")
+	priority := fs.String("priority", "", "issue priority (trivial|minor|major|critical|blocker)")
+	profile := fs.String("profile", "", "profile name override")
+	output := fs.String("output", "text", "output format: text|json")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+	if *id <= 0 {
+		fmt.Fprintln(stderr, "--id is required")
+		return 1
+	}
+
+	body := map[string]any{}
+	setOptionalIssueField(body, "title", *title)
+	setOptionalIssueField(body, "state", *state)
+	setOptionalIssueField(body, "kind", *kind)
+	setOptionalIssueField(body, "priority", *priority)
+	if trimmed := strings.TrimSpace(*content); trimmed != "" {
+		body["content"] = map[string]any{
+			"raw": trimmed,
+		}
+	}
+	if len(body) == 0 {
+		fmt.Fprintln(stderr, "at least one field to update is required")
+		return 1
+	}
+
+	client, err := newClientFromProfile(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	payload, err := json.Marshal(body)
+	if err != nil {
+		fmt.Fprintf(stderr, "encode request body: %v\n", err)
+		return 1
+	}
+
+	path := fmt.Sprintf("/repositories/%s/%s/issues/%d", *workspace, *repo, *id)
+	var updated issueRow
+	if err := client.DoJSON(context.Background(), http.MethodPut, path, nil, bytes.NewReader(payload), &updated); err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, updated, stderr)
+	case "text":
+		fmt.Fprintf(stdout, "Updated issue #%d (%s): %s\n", updated.ID, updated.State, updated.Title)
+		if strings.TrimSpace(updated.Links.HTML.Href) != "" {
+			fmt.Fprintf(stdout, "URL: %s\n", updated.Links.HTML.Href)
+		}
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
 func runCompletion(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: bb completion <bash|zsh|fish|powershell>")
@@ -762,6 +918,11 @@ type issueRow struct {
 	State    string `json:"state"`
 	Kind     string `json:"kind"`
 	Priority string `json:"priority"`
+	Links    struct {
+		HTML struct {
+			Href string `json:"href"`
+		} `json:"html"`
+	} `json:"links"`
 }
 
 func printRepoTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
@@ -910,6 +1071,13 @@ func setQueryIfNotEmpty(values url.Values, key, value string) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed != "" {
 		values.Set(key, trimmed)
+	}
+}
+
+func setOptionalIssueField(body map[string]any, key, value string) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed != "" {
+		body[key] = trimmed
 	}
 }
 
