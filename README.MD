@@ -1,6 +1,6 @@
 # Bitbucket CLI (Cloud MVP)
 
-Korean documentation: `README.ko-kr.MD`
+| English | [한국어](README.ko-kr.MD) |
 
 ## Overview
 `bb` is a Go-based Bitbucket Cloud CLI inspired by `gh`-style command grouping.
