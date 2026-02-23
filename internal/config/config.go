@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -133,6 +134,28 @@ func (c *Config) SetProfileWithAuth(name, username, token, baseURL string) {
 	c.Current = name
 }
 
+// RemoveProfile deletes a profile by name.
+// It returns the removed profile name and whether removal happened.
+func (c *Config) RemoveProfile(name string) (string, bool) {
+	c.normalize()
+	target := strings.TrimSpace(name)
+	if target == "" {
+		target = c.Current
+	}
+	if target == "" {
+		return "", false
+	}
+	if _, ok := c.Profiles[target]; !ok {
+		return target, false
+	}
+
+	delete(c.Profiles, target)
+	if c.Current == target {
+		c.Current = firstProfileName(c.Profiles)
+	}
+	return target, true
+}
+
 // ActiveProfile returns the selected profile, optionally overridden by name.
 func (c *Config) ActiveProfile(override string) (Profile, string, error) {
 	c.normalize()
@@ -155,6 +178,18 @@ func (c *Config) ActiveProfile(override string) (Profile, string, error) {
 
 func explicitConfigPath() string {
 	return strings.TrimSpace(os.Getenv("BB_CONFIG_PATH"))
+}
+
+func firstProfileName(profiles map[string]Profile) string {
+	if len(profiles) == 0 {
+		return ""
+	}
+	names := make([]string, 0, len(profiles))
+	for name := range profiles {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names[0]
 }
 
 func readLegacyConfig() ([]byte, error) {

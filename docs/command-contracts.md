@@ -40,6 +40,17 @@ This document is the contract baseline for `bb` command behavior.
 - Failure behavior:
   - No active profile -> non-zero exit with login guidance
 
+### `bb auth logout`
+- Purpose: Remove a saved profile credential and clear/switch active profile.
+- Optional flags:
+  - `--profile` (remove a specific profile; default removes current profile)
+- Output:
+  - Human: removed profile name; prints new active profile when one remains
+- Failure behavior:
+  - Not logged in and no profile selected -> non-zero exit with login guidance
+  - Unknown profile -> non-zero exit with profile-not-found message
+  - Config write failure -> non-zero exit
+
 ## `bb api`
 
 ### `bb api [flags] <endpoint>`

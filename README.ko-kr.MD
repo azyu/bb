@@ -8,6 +8,7 @@
 현재 구현된 명령:
 - `bb auth login`
 - `bb auth status`
+- `bb auth logout`
 - `bb api`
 - `bb repo list`
 - `bb pr list`
@@ -133,6 +134,12 @@ BITBUCKET_USERNAME="<bitbucket-email>" BITBUCKET_TOKEN="<your-token>" bb auth lo
 2. 인증 상태 확인:
 ```bash
 bb auth status
+```
+
+선택: 현재 프로파일(또는 특정 프로파일) 로그아웃:
+```bash
+bb auth logout
+bb auth logout --profile <profile-name>
 ```
 
 3. 버전 확인:

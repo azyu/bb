@@ -63,7 +63,7 @@ var gitCommandRunner = runGitCommand
 
 func runAuth(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: bb auth <login|status>")
+		fmt.Fprintln(stderr, "usage: bb auth <login|status|logout>")
 		return 1
 	}
 	switch args[0] {
@@ -71,6 +71,8 @@ func runAuth(args []string, stdout, stderr io.Writer) int {
 		return runAuthLogin(args[1:], stdout, stderr)
 	case "status":
 		return runAuthStatus(args[1:], stdout, stderr)
+	case "logout":
+		return runAuthLogout(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown auth command: %s\n", args[0])
 		return 1
@@ -195,6 +197,48 @@ func runAuthStatus(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "Token: not configured")
 	} else {
 		fmt.Fprintln(stdout, "Token: configured")
+	}
+	return 0
+}
+
+func runAuthLogout(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("auth logout", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	profile := fs.String("profile", "", "profile name override")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(stderr, "load config: %v\n", err)
+		return 1
+	}
+
+	target := strings.TrimSpace(*profile)
+	if target == "" && strings.TrimSpace(cfg.Current) == "" {
+		fmt.Fprintln(stderr, "not logged in: run `bb auth login`")
+		return 1
+	}
+
+	removed, ok := cfg.RemoveProfile(target)
+	if !ok {
+		if strings.TrimSpace(removed) == "" {
+			fmt.Fprintln(stderr, "not logged in: run `bb auth login`")
+		} else {
+			fmt.Fprintf(stderr, "profile %q not found\n", removed)
+		}
+		return 1
+	}
+
+	if err := cfg.Save(); err != nil {
+		fmt.Fprintf(stderr, "save config: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprintf(stdout, "logged out profile %q\n", removed)
+	if strings.TrimSpace(cfg.Current) != "" {
+		fmt.Fprintf(stdout, "active profile: %q\n", cfg.Current)
 	}
 	return 0
 }

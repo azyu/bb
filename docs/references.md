@@ -147,7 +147,7 @@ Avoid by default:
 Implemented:
 - Shared API client with token auth and pagination (`next` traversal)
 - Optional Basic auth mode via profile username (`bb auth login --username` / `BITBUCKET_USERNAME`)
-- `bb auth login`, `bb auth status`
+- `bb auth login`, `bb auth status`, `bb auth logout`
 - `bb api`
 - `bb repo list`
 - `bb pr list`, `bb pr create`

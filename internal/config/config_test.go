@@ -135,6 +135,42 @@ func TestSetProfileDefaults(t *testing.T) {
 	}
 }
 
+func TestRemoveProfileCurrentFallsBackToNext(t *testing.T) {
+	cfg := &Config{}
+	cfg.SetProfile("zeta", "token-z", "")
+	cfg.SetProfile("alpha", "token-a", "")
+
+	removed, ok := cfg.RemoveProfile("alpha")
+	if !ok {
+		t.Fatal("expected profile to be removed")
+	}
+	if removed != "alpha" {
+		t.Fatalf("unexpected removed profile: %q", removed)
+	}
+	if cfg.Current != "zeta" {
+		t.Fatalf("expected current to switch to zeta, got %q", cfg.Current)
+	}
+}
+
+func TestRemoveProfileByCurrentWhenNameEmpty(t *testing.T) {
+	cfg := &Config{}
+	cfg.SetProfile("default", "token-a", "")
+
+	removed, ok := cfg.RemoveProfile("")
+	if !ok {
+		t.Fatal("expected current profile removal")
+	}
+	if removed != "default" {
+		t.Fatalf("unexpected removed profile: %q", removed)
+	}
+	if cfg.Current != "" {
+		t.Fatalf("expected current to be cleared, got %q", cfg.Current)
+	}
+	if len(cfg.Profiles) != 0 {
+		t.Fatalf("expected profiles to be empty, got %d", len(cfg.Profiles))
+	}
+}
+
 func TestDefaultPathFallback(t *testing.T) {
 	t.Setenv("BB_CONFIG_PATH", "")
 	t.Setenv("XDG_CONFIG_HOME", "")

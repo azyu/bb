@@ -312,6 +312,105 @@ func TestAuthStatusWithoutLogin(t *testing.T) {
 	}
 }
 
+func TestAuthLogoutCurrentProfile(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	t.Setenv("BB_CONFIG_PATH", configPath)
+
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", "")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"auth", "logout"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `logged out profile "default"`) {
+		t.Fatalf("unexpected logout output: %q", stdout.String())
+	}
+
+	updated, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if updated.Current != "" {
+		t.Fatalf("expected current profile to be empty, got %q", updated.Current)
+	}
+	if len(updated.Profiles) != 0 {
+		t.Fatalf("expected profile map to be empty, got %d", len(updated.Profiles))
+	}
+}
+
+func TestAuthLogoutCurrentFallsBackToAnotherProfile(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	t.Setenv("BB_CONFIG_PATH", configPath)
+
+	cfg := &config.Config{}
+	cfg.SetProfile("zeta", "token-z", "")
+	cfg.SetProfile("alpha", "token-a", "")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"auth", "logout"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `logged out profile "alpha"`) {
+		t.Fatalf("unexpected logout output: %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), `active profile: "zeta"`) {
+		t.Fatalf("expected fallback current profile in output, got %q", stdout.String())
+	}
+
+	updated, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config failed: %v", err)
+	}
+	if updated.Current != "zeta" {
+		t.Fatalf("expected current profile zeta, got %q", updated.Current)
+	}
+	if len(updated.Profiles) != 1 {
+		t.Fatalf("expected one profile after logout, got %d", len(updated.Profiles))
+	}
+}
+
+func TestAuthLogoutWithMissingProfile(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	t.Setenv("BB_CONFIG_PATH", configPath)
+
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", "")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"auth", "logout", "--profile", "nope"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit for missing profile, stdout=%q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), `profile "nope" not found`) {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}
+
+func TestAuthLogoutWithoutLogin(t *testing.T) {
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"auth", "logout"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit, stdout=%q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "not logged in") {
+		t.Fatalf("unexpected stderr: %q", stderr.String())
+	}
+}
+
 func TestAPICommandPaginate(t *testing.T) {
 	var server *httptest.Server
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

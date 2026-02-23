@@ -8,6 +8,7 @@
 Implemented commands:
 - `bb auth login`
 - `bb auth status`
+- `bb auth logout`
 - `bb api`
 - `bb repo list`
 - `bb pr list`
@@ -133,6 +134,12 @@ BITBUCKET_USERNAME="<bitbucket-email>" BITBUCKET_TOKEN="<your-token>" bb auth lo
 2. Check auth:
 ```bash
 bb auth status
+```
+
+Optional: logout current profile (or a specific profile):
+```bash
+bb auth logout
+bb auth logout --profile <profile-name>
 ```
 
 3. Check version:
