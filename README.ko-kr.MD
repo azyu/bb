@@ -49,6 +49,19 @@ Bitbucket Cloud 기준 단계:
 ## 권장 Token Scope
 최소 권한 원칙으로 시작하고, 필요한 기능에 맞춰 scope를 추가하세요.
 
+### 일반 개발자 용도 권장 세트
+기본 프로파일(안전한 읽기 중심):
+- `read:repository:bitbucket`
+- `read:pullrequest:bitbucket`
+- `read:pipeline:bitbucket`
+- `read:issue:bitbucket`
+- `read:user:bitbucket`
+- `read:workspace:bitbucket`
+
+PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
+- `write:pullrequest:bitbucket`
+- `write:pipeline:bitbucket`
+
 ### 현재 CLI 기준
 - `bb repo list`: `read:repository:bitbucket`
 - `bb api`로 user/workspace 엔드포인트를 호출할 경우: `read:user:bitbucket`, `read:workspace:bitbucket` 추가

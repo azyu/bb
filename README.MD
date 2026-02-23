@@ -49,6 +49,19 @@ Official docs:
 ## Recommended Token Scopes
 Use least privilege. Start with the minimum required scopes and add only what is needed.
 
+### Recommended for general developer use
+Default profile (safe baseline):
+- `read:repository:bitbucket`
+- `read:pullrequest:bitbucket`
+- `read:pipeline:bitbucket`
+- `read:issue:bitbucket`
+- `read:user:bitbucket`
+- `read:workspace:bitbucket`
+
+If developers need to create/update PRs or trigger pipelines, add:
+- `write:pullrequest:bitbucket`
+- `write:pipeline:bitbucket`
+
 ### Current CLI baseline
 - `bb repo list`: `read:repository:bitbucket`
 - `bb api` against user/workspace endpoints: add `read:user:bitbucket`, `read:workspace:bitbucket`

@@ -109,7 +109,30 @@ Operational UX:
 - To avoid scope explosion, keep first release **Cloud-only**.
 - If Data Center support is needed later, split transport/auth/config logic by backend type.
 
-## 7) Implementation Direction (Next)
+## 7) Token Scope Strategy (Bitbucket Cloud)
+
+Principle:
+- Use least-privilege scopes and separate read-only/write tokens when possible.
+
+General developer preset (recommended):
+- `read:repository:bitbucket`
+- `read:pullrequest:bitbucket`
+- `read:pipeline:bitbucket`
+- `read:issue:bitbucket`
+- `read:user:bitbucket`
+- `read:workspace:bitbucket`
+
+Add only when needed:
+- PR create/update: `write:pullrequest:bitbucket`
+- Pipeline run/update: `write:pipeline:bitbucket`
+- Issue create/update: `write:issue:bitbucket`
+
+Avoid by default:
+- `admin:*`
+- `delete:*`
+- `write:permission:bitbucket` unless explicitly required
+
+## 8) Implementation Direction (Next)
 1. Define command contract docs (`bb auth/repo/pr/pipeline/api`) and flags.
 2. Build shared API client module (auth, pagination, errors).
 3. Implement `bb api` first for broad coverage, then high-value wrappers (`repo`, `pr`).

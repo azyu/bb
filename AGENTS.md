@@ -79,6 +79,7 @@ Useful current commands:
 - Read `PLAN.md` and `TASKS.md` before any implementation task.
 - Keep changes directly tied to the current task; avoid opportunistic refactors.
 - Prefer the smallest implementation that satisfies requirements.
+- When technical choices, API scopes, endpoint usage, or architecture assumptions change, update `docs/references.md` if the change affects project direction.
 - Keep the first release Cloud-only unless explicitly asked otherwise.
 - Mirror proven CLI shape from references (`auth`, `repo`, `pr`, `pipeline`, `api`, `completion`).
 - Implement API pagination using Bitbucket `next` links.
@@ -110,6 +111,7 @@ Current minimum checklist (docs/bootstrap phase):
    ```bash
    sed -n '1,240p' docs/references.md
    ```
+   If the task changed technical assumptions, ensure `docs/references.md` is updated in the same change.
 4. If `AGENTS.md` changed, re-read it for internal consistency:
    ```bash
    sed -n '1,260p' AGENTS.md

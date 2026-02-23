@@ -9,7 +9,10 @@
 - [x] Improve `bb auth login` token flag UX (`--with-token`, bare `--token` handling) - owner: agent
 - [ ] Implement `bb pr` and `bb pipeline` concrete subcommands (replace stubs) - owner: unassigned
 - [ ] Add shell completion generation command - owner: unassigned
+- [x] Add general developer token scope preset to README (EN/KR) - owner: agent
 - [x] Add recommended Bitbucket token scope matrix to README (EN/KR) - owner: agent
+- [x] Update `docs/references.md` with token scope strategy and developer preset - owner: agent
+- [x] Add AGENTS guideline to keep `docs/references.md` updated when assumptions change - owner: agent
 - [x] Add language switch link in `README.MD` - owner: agent
 - [x] Split README into EN/KR files and add token creation guide - owner: agent
 - [x] Add bilingual `README.MD` (EN/KR) - owner: agent
