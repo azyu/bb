@@ -9,6 +9,7 @@
 - [x] Improve `bb auth login` token flag UX (`--with-token`, bare `--token` handling) - owner: agent
 - [ ] Implement `bb pr` and `bb pipeline` concrete subcommands (replace stubs) - owner: unassigned
 - [ ] Add shell completion generation command - owner: unassigned
+- [x] Split README into EN/KR files and add token creation guide - owner: agent
 - [x] Add bilingual `README.MD` (EN/KR) - owner: agent
 - [x] Switch default config path to `~/.config/bb/config.json` with compatibility fallback - owner: agent
 - [x] Create project-scoped skills under `.agents/skills` - owner: agent
