@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Task Workflow"
+  short_description: "PLAN.md and TASKS.md workflow for multi-agent execution."
+  default_prompt: "Use this skill when multiple agents collaborate and need strict PLAN/TASKS synchronization."

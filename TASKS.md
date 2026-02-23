@@ -1,0 +1,10 @@
+# TASKS
+
+- [x] Create initial reference document (`docs/references.md`) - owner: agent
+- [x] Create initial collaboration guide (`AGENTS.md`) - owner: agent
+- [x] Add multi-agent coordination rules (`PLAN.md`/`TASKS.md`) to `AGENTS.md` - owner: agent
+- [ ] Choose language/toolchain and initialize project skeleton - owner: unassigned
+- [ ] Define command contracts for `bb auth/repo/pr/pipeline/api` - owner: unassigned
+- [ ] Implement shared Bitbucket Cloud API client (auth + pagination) - owner: unassigned
+- [x] Create project-scoped skills under `.agents/skills` - owner: agent
+- [x] Initialize git repository - owner: agent

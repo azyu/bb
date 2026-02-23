@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bitbucket Cloud API"
+  short_description: "Bitbucket Cloud auth, pagination, and endpoint patterns."
+  default_prompt: "Use this skill to implement or review Bitbucket Cloud API integration for the CLI."

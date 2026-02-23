@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bitbucket CLI Standards"
+  short_description: "Command, flag, output, and UX consistency for bb CLI."
+  default_prompt: "Use this skill to design or validate command contracts for the Bitbucket CLI."
