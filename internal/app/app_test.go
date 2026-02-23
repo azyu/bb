@@ -543,10 +543,48 @@ func TestCompletionUnsupportedShell(t *testing.T) {
 	}
 }
 
-func TestIssueStillStub(t *testing.T) {
+func TestIssueListJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/acme/app/issues" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				{
+					"id":       7,
+					"title":    "Fix bug",
+					"state":    "new",
+					"kind":     "bug",
+					"priority": "major",
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
 	var stdout, stderr bytes.Buffer
-	if code := Run([]string{"issue"}, &stdout, &stderr); code == 0 {
-		t.Fatal("expected non-zero for issue stub")
+	code := Run([]string{"issue", "list", "--workspace", "acme", "--repo", "app", "--output", "json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "\"title\": \"Fix bug\"") {
+		t.Fatalf("expected issue output, got %q", stdout.String())
+	}
+}
+
+func TestIssueListRequiresWorkspace(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"issue", "list", "--repo", "app"}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit, stderr=%q", stderr.String())
 	}
 }
 

@@ -39,8 +39,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "pipeline":
 		return runPipeline(args[1:], stdout, stderr)
 	case "issue":
-		fmt.Fprintln(stderr, "bb issue is not implemented yet")
-		return 1
+		return runIssue(args[1:], stdout, stderr)
 	case "completion":
 		return runCompletion(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
@@ -621,6 +620,84 @@ func runPipelineRun(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
+func runIssue(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		fmt.Fprintln(stderr, "usage: bb issue <list>")
+		return 1
+	}
+	switch args[0] {
+	case "list":
+		return runIssueList(args[1:], stdout, stderr)
+	default:
+		fmt.Fprintf(stderr, "unknown issue command: %s\n", args[0])
+		return 1
+	}
+}
+
+func runIssueList(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("issue list", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	output := fs.String("output", "table", "output format: table|json")
+	all := fs.Bool("all", false, "fetch all pages")
+	profile := fs.String("profile", "", "profile name override")
+	q := fs.String("q", "", "Bitbucket q filter")
+	sort := fs.String("sort", "", "sort expression")
+	fields := fs.String("fields", "", "partial fields selector")
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+	if strings.TrimSpace(*workspace) == "" {
+		fmt.Fprintln(stderr, "--workspace is required")
+		return 1
+	}
+	if strings.TrimSpace(*repo) == "" {
+		fmt.Fprintln(stderr, "--repo is required")
+		return 1
+	}
+
+	client, err := newClientFromProfile(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	query := url.Values{}
+	setQueryIfNotEmpty(query, "q", *q)
+	setQueryIfNotEmpty(query, "sort", *sort)
+	setQueryIfNotEmpty(query, "fields", *fields)
+
+	path := fmt.Sprintf("/repositories/%s/%s/issues", *workspace, *repo)
+	var values []json.RawMessage
+	if *all {
+		values, err = client.GetAllValues(context.Background(), path, query)
+		if err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+	} else {
+		var page struct {
+			Values []json.RawMessage `json:"values"`
+		}
+		if err := client.DoJSON(context.Background(), http.MethodGet, path, query, nil, &page); err != nil {
+			fmt.Fprintf(stderr, "%v\n", err)
+			return 1
+		}
+		values = page.Values
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, values, stderr)
+	case "table":
+		return printIssueTable(stdout, values, stderr)
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
 func runCompletion(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: bb completion <bash|zsh|fish|powershell>")
@@ -677,6 +754,14 @@ type pipelineRow struct {
 	Target struct {
 		RefName string `json:"ref_name"`
 	} `json:"target"`
+}
+
+type issueRow struct {
+	ID       int    `json:"id"`
+	Title    string `json:"title"`
+	State    string `json:"state"`
+	Kind     string `json:"kind"`
+	Priority string `json:"priority"`
 }
 
 func printRepoTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
@@ -746,6 +831,24 @@ func printPipelineTable(stdout io.Writer, values []json.RawMessage, stderr io.Wr
 	return 0
 }
 
+func printIssueTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {
+	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "ID\tSTATE\tKIND\tPRIORITY\tTITLE")
+	for _, raw := range values {
+		var row issueRow
+		if err := json.Unmarshal(raw, &row); err != nil {
+			fmt.Fprintf(stderr, "decode issue row: %v\n", err)
+			return 1
+		}
+		fmt.Fprintf(tw, "%d\t%s\t%s\t%s\t%s\n", row.ID, row.State, row.Kind, row.Priority, row.Title)
+	}
+	if err := tw.Flush(); err != nil {
+		fmt.Fprintf(stderr, "flush table: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 func pipelineStateLabel(row pipelineRow) string {
 	if strings.TrimSpace(row.State.Result.Name) != "" {
 		return row.State.Result.Name
@@ -792,7 +895,7 @@ func printRootUsage(w io.Writer) {
 	fmt.Fprintln(w, "  version    Show CLI version metadata")
 	fmt.Fprintln(w, "  pr         Pull request operations")
 	fmt.Fprintln(w, "  pipeline   Pipeline operations")
-	fmt.Fprintln(w, "  issue      Issue operations (stub)")
+	fmt.Fprintln(w, "  issue      Issue operations")
 	fmt.Fprintln(w, "  completion Shell completion")
 }
 

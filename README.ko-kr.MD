@@ -14,14 +14,12 @@
 - `bb pr create`
 - `bb pipeline list`
 - `bb pipeline run`
+- `bb issue list`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
 
-예정 명령:
-- `bb issue`
-
 예정 하위 명령:
-- `bb issue list`
+- `bb issue create`
 
 ## 요구사항
 - Go `1.26+`
@@ -82,6 +80,7 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 - `bb pr create`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`
 - `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
 - `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
+- `bb issue list`: `read:repository:bitbucket`, `read:issue:bitbucket`
 - `bb api`로 user/workspace 엔드포인트를 호출할 경우: `read:user:bitbucket`, `read:workspace:bitbucket` 추가
 - `bb completion` / `bb version`: 추가 scope 불필요
 
@@ -161,6 +160,11 @@ bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
 10. 셸 자동완성 스크립트 생성:
 ```bash
 bb completion zsh
+```
+
+11. 이슈 목록 조회:
+```bash
+bb issue list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
 ## 쓰기 작업 안전 가이드

@@ -155,13 +155,24 @@ This document is the contract baseline for `bb` command behavior.
   - Missing required flags -> non-zero exit
   - Unsupported output -> non-zero exit
 
-## `bb issue` (stub)
+## `bb issue`
 
-Planned wrappers:
-- `bb issue list`
-
-Current behavior:
-- Command exists as a stub and returns non-zero.
+### `bb issue list`
+- Purpose: List issues for a repository.
+- Required flags:
+  - `--workspace`
+  - `--repo`
+- Optional flags:
+  - `--output` (`table` default, `json`)
+  - `--all` (follow pagination)
+  - `--profile`
+  - `--q`, `--sort`, `--fields`
+- Output:
+  - `table`: `ID`, `STATE`, `KIND`, `PRIORITY`, `TITLE`
+  - `json`: array of issue objects
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Unsupported output -> non-zero exit
 
 ## `bb completion`
 

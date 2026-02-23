@@ -14,14 +14,12 @@ Implemented commands:
 - `bb pr create`
 - `bb pipeline list`
 - `bb pipeline run`
+- `bb issue list`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
 
-Planned command:
-- `bb issue`
-
 Planned subcommands:
-- `bb issue list`
+- `bb issue create`
 
 ## Requirements
 - Go `1.26+`
@@ -82,6 +80,7 @@ If developers need to create/update PRs or trigger pipelines, add:
 - `bb pr create`: `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`
 - `bb pipeline list`: `read:repository:bitbucket`, `read:pipeline:bitbucket`
 - `bb pipeline run`: `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket`
+- `bb issue list`: `read:repository:bitbucket`, `read:issue:bitbucket`
 - `bb api` against user/workspace endpoints: add `read:user:bitbucket`, `read:workspace:bitbucket`
 - `bb completion` / `bb version`: no additional scopes
 
@@ -161,6 +160,11 @@ bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
 10. Generate shell completion:
 ```bash
 bb completion zsh
+```
+
+11. List issues:
+```bash
+bb issue list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
 ## Write Operation Safety

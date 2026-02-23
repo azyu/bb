@@ -9,6 +9,8 @@
 - [x] Improve `bb auth login` token flag UX (`--with-token`, bare `--token` handling) - owner: agent
 - [x] Implement `bb pr` and `bb pipeline` concrete subcommands (replace stubs) - owner: agent
 - [x] Add shell completion generation command - owner: agent
+- [x] Implement `bb issue list` concrete subcommand - owner: agent
+- [ ] Implement `bb issue` write subcommands (`create`/`update`) - owner: unassigned
 - [x] Implement `bb version` with SemVer + git hash build metadata - owner: agent
 - [x] Add general developer token scope preset to README (EN/KR) - owner: agent
 - [x] Add recommended Bitbucket token scope matrix to README (EN/KR) - owner: agent
