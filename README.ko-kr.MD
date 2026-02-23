@@ -167,6 +167,7 @@ bb api --paginate /repositories/<workspace-slug>
 bb pr list --workspace <workspace-slug> --repo <repo-slug>
 ```
 `table` 출력은 `gh pr list`와 유사한 형태(요약 라인 + `ID/TITLE/BRANCH/CREATED AT`)로 표시됩니다.
+터미널 출력에서는 ANSI 색상이 적용되며 `BB_COLOR=always|never` 또는 `NO_COLOR=1`로 제어할 수 있습니다.
 Bitbucket 저장소 디렉토리에서 실행하면 repo 대상 명령은 `remote.origin.url`에서 `<workspace>/<repo>`를 자동 추론할 수 있습니다:
 ```bash
 bb pr list

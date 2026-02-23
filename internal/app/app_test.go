@@ -629,6 +629,55 @@ func TestPRListTableGhStyleOutput(t *testing.T) {
 	}
 }
 
+func TestPRListTableColorForced(t *testing.T) {
+	t.Setenv("BB_COLOR", "always")
+	created := time.Now().Add(-2 * time.Hour).Format(time.RFC3339)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/acme/app/pullrequests" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				{
+					"id":         7,
+					"title":      "Color output",
+					"state":      "OPEN",
+					"created_on": created,
+					"source": map[string]any{
+						"branch": map[string]any{"name": "feature"},
+					},
+					"destination": map[string]any{
+						"branch": map[string]any{"name": "main"},
+					},
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "list",
+		"--workspace", "acme",
+		"--repo", "app",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "\x1b[") {
+		t.Fatalf("expected ANSI color output, got %q", out)
+	}
+}
+
 func TestPRListInfersWorkspaceRepoFromGitOrigin(t *testing.T) {
 	requireGit(t)
 

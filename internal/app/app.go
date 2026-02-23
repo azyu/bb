@@ -18,6 +18,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+	"unicode/utf8"
 
 	"bitbucket-cli/internal/api"
 	"bitbucket-cli/internal/config"
@@ -1292,19 +1293,71 @@ func printPRTable(stdout io.Writer, values []json.RawMessage, workspace, repo, s
 		fmt.Fprintf(stdout, "Showing %d %s in %s/%s\n\n", len(rows), stateLabel, workspace, repo)
 	}
 
-	tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tTITLE\tBRANCH\tCREATED AT")
+	useColor := shouldUseColor(stdout)
+	headers := []string{"ID", "TITLE", "BRANCH", "CREATED AT"}
+	type viewRow struct {
+		ID        string
+		Title     string
+		Branch    string
+		CreatedAt string
+	}
+	viewRows := make([]viewRow, 0, len(rows))
+	widthID := utf8.RuneCountInString(headers[0])
+	widthTitle := utf8.RuneCountInString(headers[1])
+	widthBranch := utf8.RuneCountInString(headers[2])
+	widthCreatedAt := utf8.RuneCountInString(headers[3])
+
 	for _, row := range rows {
 		branch := strings.TrimSpace(row.Source.Branch.Name)
 		if branch == "" {
 			branch = "-"
 		}
-		fmt.Fprintf(tw, "#%d\t%s\t%s\t%s\n", row.ID, row.Title, branch, relativeTimeLabel(row.CreatedOn))
+		title := strings.TrimSpace(row.Title)
+		if title == "" {
+			title = "-"
+		}
+		createdAt := relativeTimeLabel(row.CreatedOn)
+		view := viewRow{
+			ID:        fmt.Sprintf("#%d", row.ID),
+			Title:     title,
+			Branch:    branch,
+			CreatedAt: createdAt,
+		}
+		viewRows = append(viewRows, view)
+		widthID = maxRuneWidth(widthID, view.ID)
+		widthTitle = maxRuneWidth(widthTitle, view.Title)
+		widthBranch = maxRuneWidth(widthBranch, view.Branch)
+		widthCreatedAt = maxRuneWidth(widthCreatedAt, view.CreatedAt)
 	}
-	if err := tw.Flush(); err != nil {
-		fmt.Fprintf(stderr, "flush table: %v\n", err)
-		return 1
+
+	headerID := padRight(headers[0], widthID)
+	headerTitle := padRight(headers[1], widthTitle)
+	headerBranch := padRight(headers[2], widthBranch)
+	headerCreatedAt := padRight(headers[3], widthCreatedAt)
+	fmt.Fprintf(
+		stdout,
+		"%s  %s  %s  %s\n",
+		ansi(headerID, "1", useColor),
+		ansi(headerTitle, "1", useColor),
+		ansi(headerBranch, "1", useColor),
+		ansi(headerCreatedAt, "1", useColor),
+	)
+
+	for _, row := range viewRows {
+		id := padRight(row.ID, widthID)
+		title := padRight(row.Title, widthTitle)
+		branch := padRight(row.Branch, widthBranch)
+		createdAt := padRight(row.CreatedAt, widthCreatedAt)
+		fmt.Fprintf(
+			stdout,
+			"%s  %s  %s  %s\n",
+			ansi(id, "1;36", useColor),
+			title,
+			ansi(branch, "36", useColor),
+			ansi(createdAt, "2", useColor),
+		)
 	}
+
 	return 0
 }
 
@@ -1375,6 +1428,62 @@ func humanizeSince(createdAt, now time.Time) string {
 		}
 		return fmt.Sprintf("about %d years ago", years)
 	}
+}
+
+func shouldUseColor(w io.Writer) bool {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("BB_COLOR")))
+	switch mode {
+	case "always":
+		return true
+	case "never":
+		return false
+	}
+	if strings.TrimSpace(os.Getenv("NO_COLOR")) != "" {
+		return false
+	}
+	if strings.TrimSpace(os.Getenv("CLICOLOR")) == "0" {
+		return false
+	}
+	force := strings.TrimSpace(os.Getenv("CLICOLOR_FORCE"))
+	if force != "" && force != "0" {
+		return true
+	}
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	if (info.Mode() & os.ModeCharDevice) == 0 {
+		return false
+	}
+	term := strings.ToLower(strings.TrimSpace(os.Getenv("TERM")))
+	return term != "" && term != "dumb"
+}
+
+func ansi(text, code string, enabled bool) string {
+	if !enabled {
+		return text
+	}
+	return "\x1b[" + code + "m" + text + "\x1b[0m"
+}
+
+func maxRuneWidth(current int, value string) int {
+	n := utf8.RuneCountInString(value)
+	if n > current {
+		return n
+	}
+	return current
+}
+
+func padRight(value string, width int) string {
+	n := utf8.RuneCountInString(value)
+	if n >= width {
+		return value
+	}
+	return value + strings.Repeat(" ", width-n)
 }
 
 func printPipelineTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer) int {

@@ -116,6 +116,7 @@ This document is the contract baseline for `bb` command behavior.
   - `--q`, `--sort`, `--fields`
 - Output:
   - `table`: summary line (`Showing <n> [of <total>] <state> pull requests in <workspace>/<repo>`) and columns `ID`, `TITLE`, `BRANCH`, `CREATED AT` (relative time)
+    - ANSI color is enabled for terminal output; control with `BB_COLOR=always|never` or `NO_COLOR=1`
   - `json`: array of pull request objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
