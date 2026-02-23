@@ -137,3 +137,17 @@ Avoid by default:
 2. Build shared API client module (auth, pagination, errors).
 3. Implement `bb api` first for broad coverage, then high-value wrappers (`repo`, `pr`).
 4. Add JSON output and completion early to support automation workflows.
+
+## 9) Versioning Strategy
+
+- Adopt SemVer as the canonical release version.
+- Attach short git hash as build metadata for traceability.
+  - Example format: `0.0.1+abc1234`
+- Expose version information via:
+  - `bb version`
+  - `bb --version`
+  - root help output when running `bb` with no args
+- Build-time injection fields:
+  - `bitbucket-cli/internal/version.Version`
+  - `bitbucket-cli/internal/version.Commit`
+  - `bitbucket-cli/internal/version.BuildDate`

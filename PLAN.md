@@ -17,4 +17,4 @@
 ## Current Phase
 - Phase: 3 (Core implementation)
 - Owner: agent
-- Notes: Go CLI skeleton, command contracts, and shared API client (auth + pagination) are implemented for Cloud MVP baseline.
+- Notes: Go CLI skeleton, command contracts, shared API client (auth + pagination), and SemVer+hash version command are implemented for Cloud MVP baseline.

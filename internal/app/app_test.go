@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"bitbucket-cli/internal/config"
+	"bitbucket-cli/internal/version"
 )
 
 func TestAuthLoginAndStatus(t *testing.T) {
@@ -79,6 +80,18 @@ func TestUnknownCommand(t *testing.T) {
 }
 
 func TestRootHelp(t *testing.T) {
+	origVersion := version.Version
+	origCommit := version.Commit
+	origBuildDate := version.BuildDate
+	version.Version = "0.0.1"
+	version.Commit = "abc123456789"
+	version.BuildDate = "2026-02-23T00:00:00Z"
+	defer func() {
+		version.Version = origVersion
+		version.Commit = origCommit
+		version.BuildDate = origBuildDate
+	}()
+
 	var stdout, stderr bytes.Buffer
 	code := Run(nil, &stdout, &stderr)
 	if code != 0 {
@@ -86,6 +99,9 @@ func TestRootHelp(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "bb - Bitbucket CLI") {
 		t.Fatalf("unexpected help output: %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "Version: 0.0.1+abc1234") {
+		t.Fatalf("expected version in help output, got %q", stdout.String())
 	}
 }
 
@@ -97,6 +113,56 @@ func TestHelpAlias(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "Commands:") {
 		t.Fatalf("unexpected help output: %q", stdout.String())
+	}
+}
+
+func TestVersionCommand(t *testing.T) {
+	origVersion := version.Version
+	origCommit := version.Commit
+	origBuildDate := version.BuildDate
+	version.Version = "0.0.1"
+	version.Commit = "abc123456789"
+	version.BuildDate = "2026-02-23T00:00:00Z"
+	defer func() {
+		version.Version = origVersion
+		version.Commit = origCommit
+		version.BuildDate = origBuildDate
+	}()
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"version"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "bb version 0.0.1+abc1234") {
+		t.Fatalf("unexpected version output: %q", out)
+	}
+	if !strings.Contains(out, "commit: abc1234") {
+		t.Fatalf("expected commit line in output: %q", out)
+	}
+	if !strings.Contains(out, "built: 2026-02-23T00:00:00Z") {
+		t.Fatalf("expected build date line in output: %q", out)
+	}
+}
+
+func TestVersionFlag(t *testing.T) {
+	origVersion := version.Version
+	origCommit := version.Commit
+	version.Version = "0.0.1"
+	version.Commit = "deadbeef123456"
+	defer func() {
+		version.Version = origVersion
+		version.Commit = origCommit
+	}()
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"--version"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "bb version 0.0.1+deadbee") {
+		t.Fatalf("unexpected --version output: %q", stdout.String())
 	}
 }
 

@@ -7,6 +7,7 @@ This document is the contract baseline for `bb` command behavior.
 - Target: Bitbucket Cloud REST API
 - Profile source: config file (`BB_CONFIG_PATH` override supported)
 - Auth: bearer token per profile
+- Versioning: SemVer + short git hash build metadata (e.g. `0.0.1+abc1234`)
 - Output policy:
   - Human output for operator use (`table` or concise text)
   - JSON output for automation where supported
@@ -68,6 +69,17 @@ This document is the contract baseline for `bb` command behavior.
 - Failure behavior:
   - Missing workspace -> non-zero exit
   - Unsupported output -> non-zero exit
+
+## `bb version`
+
+### `bb version` / `bb --version`
+- Purpose: Show build metadata for traceability.
+- Output:
+  - `bb version <semver+short-hash>`
+  - `commit: <short-hash|unknown>`
+  - `built: <RFC3339 timestamp|unknown>`
+- Behavior note:
+  - Running `bb` with no args also prints the current version in help output.
 
 ## `bb pr` (stub)
 

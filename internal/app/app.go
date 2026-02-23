@@ -15,6 +15,7 @@ import (
 
 	"bitbucket-cli/internal/api"
 	"bitbucket-cli/internal/config"
+	"bitbucket-cli/internal/version"
 )
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -24,6 +25,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	switch args[0] {
+	case "version", "--version", "-v":
+		return runVersion(stdout)
 	case "auth":
 		return runAuth(args[1:], stdout, stderr)
 	case "api":
@@ -359,6 +362,7 @@ func newClientFromProfile(profileName string) (*api.Client, error) {
 
 func printRootUsage(w io.Writer) {
 	fmt.Fprintln(w, "bb - Bitbucket CLI (Cloud MVP)")
+	fmt.Fprintf(w, "Version: %s\n", version.DisplayVersion())
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  bb <command> [subcommand] [flags]")
@@ -367,8 +371,16 @@ func printRootUsage(w io.Writer) {
 	fmt.Fprintln(w, "  auth       Authenticate and inspect auth status")
 	fmt.Fprintln(w, "  api        Call Bitbucket Cloud REST endpoints")
 	fmt.Fprintln(w, "  repo       Repository operations")
+	fmt.Fprintln(w, "  version    Show CLI version metadata")
 	fmt.Fprintln(w, "  pr         Pull request operations (stub)")
 	fmt.Fprintln(w, "  pipeline   Pipeline operations (stub)")
 	fmt.Fprintln(w, "  issue      Issue operations (stub)")
 	fmt.Fprintln(w, "  completion Shell completion (stub)")
+}
+
+func runVersion(stdout io.Writer) int {
+	fmt.Fprintf(stdout, "bb version %s\n", version.DisplayVersion())
+	fmt.Fprintf(stdout, "commit: %s\n", version.ShortCommit())
+	fmt.Fprintf(stdout, "built: %s\n", version.BuildDate)
+	return 0
 }

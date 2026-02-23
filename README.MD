@@ -10,6 +10,7 @@ Implemented commands:
 - `bb auth status`
 - `bb api`
 - `bb repo list`
+- `bb version` / `bb --version`
 
 Planned (stub) commands:
 - `bb pr`
@@ -23,6 +24,14 @@ Planned (stub) commands:
 ## Build
 ```bash
 go build -o ./bb ./cmd/bb
+```
+
+Build with explicit version metadata (SemVer + git hash):
+```bash
+VERSION="0.0.1"
+COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+go build -ldflags "-X bitbucket-cli/internal/version.Version=${VERSION} -X bitbucket-cli/internal/version.Commit=${COMMIT} -X bitbucket-cli/internal/version.BuildDate=${BUILD_DATE}" -o ./bb ./cmd/bb
 ```
 
 ## Install (example: local user bin)
@@ -103,12 +112,17 @@ BITBUCKET_TOKEN="<your-token>" bb auth login --profile default
 bb auth status
 ```
 
-3. List repositories:
+3. Check version:
+```bash
+bb version
+```
+
+4. List repositories:
 ```bash
 bb repo list --workspace <workspace-slug>
 ```
 
-4. Call API directly:
+5. Call API directly:
 ```bash
 bb api /repositories/<workspace-slug>
 bb api --paginate /repositories/<workspace-slug>
