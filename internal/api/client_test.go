@@ -46,6 +46,32 @@ func TestGetAllValuesFollowsNextLinks(t *testing.T) {
 	}
 }
 
+func TestRequestUsesBasicAuthWhenUsernameProvided(t *testing.T) {
+	var gotUser string
+	var gotPass string
+	var gotOK bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUser, gotPass, gotOK = r.BasicAuth()
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	defer server.Close()
+
+	client := NewClientWithUser(server.URL, "dev@example.com", "token-123", nil)
+	resp, err := client.Request(context.Background(), http.MethodGet, "/x", nil, nil)
+	if err != nil {
+		t.Fatalf("Request returned error: %v", err)
+	}
+	_ = resp.Body.Close()
+
+	if !gotOK {
+		t.Fatal("expected basic auth header to be set")
+	}
+	if gotUser != "dev@example.com" || gotPass != "token-123" {
+		t.Fatalf("unexpected basic auth values: %q / %q", gotUser, gotPass)
+	}
+}
+
 func TestDoJSONReturnsErrorOnAPIFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)

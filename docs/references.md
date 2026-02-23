@@ -71,6 +71,8 @@ Support in design:
 
 Design note:
 - Avoid designing around deprecated auth paths as default behavior.
+- API token usage should support Basic auth (`username/email + token`).
+- Keep Bearer token mode for token types that require it.
 
 ### 4.3 API Client Behavior
 Required client capabilities:
@@ -137,6 +139,7 @@ Avoid by default:
 
 Implemented:
 - Shared API client with token auth and pagination (`next` traversal)
+- Optional Basic auth mode via profile username (`bb auth login --username` / `BITBUCKET_USERNAME`)
 - `bb auth login`, `bb auth status`
 - `bb api`
 - `bb repo list`

@@ -39,6 +39,28 @@ func TestAuthLoginAndStatus(t *testing.T) {
 	}
 }
 
+func TestAuthLoginWithUsernameAndStatus(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	t.Setenv("BB_CONFIG_PATH", configPath)
+	t.Setenv("BITBUCKET_TOKEN", "token-from-env")
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"auth", "login", "--profile", "default", "--username", "dev@example.com"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = Run([]string{"auth", "status"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Auth: basic (dev@example.com)") {
+		t.Fatalf("unexpected status output: %q", stdout.String())
+	}
+}
+
 func TestRepoListJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/2.0/repositories/acme" {
@@ -68,6 +90,45 @@ func TestRepoListJSON(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "\"slug\": \"one\"") {
 		t.Fatalf("expected repo output, got %q", stdout.String())
+	}
+}
+
+func TestRepoListUsesBasicAuthWhenUsernameConfigured(t *testing.T) {
+	var gotUser string
+	var gotPass string
+	var gotBasic bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUser, gotPass, gotBasic = r.BasicAuth()
+		if r.URL.Path != "/2.0/repositories/acme" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				{"slug": "one", "full_name": "acme/one"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfileWithAuth("default", "dev@example.com", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"repo", "list", "--workspace", "acme", "--output", "json"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !gotBasic {
+		t.Fatal("expected basic auth to be used")
+	}
+	if gotUser != "dev@example.com" || gotPass != "token-123" {
+		t.Fatalf("unexpected basic auth values: %q / %q", gotUser, gotPass)
 	}
 }
 

@@ -13,8 +13,9 @@ const defaultBaseURL = "https://api.bitbucket.org/2.0"
 
 // Profile contains connection settings for one Bitbucket account/context.
 type Profile struct {
-	BaseURL string `json:"base_url"`
-	Token   string `json:"token"`
+	BaseURL  string `json:"base_url"`
+	Token    string `json:"token"`
+	Username string `json:"username,omitempty"`
 }
 
 // Config stores all saved profiles and the currently selected profile name.
@@ -111,6 +112,11 @@ func (c *Config) Save() error {
 
 // SetProfile upserts a profile and makes it current.
 func (c *Config) SetProfile(name, token, baseURL string) {
+	c.SetProfileWithAuth(name, "", token, baseURL)
+}
+
+// SetProfileWithAuth upserts a profile with optional username and makes it current.
+func (c *Config) SetProfileWithAuth(name, username, token, baseURL string) {
 	c.normalize()
 	if name == "" {
 		name = "default"
@@ -120,8 +126,9 @@ func (c *Config) SetProfile(name, token, baseURL string) {
 	}
 
 	c.Profiles[name] = Profile{
-		BaseURL: baseURL,
-		Token:   token,
+		BaseURL:  baseURL,
+		Token:    token,
+		Username: strings.TrimSpace(username),
 	}
 	c.Current = name
 }

@@ -20,8 +20,11 @@ This document is the contract baseline for `bb` command behavior.
   - `--token <value>` or `--with-token` or `BITBUCKET_TOKEN` environment variable
 - Optional flags:
   - `--profile` (default: `default`)
+  - `--username` (Bitbucket username/email; when set, uses Basic auth)
   - `--base-url` (default: `https://api.bitbucket.org/2.0`)
   - `--with-token` (read token from stdin)
+- Optional env:
+  - `BITBUCKET_USERNAME` (same as `--username`)
 - Output:
   - Human: confirmation message with profile name
 - Failure behavior:
@@ -33,7 +36,7 @@ This document is the contract baseline for `bb` command behavior.
 - Optional flags:
   - `--profile` (override active profile)
 - Output:
-  - Human only: profile name, base URL, token configured state
+  - Human only: profile name, base URL, auth mode, token configured state
 - Failure behavior:
   - No active profile -> non-zero exit with login guidance
 

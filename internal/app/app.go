@@ -75,6 +75,7 @@ func runAuthLogin(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	profile := fs.String("profile", "default", "profile name")
 	token := fs.String("token", "", "API token value")
+	username := fs.String("username", "", "Bitbucket username/email for Basic auth")
 	withToken := fs.Bool("with-token", false, "read API token from stdin")
 	baseURL := fs.String("base-url", "", "Bitbucket API base URL")
 	if err := fs.Parse(args); err != nil {
@@ -97,19 +98,28 @@ func runAuthLogin(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "token is required: use --token <value>, --with-token, or BITBUCKET_TOKEN")
 		return 1
 	}
+	resolvedUsername := strings.TrimSpace(*username)
+	if resolvedUsername == "" {
+		resolvedUsername = strings.TrimSpace(os.Getenv("BITBUCKET_USERNAME"))
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(stderr, "load config: %v\n", err)
 		return 1
 	}
-	cfg.SetProfile(*profile, resolvedToken, *baseURL)
+	cfg.SetProfileWithAuth(*profile, resolvedUsername, resolvedToken, *baseURL)
 	if err := cfg.Save(); err != nil {
 		fmt.Fprintf(stderr, "save config: %v\n", err)
 		return 1
 	}
 
 	fmt.Fprintf(stdout, "authenticated profile %q\n", *profile)
+	if resolvedUsername != "" {
+		fmt.Fprintf(stdout, "auth mode: basic (%s)\n", resolvedUsername)
+	} else {
+		fmt.Fprintln(stdout, "auth mode: bearer token")
+	}
 	return 0
 }
 
@@ -167,6 +177,11 @@ func runAuthStatus(args []string, stdout, stderr io.Writer) int {
 
 	fmt.Fprintf(stdout, "Profile: %s\n", name)
 	fmt.Fprintf(stdout, "Base URL: %s\n", p.BaseURL)
+	if strings.TrimSpace(p.Username) != "" {
+		fmt.Fprintf(stdout, "Auth: basic (%s)\n", p.Username)
+	} else {
+		fmt.Fprintln(stdout, "Auth: bearer token")
+	}
 	if strings.TrimSpace(p.Token) == "" {
 		fmt.Fprintln(stdout, "Token: not configured")
 	} else {
@@ -1039,7 +1054,7 @@ func newClientFromProfile(profileName string) (*api.Client, error) {
 	if strings.TrimSpace(p.Token) == "" {
 		return nil, fmt.Errorf("profile has no token configured")
 	}
-	return api.NewClient(p.BaseURL, p.Token, nil), nil
+	return api.NewClientWithUser(p.BaseURL, p.Username, p.Token, nil), nil
 }
 
 func printRootUsage(w io.Writer) {

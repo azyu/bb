@@ -16,6 +16,7 @@ const defaultUserAgent = "bb-cli/dev"
 type Client struct {
 	baseURL    string
 	token      string
+	username   string
 	userAgent  string
 	httpClient *http.Client
 }
@@ -40,6 +41,11 @@ type listResponse struct {
 
 // NewClient creates a Bitbucket Cloud API client.
 func NewClient(baseURL, token string, httpClient *http.Client) *Client {
+	return NewClientWithUser(baseURL, "", token, httpClient)
+}
+
+// NewClientWithUser creates a Bitbucket Cloud API client with optional basic-auth username.
+func NewClientWithUser(baseURL, username, token string, httpClient *http.Client) *Client {
 	if strings.TrimSpace(baseURL) == "" {
 		baseURL = "https://api.bitbucket.org/2.0"
 	}
@@ -49,6 +55,7 @@ func NewClient(baseURL, token string, httpClient *http.Client) *Client {
 	return &Client{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		token:      token,
+		username:   strings.TrimSpace(username),
 		userAgent:  defaultUserAgent,
 		httpClient: httpClient,
 	}
@@ -68,7 +75,11 @@ func (c *Client) Request(ctx context.Context, method, path string, query url.Val
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", c.userAgent)
 	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		if c.username != "" {
+			req.SetBasicAuth(c.username, c.token)
+		} else {
+			req.Header.Set("Authorization", "Bearer "+c.token)
+		}
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

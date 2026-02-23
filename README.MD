@@ -46,6 +46,10 @@ chmod +x ~/.local/bin/bb
 ## How To Create A Bitbucket API Token
 This CLI uses a Bitbucket token for authentication.
 
+Auth mode:
+- API token (personal): use Basic auth (`username/email + token`)
+- Access-token-style flows: Bearer token mode (no username)
+
 Steps (Bitbucket Cloud):
 1. Open Bitbucket Cloud and go to Personal settings.
 2. Open `API tokens`.
@@ -103,17 +107,17 @@ If developers need to create/update PRs or trigger pipelines, add:
 ## Quick Start
 1. Login with token:
 ```bash
-bb auth login --token "<your-token>" --profile default
+bb auth login --username "<bitbucket-email>" --token "<your-token>" --profile default
 ```
 
 Alternative (stdin):
 ```bash
-echo "<your-token>" | bb auth login --with-token --profile default
+echo "<your-token>" | bb auth login --username "<bitbucket-email>" --with-token --profile default
 ```
 
 Alternative (env):
 ```bash
-BITBUCKET_TOKEN="<your-token>" bb auth login --profile default
+BITBUCKET_USERNAME="<bitbucket-email>" BITBUCKET_TOKEN="<your-token>" bb auth login --profile default
 ```
 
 2. Check auth:

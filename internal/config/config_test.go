@@ -66,6 +66,30 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSaveAndLoadRoundTripWithUsername(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "nested", "config.json")
+	t.Setenv("BB_CONFIG_PATH", configPath)
+
+	cfg := &Config{}
+	cfg.SetProfileWithAuth("default", "dev@example.com", "token-123", "https://api.bitbucket.org/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+
+	profile, _, err := loaded.ActiveProfile("")
+	if err != nil {
+		t.Fatalf("ActiveProfile returned error: %v", err)
+	}
+	if profile.Username != "dev@example.com" {
+		t.Fatalf("unexpected username: %q", profile.Username)
+	}
+}
+
 func TestActiveProfileOverride(t *testing.T) {
 	cfg := &Config{}
 	cfg.SetProfile("default", "token-a", "https://api.bitbucket.org/2.0")

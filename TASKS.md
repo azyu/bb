@@ -7,6 +7,7 @@
 - [x] Define command contracts for `bb auth/repo/pr/pipeline/api` - owner: agent
 - [x] Implement shared Bitbucket Cloud API client (auth + pagination) - owner: agent
 - [x] Improve `bb auth login` token flag UX (`--with-token`, bare `--token` handling) - owner: agent
+- [x] Add Basic auth mode for API tokens (`--username` / `BITBUCKET_USERNAME`) with Bearer fallback - owner: agent
 - [x] Implement `bb pr` and `bb pipeline` concrete subcommands (replace stubs) - owner: agent
 - [x] Add shell completion generation command - owner: agent
 - [x] Implement `bb issue list` concrete subcommand - owner: agent

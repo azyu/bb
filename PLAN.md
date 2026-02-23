@@ -17,4 +17,4 @@
 ## Current Phase
 - Phase: 4 (Validation and release readiness)
 - Owner: agent
-- Notes: Core wrappers for `auth`, `api`, `repo list`, `pr list/create`, `pipeline list/run`, `issue list/create/update`, and `completion` are implemented with tests. Next focus is release hardening and wiki wrappers.
+- Notes: Core wrappers for `auth`, `api`, `repo list`, `pr list/create`, `pipeline list/run`, `issue list/create/update`, and `completion` are implemented with tests. Auth supports both Basic (API token with username/email) and Bearer modes. Next focus is release hardening and wiki wrappers.

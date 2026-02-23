@@ -46,6 +46,10 @@ chmod +x ~/.local/bin/bb
 ## Bitbucket API Token 발급 방법
 이 CLI는 인증에 Bitbucket 토큰을 사용합니다.
 
+인증 모드:
+- API token(개인 토큰): Basic 인증(`username/email + token`) 사용
+- Access token 계열: Bearer 토큰 모드(사용자명 없이 토큰만)
+
 Bitbucket Cloud 기준 단계:
 1. Bitbucket Cloud에서 Personal settings로 이동합니다.
 2. `API tokens` 메뉴를 엽니다.
@@ -103,17 +107,17 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 ## 빠른 시작
 1. 토큰으로 로그인:
 ```bash
-bb auth login --token "<your-token>" --profile default
+bb auth login --username "<bitbucket-email>" --token "<your-token>" --profile default
 ```
 
 대안 (stdin):
 ```bash
-echo "<your-token>" | bb auth login --with-token --profile default
+echo "<your-token>" | bb auth login --username "<bitbucket-email>" --with-token --profile default
 ```
 
 대안 (환경변수):
 ```bash
-BITBUCKET_TOKEN="<your-token>" bb auth login --profile default
+BITBUCKET_USERNAME="<bitbucket-email>" BITBUCKET_TOKEN="<your-token>" bb auth login --profile default
 ```
 
 2. 인증 상태 확인:
