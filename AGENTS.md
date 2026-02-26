@@ -93,6 +93,10 @@ Useful current commands:
 - Don’t add abstractions before a clear second use-case exists.
 - Don’t change unrelated files or formatting.
 
+### Write Operation Safety
+- Use a dedicated test repository for write operations (`bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update`, `bb wiki put`) during development.
+- Keep production repos on read-only tokens unless write access is explicitly needed.
+
 ## After Code Changes
 
 Always verify at the smallest meaningful scope first.
