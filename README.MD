@@ -223,10 +223,6 @@ bb wiki get --workspace <workspace-slug> --repo <repo-slug> --page Home.md
 bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --content "# Updated"
 ```
 
-## Write Operation Safety
-- Use a dedicated test repository for write operations (`bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update`, `bb wiki put`) during development.
-- Keep production repos on read-only tokens unless write access is explicitly needed.
-
 ## Configuration
 Config path priority:
 1. `BB_CONFIG_PATH` (explicit override)

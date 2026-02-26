@@ -223,10 +223,6 @@ bb wiki get --workspace <workspace-slug> --repo <repo-slug> --page Home.md
 bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --content "# Updated"
 ```
 
-## 쓰기 작업 안전 가이드
-- 개발 중 `bb pr create`, `bb pipeline run`, `bb issue create`, `bb issue update`, `bb wiki put` 같은 쓰기 명령은 테스트용 저장소에서 먼저 실행하세요.
-- 운영 저장소에는 필요 시점 전까지 읽기 전용 토큰 사용을 권장합니다.
-
 ## 설정 파일 위치
 우선순위:
 1. `BB_CONFIG_PATH` (명시적 override)
