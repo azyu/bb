@@ -24,6 +24,12 @@ Implemented commands:
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
 
+Every command supports `--help` / `-h` for detailed usage with `--flag` format:
+```bash
+bb pr --help          # group: list subcommands
+bb pr create --help   # leaf: show flags with descriptions
+```
+
 ## Requirements
 - Go `1.26+`
 
@@ -186,9 +192,11 @@ bb pipeline list --workspace <workspace-slug> --repo <repo-slug>
 bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
 ```
 
-10. Generate shell completion:
+10. Generate shell completion (supports subcommand completion):
 ```bash
 bb completion zsh
+# bash/zsh/fish/powershell supported; includes 2-level subcommand completion
+# e.g. `bb pr<TAB>` -> list, create
 ```
 
 11. List issues:

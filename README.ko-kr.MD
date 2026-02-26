@@ -24,6 +24,12 @@
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
 
+모든 명령은 `--help` / `-h`로 상세 사용법을 확인할 수 있습니다 (`--flag` 형식):
+```bash
+bb pr --help          # 그룹: 서브커맨드 목록 표시
+bb pr create --help   # 리프: 플래그와 설명 표시
+```
+
 ## 요구사항
 - Go `1.26+`
 
@@ -186,9 +192,11 @@ bb pipeline list --workspace <workspace-slug> --repo <repo-slug>
 bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
 ```
 
-10. 셸 자동완성 스크립트 생성:
+10. 셸 자동완성 스크립트 생성 (서브커맨드 자동완성 지원):
 ```bash
 bb completion zsh
+# bash/zsh/fish/powershell 지원; 2단계 서브커맨드 자동완성 포함
+# 예: `bb pr<TAB>` -> list, create
 ```
 
 11. 이슈 목록 조회:
