@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -1231,6 +1232,7 @@ func TestIssueUpdateRequiresAnyField(t *testing.T) {
 
 func TestWikiGetText(t *testing.T) {
 	requireGit(t)
+	stubAskPassForLocalTests(t)
 	remote := initLocalWikiRemote(t, map[string]string{
 		"Home.md": "# Hello Wiki\n",
 	})
@@ -1260,6 +1262,7 @@ func TestWikiGetText(t *testing.T) {
 
 func TestWikiListJSON(t *testing.T) {
 	requireGit(t)
+	stubAskPassForLocalTests(t)
 	remote := initLocalWikiRemote(t, map[string]string{
 		"Home.md":         "# Home\n",
 		"docs/Runbook.md": "runbook\n",
@@ -1293,6 +1296,7 @@ func TestWikiListJSON(t *testing.T) {
 
 func TestWikiListInfersWorkspaceRepoFromGitOrigin(t *testing.T) {
 	requireGit(t)
+	stubAskPassForLocalTests(t)
 	remote := initLocalWikiRemote(t, map[string]string{
 		"Home.md": "# Home\n",
 	})
@@ -1324,6 +1328,7 @@ func TestWikiListInfersWorkspaceRepoFromGitOrigin(t *testing.T) {
 
 func TestWikiPutUpdatesRemote(t *testing.T) {
 	requireGit(t)
+	stubAskPassForLocalTests(t)
 	remote := initLocalWikiRemote(t, map[string]string{
 		"Home.md": "# Old\n",
 	})
@@ -1421,6 +1426,212 @@ func TestBuildWikiRemoteURLUsesTokenAuthUserForEmailProfile(t *testing.T) {
 	if u.User.Username() != "x-bitbucket-api-token-auth" {
 		t.Fatalf("unexpected wiki auth user in URL: %q", u.User.Username())
 	}
+	if _, hasPass := u.User.Password(); hasPass {
+		t.Fatal("expected no password in remote URL")
+	}
+}
+
+func TestBuildWikiRemoteURLNoPasswordInURL(t *testing.T) {
+	remote, err := buildWikiRemoteURL(config.Profile{
+		BaseURL: "https://api.bitbucket.org/2.0",
+		Token:   "secret-token",
+	}, "acme", "app")
+	if err != nil {
+		t.Fatalf("buildWikiRemoteURL failed: %v", err)
+	}
+	if strings.Contains(remote, "secret-token") {
+		t.Fatal("token must not appear in remote URL")
+	}
+	u, err := url.Parse(remote)
+	if err != nil {
+		t.Fatalf("parse remote URL failed: %v", err)
+	}
+	if _, hasPass := u.User.Password(); hasPass {
+		t.Fatal("expected no password in remote URL")
+	}
+}
+
+func TestShellEscapeSingleQuote(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"hello", "hello"},
+		{"it's", `it'\''s`},
+		{"a'b'c", `a'\''b'\''c`},
+		{"no-quotes", "no-quotes"},
+	}
+	for _, tc := range tests {
+		got := shellEscapeSingleQuote(tc.in)
+		if got != tc.want {
+			t.Errorf("shellEscapeSingleQuote(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestCreateAskPassScript(t *testing.T) {
+	path, cleanup, err := createAskPassScript("my-token")
+	if err != nil {
+		t.Fatalf("createAskPassScript failed: %v", err)
+	}
+	defer cleanup()
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat askpass script: %v", err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Fatalf("expected 0700, got %o", info.Mode().Perm())
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read askpass script: %v", err)
+	}
+	if !strings.Contains(string(content), "my-token") {
+		t.Fatal("askpass script must contain the token")
+	}
+	if !strings.HasPrefix(string(content), "#!/bin/sh\n") {
+		t.Fatal("askpass script must start with shebang")
+	}
+
+	cleanup()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("cleanup should remove the askpass script")
+	}
+}
+
+func TestCreateAskPassScriptEscapesQuotes(t *testing.T) {
+	path, cleanup, err := createAskPassScript("tok'en")
+	if err != nil {
+		t.Fatalf("createAskPassScript failed: %v", err)
+	}
+	defer cleanup()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read askpass script: %v", err)
+	}
+	if strings.Contains(string(content), "tok'en") {
+		t.Fatal("token with quote must be escaped in script")
+	}
+	if !strings.Contains(string(content), `tok'\''en`) {
+		t.Fatalf("expected escaped token, got: %s", string(content))
+	}
+}
+
+func TestRunGitCommandWithEnvPassesEnv(t *testing.T) {
+	requireGit(t)
+	ctx := context.Background()
+	out, err := runGitCommandWithEnv(ctx, "", []string{"GIT_AUTHOR_NAME=test-env-check"}, "version")
+	if err != nil {
+		t.Fatalf("runGitCommandWithEnv failed: %v", err)
+	}
+	if !strings.Contains(string(out), "git version") {
+		t.Fatalf("unexpected output: %q", string(out))
+	}
+}
+
+func TestRunGitCommandWithEnvCredentialHelperDisabled(t *testing.T) {
+	requireGit(t)
+	ctx := context.Background()
+	out, err := runGitCommandWithEnv(ctx, "", nil, "config", "credential.helper")
+	if err != nil {
+		t.Fatalf("runGitCommandWithEnv failed: %v", err)
+	}
+	// -c credential.helper= overrides to empty string
+	if strings.TrimSpace(string(out)) != "" {
+		t.Fatalf("expected empty credential.helper, got %q", strings.TrimSpace(string(out)))
+	}
+}
+
+func TestAskPassScriptExecutable(t *testing.T) {
+	path, cleanup, err := createAskPassScript("test-token-value")
+	if err != nil {
+		t.Fatalf("createAskPassScript failed: %v", err)
+	}
+	defer cleanup()
+
+	cmd := exec.Command(path)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("execute askpass script failed: %v", err)
+	}
+	if strings.TrimSpace(string(out)) != "test-token-value" {
+		t.Fatalf("askpass script output = %q, want %q", strings.TrimSpace(string(out)), "test-token-value")
+	}
+}
+
+func TestAskPassScriptExecutableWithQuotedToken(t *testing.T) {
+	path, cleanup, err := createAskPassScript("tok'en\"val")
+	if err != nil {
+		t.Fatalf("createAskPassScript failed: %v", err)
+	}
+	defer cleanup()
+
+	cmd := exec.Command(path)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("execute askpass script failed: %v", err)
+	}
+	if strings.TrimSpace(string(out)) != "tok'en\"val" {
+		t.Fatalf("askpass script output = %q, want %q", strings.TrimSpace(string(out)), "tok'en\"val")
+	}
+}
+
+func TestCloneWikiToTempNoTokenInRemoteConfig(t *testing.T) {
+	requireGit(t)
+	remote := initLocalWikiRemote(t, map[string]string{
+		"Home.md": "# Test\n",
+	})
+	token := "super-secret-token-12345"
+
+	origBuilder := wikiRemoteURLBuilder
+	wikiRemoteURLBuilder = func(_ config.Profile, _, _ string) (string, error) {
+		return remote, nil
+	}
+	defer func() { wikiRemoteURLBuilder = origBuilder }()
+
+	// Use real askpass but with local clone (no auth needed)
+	origEnv := gitEnvCommandRunner
+	gitEnvCommandRunner = func(ctx context.Context, dir string, _ []string, args ...string) ([]byte, error) {
+		return runGitCommand(ctx, dir, args...)
+	}
+	defer func() { gitEnvCommandRunner = origEnv }()
+
+	origAsk := askPassScriptCreator
+	var askPathCreated string
+	askPassScriptCreator = func(tok string) (string, func(), error) {
+		if tok != token {
+			t.Errorf("askPassScriptCreator received wrong token: %q", tok)
+		}
+		p, c, err := createAskPassScript(tok)
+		askPathCreated = p
+		return p, c, err
+	}
+	defer func() { askPassScriptCreator = origAsk }()
+
+	ctx := context.Background()
+	p := config.Profile{Token: token}
+	repoDir, err := cloneWikiToTemp(ctx, p, "acme", "app")
+	if err != nil {
+		t.Fatalf("cloneWikiToTemp failed: %v", err)
+	}
+	defer os.RemoveAll(repoDir)
+
+	// Verify .git/config does not contain the token
+	gitConfig, err := os.ReadFile(filepath.Join(repoDir, ".git", "config"))
+	if err != nil {
+		t.Fatalf("read .git/config: %v", err)
+	}
+	if strings.Contains(string(gitConfig), token) {
+		t.Fatal(".git/config must not contain the token")
+	}
+
+	// Verify askpass script was cleaned up
+	if askPathCreated != "" {
+		if _, err := os.Stat(askPathCreated); !os.IsNotExist(err) {
+			t.Fatal("askpass script should be cleaned up after clone")
+		}
+	}
 }
 
 func TestAuthUnknownSubcommand(t *testing.T) {
@@ -1485,6 +1696,22 @@ func runGitLocal(t *testing.T, dir string, args ...string) {
 	if err != nil {
 		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, string(out))
 	}
+}
+
+func stubAskPassForLocalTests(t *testing.T) {
+	t.Helper()
+	origEnv := gitEnvCommandRunner
+	origAsk := askPassScriptCreator
+	gitEnvCommandRunner = func(ctx context.Context, dir string, _ []string, args ...string) ([]byte, error) {
+		return runGitCommand(ctx, dir, args...)
+	}
+	askPassScriptCreator = func(_ string) (string, func(), error) {
+		return "/dev/null", func() {}, nil
+	}
+	t.Cleanup(func() {
+		gitEnvCommandRunner = origEnv
+		askPassScriptCreator = origAsk
+	})
 }
 
 func initLocalWikiRemote(t *testing.T, files map[string]string) string {

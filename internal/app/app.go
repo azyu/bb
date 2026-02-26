@@ -63,6 +63,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 
 var wikiRemoteURLBuilder = buildWikiRemoteURL
 var gitCommandRunner = runGitCommand
+var gitEnvCommandRunner = runGitCommandWithEnv
+var askPassScriptCreator = createAskPassScript
 
 func runAuth(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || isHelpArg(args[0]) {
@@ -1231,7 +1233,17 @@ func runWikiPut(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
 		return 1
 	}
-	if _, err := gitCommandRunner(ctx, repoDir, "push", "origin", "HEAD"); err != nil {
+	askPath, askCleanup, err := askPassScriptCreator(p.Token)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
+		return 1
+	}
+	defer askCleanup()
+	pushEnv := []string{
+		"GIT_ASKPASS=" + askPath,
+		"GIT_TERMINAL_PROMPT=0",
+	}
+	if _, err := gitEnvCommandRunner(ctx, repoDir, pushEnv, "push", "origin", "HEAD"); err != nil {
 		fmt.Fprintf(stderr, "%s\n", redactToken(err.Error(), p.Token))
 		return 1
 	}
@@ -1863,7 +1875,17 @@ func cloneWikiToTemp(ctx context.Context, p config.Profile, workspace, repo stri
 	if err != nil {
 		return "", fmt.Errorf("create temp dir: %w", err)
 	}
-	if _, err := gitCommandRunner(ctx, "", "clone", "--depth", "1", remoteURL, tmpDir); err != nil {
+	askPath, askCleanup, err := askPassScriptCreator(p.Token)
+	if err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return "", err
+	}
+	defer askCleanup()
+	env := []string{
+		"GIT_ASKPASS=" + askPath,
+		"GIT_TERMINAL_PROMPT=0",
+	}
+	if _, err := gitEnvCommandRunner(ctx, "", env, "clone", "--depth", "1", remoteURL, tmpDir); err != nil {
 		_ = os.RemoveAll(tmpDir)
 		return "", err
 	}
@@ -1939,7 +1961,7 @@ func buildWikiRemoteURL(p config.Profile, workspace, repo string) (string, error
 		Scheme: "https",
 		Host:   host,
 		Path:   fmt.Sprintf("/%s/%s.git/wiki", workspace, repo),
-		User:   url.UserPassword(user, p.Token),
+		User:   url.User(user),
 	}
 	return u.String(), nil
 }
@@ -1957,6 +1979,51 @@ func resolveWikiAuthUser(profileUsername string) string {
 		return "x-bitbucket-api-token-auth"
 	}
 	return user
+}
+
+func shellEscapeSingleQuote(s string) string {
+	return strings.ReplaceAll(s, "'", `'\''`)
+}
+
+func createAskPassScript(token string) (path string, cleanup func(), err error) {
+	f, err := os.CreateTemp("", "bb-askpass-*")
+	if err != nil {
+		return "", nil, fmt.Errorf("create askpass script: %w", err)
+	}
+	scriptPath := f.Name()
+	content := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' '%s'\n", shellEscapeSingleQuote(token))
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
+		os.Remove(scriptPath)
+		return "", nil, fmt.Errorf("write askpass script: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(scriptPath)
+		return "", nil, fmt.Errorf("close askpass script: %w", err)
+	}
+	if err := os.Chmod(scriptPath, 0o700); err != nil {
+		os.Remove(scriptPath)
+		return "", nil, fmt.Errorf("chmod askpass script: %w", err)
+	}
+	return scriptPath, func() { os.Remove(scriptPath) }, nil
+}
+
+func runGitCommandWithEnv(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
+	fullArgs := append([]string{"-c", "credential.helper="}, args...)
+	cmd := exec.CommandContext(ctx, "git", fullArgs...)
+	if strings.TrimSpace(dir) != "" {
+		cmd.Dir = dir
+	}
+	cmd.Env = append(os.Environ(), env...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("git command failed: %s", msg)
+	}
+	return out, nil
 }
 
 func runGitCommand(ctx context.Context, dir string, args ...string) ([]byte, error) {

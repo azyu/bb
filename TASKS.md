@@ -21,7 +21,7 @@
 - [x] Implement `bb issue list` concrete subcommand - owner: agent
 - [x] Implement `bb issue` write subcommands (`create`/`update`) - owner: agent
 - [x] Implement `bb wiki` read/write subcommands - owner: agent
-- [ ] Improve wiki git auth secret handling (avoid credential exposure in args/process list) - owner: unassigned
+- [x] Improve wiki git auth secret handling (avoid credential exposure in args/process list) - owner: agent
 - [x] Implement `bb version` with SemVer + git hash build metadata - owner: agent
 - [x] Add general developer token scope preset to README (EN/KR) - owner: agent
 - [x] Add recommended Bitbucket token scope matrix to README (EN/KR) - owner: agent
