@@ -1434,8 +1434,11 @@ func TestAuthUnknownSubcommand(t *testing.T) {
 func TestAuthUsageWithoutSubcommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"auth"}, &stdout, &stderr)
-	if code == 0 {
-		t.Fatalf("expected non-zero exit, stderr=%q", stderr.String())
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "bb auth <command>") {
+		t.Fatalf("expected auth usage in stdout, got %q", stdout.String())
 	}
 }
 

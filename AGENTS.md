@@ -81,7 +81,7 @@ Useful current commands:
 - Prefer the smallest implementation that satisfies requirements.
 - When technical choices, API scopes, endpoint usage, or architecture assumptions change, update `docs/references.md` if the change affects project direction.
 - Keep the first release Cloud-only unless explicitly asked otherwise.
-- Mirror proven CLI shape from references (`auth`, `repo`, `pr`, `pipeline`, `api`, `completion`).
+- Mirror proven CLI shape from references (`auth`, `repo`, `pr`, `pipeline`, `issue`, `wiki`, `api`, `completion`).
 - Implement API pagination using Bitbucket `next` links.
 - Support both human-readable output and JSON output for automation.
 - Keep non-interactive behavior deterministic with explicit flags when needed.

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -64,9 +65,9 @@ var wikiRemoteURLBuilder = buildWikiRemoteURL
 var gitCommandRunner = runGitCommand
 
 func runAuth(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: bb auth <login|status|logout>")
-		return 1
+	if len(args) == 0 || isHelpArg(args[0]) {
+		printAuthUsage(stdout)
+		return 0
 	}
 	switch args[0] {
 	case "login":
@@ -85,13 +86,18 @@ func runAuthLogin(args []string, stdout, stderr io.Writer) int {
 	args = normalizeAuthLoginArgs(args)
 
 	fs := flag.NewFlagSet("auth login", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	profile := fs.String("profile", "default", "profile name")
 	token := fs.String("token", "", "API token value")
 	username := fs.String("username", "", "Bitbucket username/email for Basic auth")
 	withToken := fs.Bool("with-token", false, "read API token from stdin")
 	baseURL := fs.String("base-url", "", "Bitbucket API base URL")
+	fs.Usage = func() { printAuthLoginHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 
@@ -171,9 +177,14 @@ func readTokenFromStdin() (string, error) {
 
 func runAuthStatus(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("auth status", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	profile := fs.String("profile", "", "profile name override")
+	fs.Usage = func() { printAuthStatusHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 
@@ -205,9 +216,14 @@ func runAuthStatus(args []string, stdout, stderr io.Writer) int {
 
 func runAuthLogout(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("auth logout", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	profile := fs.String("profile", "", "profile name override")
+	fs.Usage = func() { printAuthLogoutHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 
@@ -247,14 +263,19 @@ func runAuthLogout(args []string, stdout, stderr io.Writer) int {
 
 func runAPI(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("api", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	method := fs.String("method", http.MethodGet, "HTTP method")
 	paginate := fs.Bool("paginate", false, "follow pagination")
 	profile := fs.String("profile", "", "profile name override")
 	q := fs.String("q", "", "Bitbucket q filter")
 	sort := fs.String("sort", "", "sort expression")
 	fields := fs.String("fields", "", "partial fields selector")
+	fs.Usage = func() { printAPIHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 
@@ -301,9 +322,9 @@ func runAPI(args []string, stdout, stderr io.Writer) int {
 }
 
 func runRepo(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: bb repo <list>")
-		return 1
+	if len(args) == 0 || isHelpArg(args[0]) {
+		printRepoUsage(stdout)
+		return 0
 	}
 	switch args[0] {
 	case "list":
@@ -316,7 +337,7 @@ func runRepo(args []string, stdout, stderr io.Writer) int {
 
 func runRepoList(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("repo list", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	output := fs.String("output", "table", "output format: table|json")
 	all := fs.Bool("all", false, "fetch all pages")
@@ -324,7 +345,12 @@ func runRepoList(args []string, stdout, stderr io.Writer) int {
 	q := fs.String("q", "", "Bitbucket q filter")
 	sort := fs.String("sort", "", "sort expression")
 	fields := fs.String("fields", "", "partial fields selector")
+	fs.Usage = func() { printRepoListHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, _, err := resolveRepoTarget(*workspace, "", false)
@@ -381,9 +407,9 @@ func runRepoList(args []string, stdout, stderr io.Writer) int {
 }
 
 func runPR(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: bb pr <list|create>")
-		return 1
+	if len(args) == 0 || isHelpArg(args[0]) {
+		printPRUsage(stdout)
+		return 0
 	}
 	switch args[0] {
 	case "list":
@@ -398,7 +424,7 @@ func runPR(args []string, stdout, stderr io.Writer) int {
 
 func runPRList(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("pr list", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	output := fs.String("output", "table", "output format: table|json")
@@ -408,7 +434,12 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 	q := fs.String("q", "", "Bitbucket q filter")
 	sort := fs.String("sort", "", "sort expression")
 	fields := fs.String("fields", "", "partial fields selector")
+	fs.Usage = func() { printPRListHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -467,7 +498,7 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 
 func runPRCreate(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("pr create", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	title := fs.String("title", "", "pull request title")
@@ -476,7 +507,12 @@ func runPRCreate(args []string, stdout, stderr io.Writer) int {
 	description := fs.String("description", "", "pull request description")
 	profile := fs.String("profile", "", "profile name override")
 	output := fs.String("output", "text", "output format: text|json")
+	fs.Usage = func() { printPRCreateHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -548,9 +584,9 @@ func runPRCreate(args []string, stdout, stderr io.Writer) int {
 }
 
 func runPipeline(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: bb pipeline <list|run>")
-		return 1
+	if len(args) == 0 || isHelpArg(args[0]) {
+		printPipelineUsage(stdout)
+		return 0
 	}
 	switch args[0] {
 	case "list":
@@ -565,7 +601,7 @@ func runPipeline(args []string, stdout, stderr io.Writer) int {
 
 func runPipelineList(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("pipeline list", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	output := fs.String("output", "table", "output format: table|json")
@@ -573,7 +609,12 @@ func runPipelineList(args []string, stdout, stderr io.Writer) int {
 	profile := fs.String("profile", "", "profile name override")
 	sort := fs.String("sort", "", "sort expression")
 	fields := fs.String("fields", "", "partial fields selector")
+	fs.Usage = func() { printPipelineListHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -624,13 +665,18 @@ func runPipelineList(args []string, stdout, stderr io.Writer) int {
 
 func runPipelineRun(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("pipeline run", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	branch := fs.String("branch", "", "target branch name")
 	profile := fs.String("profile", "", "profile name override")
 	output := fs.String("output", "text", "output format: text|json")
+	fs.Usage = func() { printPipelineRunHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -686,9 +732,9 @@ func runPipelineRun(args []string, stdout, stderr io.Writer) int {
 }
 
 func runIssue(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: bb issue <list|create|update>")
-		return 1
+	if len(args) == 0 || isHelpArg(args[0]) {
+		printIssueUsage(stdout)
+		return 0
 	}
 	switch args[0] {
 	case "list":
@@ -705,7 +751,7 @@ func runIssue(args []string, stdout, stderr io.Writer) int {
 
 func runIssueList(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("issue list", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	output := fs.String("output", "table", "output format: table|json")
@@ -714,7 +760,12 @@ func runIssueList(args []string, stdout, stderr io.Writer) int {
 	q := fs.String("q", "", "Bitbucket q filter")
 	sort := fs.String("sort", "", "sort expression")
 	fields := fs.String("fields", "", "partial fields selector")
+	fs.Usage = func() { printIssueListHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -766,7 +817,7 @@ func runIssueList(args []string, stdout, stderr io.Writer) int {
 
 func runIssueCreate(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("issue create", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	title := fs.String("title", "", "issue title")
@@ -776,7 +827,12 @@ func runIssueCreate(args []string, stdout, stderr io.Writer) int {
 	priority := fs.String("priority", "", "issue priority (trivial|minor|major|critical|blocker)")
 	profile := fs.String("profile", "", "profile name override")
 	output := fs.String("output", "text", "output format: text|json")
+	fs.Usage = func() { printIssueCreateHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -837,7 +893,7 @@ func runIssueCreate(args []string, stdout, stderr io.Writer) int {
 
 func runIssueUpdate(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("issue update", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	id := fs.Int("id", 0, "issue id")
@@ -848,7 +904,12 @@ func runIssueUpdate(args []string, stdout, stderr io.Writer) int {
 	priority := fs.String("priority", "", "issue priority (trivial|minor|major|critical|blocker)")
 	profile := fs.String("profile", "", "profile name override")
 	output := fs.String("output", "text", "output format: text|json")
+	fs.Usage = func() { printIssueUpdateHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -911,9 +972,9 @@ func runIssueUpdate(args []string, stdout, stderr io.Writer) int {
 }
 
 func runWiki(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: bb wiki <list|get|put>")
-		return 1
+	if len(args) == 0 || isHelpArg(args[0]) {
+		printWikiUsage(stdout)
+		return 0
 	}
 	switch args[0] {
 	case "list":
@@ -930,12 +991,17 @@ func runWiki(args []string, stdout, stderr io.Writer) int {
 
 func runWikiList(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("wiki list", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	profile := fs.String("profile", "", "profile name override")
 	output := fs.String("output", "table", "output format: table|json")
+	fs.Usage = func() { printWikiListHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -977,13 +1043,18 @@ func runWikiList(args []string, stdout, stderr io.Writer) int {
 
 func runWikiGet(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("wiki get", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	page := fs.String("page", "", "wiki page path")
 	profile := fs.String("profile", "", "profile name override")
 	output := fs.String("output", "text", "output format: text|json")
+	fs.Usage = func() { printWikiGetHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -1039,7 +1110,7 @@ func runWikiGet(args []string, stdout, stderr io.Writer) int {
 
 func runWikiPut(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("wiki put", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	workspace := fs.String("workspace", "", "workspace slug")
 	repo := fs.String("repo", "", "repository slug")
 	page := fs.String("page", "", "wiki page path")
@@ -1048,7 +1119,12 @@ func runWikiPut(args []string, stdout, stderr io.Writer) int {
 	message := fs.String("message", "", "git commit message")
 	profile := fs.String("profile", "", "profile name override")
 	output := fs.String("output", "text", "output format: text|json")
+	fs.Usage = func() { printWikiPutHelp(stdout) }
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
 		return 1
 	}
 	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
@@ -1176,9 +1252,13 @@ func runWikiPut(args []string, stdout, stderr io.Writer) int {
 }
 
 func runCompletion(args []string, stdout, stderr io.Writer) int {
-	if len(args) != 1 {
-		fmt.Fprintln(stderr, "usage: bb completion <bash|zsh|fish|powershell>")
-		return 1
+	if len(args) == 0 {
+		printCompletionUsage(stdout)
+		return 0
+	}
+	if isHelpArg(args[0]) {
+		printCompletionUsage(stdout)
+		return 0
 	}
 	switch strings.ToLower(strings.TrimSpace(args[0])) {
 	case "bash":
@@ -1703,22 +1783,76 @@ func parseBitbucketPath(rawPath string) (string, string, bool) {
 
 const bashCompletionScript = `_bb_complete() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
+  local prev="${COMP_WORDS[COMP_CWORD-1]}"
+  case "${prev}" in
+    auth)       COMPREPLY=($(compgen -W "login status logout" -- "${cur}")); return;;
+    repo)       COMPREPLY=($(compgen -W "list" -- "${cur}")); return;;
+    pr)         COMPREPLY=($(compgen -W "list create" -- "${cur}")); return;;
+    pipeline)   COMPREPLY=($(compgen -W "list run" -- "${cur}")); return;;
+    issue)      COMPREPLY=($(compgen -W "list create update" -- "${cur}")); return;;
+    wiki)       COMPREPLY=($(compgen -W "list get put" -- "${cur}")); return;;
+    completion) COMPREPLY=($(compgen -W "bash zsh fish powershell" -- "${cur}")); return;;
+  esac
   local cmds="auth api repo pr pipeline wiki issue completion version help"
   COMPREPLY=($(compgen -W "${cmds}" -- "${cur}"))
 }
 complete -F _bb_complete bb`
 
-const zshCompletionScript = `#compdef bb
-_arguments "1:command:(auth api repo pr pipeline wiki issue completion version help)"`
+var zshCompletionScript = strings.Join([]string{
+	"#compdef bb",
+	"_bb() {",
+	"  local -a commands subcmds",
+	"  commands=(auth api repo pr pipeline wiki issue completion version help)",
+	`  _arguments "1:command:($commands)" "*::arg:->args"`,
+	"  case $words[1] in",
+	"    auth)       subcmds=(login status logout);;",
+	"    repo)       subcmds=(list);;",
+	"    pr)         subcmds=(list create);;",
+	"    pipeline)   subcmds=(list run);;",
+	"    issue)      subcmds=(list create update);;",
+	"    wiki)       subcmds=(list get put);;",
+	"    completion) subcmds=(bash zsh fish powershell);;",
+	"  esac",
+	`  [[ -n "$subcmds" ]] && _describe 'subcommand' subcmds`,
+	"}",
+	"_bb",
+}, "\n")
 
-const fishCompletionScript = `complete -c bb -f -a "auth api repo pr pipeline wiki issue completion version help"`
+var fishCompletionScript = strings.Join([]string{
+	`complete -c bb -f -n '__fish_use_subcommand' -a "auth api repo pr pipeline wiki issue completion version help"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from auth' -a "login status logout"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from repo' -a "list"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from pipeline' -a "list run"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from issue' -a "list create update"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from wiki' -a "list get put"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from completion' -a "bash zsh fish powershell"`,
+}, "\n")
 
-const powershellCompletionScript = `Register-ArgumentCompleter -CommandName bb -ScriptBlock {
-  param($wordToComplete)
-  "auth","api","repo","pr","pipeline","wiki","issue","completion","version","help" |
-    Where-Object { $_ -like "$wordToComplete*" } |
-    ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }
-}`
+var powershellCompletionScript = strings.Join([]string{
+	"Register-ArgumentCompleter -CommandName bb -ScriptBlock {",
+	"  param($wordToComplete, $commandAst)",
+	"  $tokens = $commandAst.ToString() -split '\\s+'",
+	"  $subcmds = @{",
+	"    'auth'       = @('login','status','logout')",
+	"    'repo'       = @('list')",
+	"    'pr'         = @('list','create')",
+	"    'pipeline'   = @('list','run')",
+	"    'issue'      = @('list','create','update')",
+	"    'wiki'       = @('list','get','put')",
+	"    'completion' = @('bash','zsh','fish','powershell')",
+	"  }",
+	"  if ($tokens.Count -ge 2 -and $subcmds.ContainsKey($tokens[1])) {",
+	"    $subcmds[$tokens[1]] |",
+	`      Where-Object { $_ -like "$wordToComplete*" } |`,
+	"      ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }",
+	"  } else {",
+	`    "auth","api","repo","pr","pipeline","wiki","issue","completion","version","help" |`,
+	`      Where-Object { $_ -like "$wordToComplete*" } |`,
+	"      ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }",
+	"  }",
+	"}",
+}, "\n")
 
 func cloneWikiToTemp(ctx context.Context, p config.Profile, workspace, repo string) (string, error) {
 	remoteURL, err := wikiRemoteURLBuilder(p, workspace, repo)
