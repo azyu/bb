@@ -35,22 +35,16 @@ bb pr create --help   # 리프: 플래그와 설명 표시
 
 ## 빌드
 ```bash
+make build        # -> ./bb (version + commit + date 자동 주입)
+make install      # -> $GOPATH/bin/bb
+make test         # 전체 테스트 실행
+make cover        # 테스트 커버리지 리포트
+make help         # 모든 타겟 표시
+```
+
+또는 수동 빌드:
+```bash
 go build -o ./bb ./cmd/bb
-```
-
-버전 메타데이터(SemVer + git hash) 포함 빌드:
-```bash
-VERSION="0.0.1"
-COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
-BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-go build -ldflags "-X bitbucket-cli/internal/version.Version=${VERSION} -X bitbucket-cli/internal/version.Commit=${COMMIT} -X bitbucket-cli/internal/version.BuildDate=${BUILD_DATE}" -o ./bb ./cmd/bb
-```
-
-## 설치 (예: 사용자 로컬 bin)
-```bash
-mkdir -p ~/.local/bin
-go build -o ~/.local/bin/bb ./cmd/bb
-chmod +x ~/.local/bin/bb
 ```
 
 ## Bitbucket API Token 발급 방법
@@ -247,14 +241,11 @@ bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --con
 - 설정 파일 권한은 `0600`으로 저장됩니다.
 
 ## 개발
-테스트 실행:
 ```bash
-go test ./...
-```
-
-커버리지(내부 패키지) 확인:
-```bash
-go test -cover ./internal/...
+make test         # 전체 테스트 실행
+make cover        # 내부 패키지 커버리지 리포트
+make lint         # go vet
+make fmt          # gofmt
 ```
 
 명령 계약 상세 문서:

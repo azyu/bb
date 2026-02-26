@@ -35,22 +35,16 @@ bb pr create --help   # leaf: show flags with descriptions
 
 ## Build
 ```bash
+make build        # -> ./bb (version + commit + date auto-injected)
+make install      # -> $GOPATH/bin/bb
+make test         # run all tests
+make cover        # test coverage report
+make help         # show all targets
+```
+
+Or build manually:
+```bash
 go build -o ./bb ./cmd/bb
-```
-
-Build with explicit version metadata (SemVer + git hash):
-```bash
-VERSION="0.0.1"
-COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
-BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-go build -ldflags "-X bitbucket-cli/internal/version.Version=${VERSION} -X bitbucket-cli/internal/version.Commit=${COMMIT} -X bitbucket-cli/internal/version.BuildDate=${BUILD_DATE}" -o ./bb ./cmd/bb
-```
-
-## Install (example: local user bin)
-```bash
-mkdir -p ~/.local/bin
-go build -o ~/.local/bin/bb ./cmd/bb
-chmod +x ~/.local/bin/bb
 ```
 
 ## How To Create A Bitbucket API Token
@@ -247,14 +241,11 @@ Security note:
 - Config file is written with `0600` permissions.
 
 ## Development
-Run tests:
 ```bash
-go test ./...
-```
-
-Run coverage (internal packages):
-```bash
-go test -cover ./internal/...
+make test         # run all tests
+make cover        # coverage report for internal packages
+make lint         # go vet
+make fmt          # gofmt
 ```
 
 For detailed command contracts:
