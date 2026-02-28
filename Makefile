@@ -14,8 +14,8 @@ LDFLAGS := -s -w \
 build: ## Build binary
 	@go build -trimpath -ldflags '$(LDFLAGS)' -o $(BINARY) ./cmd/bb
 
-install: ## Install to GOPATH/bin
-	@go install -trimpath -ldflags '$(LDFLAGS)' ./cmd/bb
+install: build ## Install to ~/.local/bin
+	@cp $(BINARY) $(HOME)/.local/bin/$(BINARY)
 
 test: ## Run all tests
 	@go test ./...
