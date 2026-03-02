@@ -30,8 +30,15 @@ bb pr --help          # 그룹: 서브커맨드 목록 표시
 bb pr create --help   # 리프: 플래그와 설명 표시
 ```
 
-## 요구사항
-- Go `1.26+`
+## 설치
+
+### Homebrew (macOS Apple Silicon / Linux)
+```bash
+brew install azyu/tap/bb
+```
+
+### 소스에서 빌드
+Go `1.26+` 필요.
 
 ## 빌드
 ```bash
