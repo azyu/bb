@@ -36,3 +36,4 @@
 - [x] Add GitHub Actions for CI and release builds (Windows/macOS/Linux) - owner: agent
 - [x] Enforce release tag rule as `vMAJOR.MINOR.PATCH` with initial version `v0.0.1` - owner: agent
 - [x] Make release build workflow manual-only and create `v0.0.1` tag on current HEAD - owner: agent
+- [x] Restrict CI lint/test/build to Ubuntu Linux only - owner: agent

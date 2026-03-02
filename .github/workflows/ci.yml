@@ -9,15 +9,8 @@ permissions:
 
 jobs:
   ci:
-    name: Lint, Test, Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
+    name: Lint, Test, Build (ubuntu-latest)
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
