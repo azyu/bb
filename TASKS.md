@@ -39,3 +39,4 @@
 - [x] Restrict CI lint/test/build to Ubuntu Linux only - owner: agent
 - [x] Fix Release Build publish step to run without local git checkout context - owner: agent
 - [x] Remove setup-go cache warnings when go.sum is absent - owner: agent
+- [x] Align PR contracts/docs and add strict enum validation/tests for `bb pr list --state` and `bb pr merge --strategy` - owner: agent
