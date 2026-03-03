@@ -1890,6 +1890,78 @@ func TestPRCreateWithoutCloseBranch(t *testing.T) {
 	}
 }
 
+func TestPRListRejectsInvalidStateBeforeAPICall(t *testing.T) {
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "list",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--state", "invalid",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit for invalid state")
+	}
+	if !strings.Contains(stderr.String(), "--state must be one of OPEN, MERGED, DECLINED") {
+		t.Fatalf("unexpected error: %q", stderr.String())
+	}
+	if hits != 0 {
+		t.Fatalf("expected no API calls, got %d", hits)
+	}
+}
+
+func TestPRListNormalizesStateCase(t *testing.T) {
+	var gotState string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/2.0/repositories/acme/app/pullrequests" {
+			http.NotFound(w, r)
+			return
+		}
+		gotState = r.URL.Query().Get("state")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "list",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--state", "open",
+		"--output", "json",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotState != "OPEN" {
+		t.Fatalf("expected normalized state OPEN, got %q", gotState)
+	}
+}
+
 func TestPRMerge(t *testing.T) {
 	var gotMethod string
 	var gotPath string
@@ -1952,6 +2024,120 @@ func TestPRMerge(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "Merged PR #42") {
 		t.Fatalf("unexpected output: %q", stdout.String())
+	}
+}
+
+func TestPRMergeRejectsInvalidStrategyBeforeAPICall(t *testing.T) {
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "MERGED",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "merge",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--id", "42",
+		"--strategy", "invalid",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit for invalid strategy")
+	}
+	if !strings.Contains(stderr.String(), "--strategy must be one of merge_commit, squash, fast_forward") {
+		t.Fatalf("unexpected error: %q", stderr.String())
+	}
+	if hits != 0 {
+		t.Fatalf("expected no API calls, got %d", hits)
+	}
+}
+
+func TestPRMergeNormalizesStrategyCase(t *testing.T) {
+	var gotBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "MERGED",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "merge",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--id", "42",
+		"--strategy", "SQUASH",
+		"--output", "json",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotBody["merge_strategy"] != "squash" {
+		t.Fatalf("expected normalized strategy squash, got %v", gotBody["merge_strategy"])
+	}
+}
+
+func TestPRMergeRejectsNonNumericIDBeforeAPICall(t *testing.T) {
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "MERGED",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "merge",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--id", "abc",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit for non-numeric id")
+	}
+	if !strings.Contains(stderr.String(), "--id must be a number: abc") {
+		t.Fatalf("unexpected error: %q", stderr.String())
+	}
+	if hits != 0 {
+		t.Fatalf("expected no API calls, got %d", hits)
 	}
 }
 

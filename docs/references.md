@@ -108,6 +108,7 @@ Operational UX:
 - `GET /repositories/{workspace}`
 - `GET /repositories/{workspace}/{repo_slug}/pullrequests`
 - `POST /repositories/{workspace}/{repo_slug}/pullrequests`
+- `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/merge`
 - `GET /repositories/{workspace}/{repo_slug}/pipelines`
 - `POST /repositories/{workspace}/{repo_slug}/pipelines`
 - `GET /repositories/{workspace}/{repo_slug}/issues`
@@ -153,9 +154,9 @@ Implemented:
 - `bb auth login`, `bb auth status`, `bb auth logout`
 - `bb api`
 - `bb repo list`
-- `bb pr list`, `bb pr create`
+- `bb pr list`, `bb pr create`, `bb pr merge`
 - Repo-scoped commands support local Git `origin` inference for Bitbucket remotes when `--workspace/--repo` are omitted:
-  - `bb pr list`, `bb pr create`
+  - `bb pr list`, `bb pr create`, `bb pr merge`
   - `bb pipeline list`, `bb pipeline run`
   - `bb issue list`, `bb issue create`, `bb issue update`
   - `bb wiki list`, `bb wiki get`, `bb wiki put`

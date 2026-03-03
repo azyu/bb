@@ -120,6 +120,7 @@ This document is the contract baseline for `bb` command behavior.
   - `json`: array of pull request objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
+  - Invalid `--state` value -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr create`
@@ -157,6 +158,8 @@ This document is the contract baseline for `bb` command behavior.
   - `json`: merged pull request object
 - Failure behavior:
   - Missing required flags -> non-zero exit
+  - Non-numeric `--id` value -> non-zero exit
+  - Invalid `--strategy` value -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ## `bb pipeline`

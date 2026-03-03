@@ -452,6 +452,11 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err.Error())
 		return 1
 	}
+	stateFilter, err := normalizePRStateFilter(*state)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
+		return 1
+	}
 
 	client, err := newClientFromProfile(*profile)
 	if err != nil {
@@ -460,7 +465,6 @@ func runPRList(args []string, stdout, stderr io.Writer) int {
 	}
 
 	query := url.Values{}
-	stateFilter := strings.ToUpper(strings.TrimSpace(*state))
 	setQueryIfNotEmpty(query, "state", stateFilter)
 	setQueryIfNotEmpty(query, "q", *q)
 	setQueryIfNotEmpty(query, "sort", *sort)
@@ -637,6 +641,11 @@ func runPRMerge(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
 		return 1
 	}
+	mergeStrategy, err := normalizePRMergeStrategy(*strategy)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
+		return 1
+	}
 
 	client, err := newClientFromProfile(*profile)
 	if err != nil {
@@ -648,8 +657,8 @@ func runPRMerge(args []string, stdout, stderr io.Writer) int {
 	if strings.TrimSpace(*message) != "" {
 		body["message"] = *message
 	}
-	if strings.TrimSpace(*strategy) != "" {
-		body["merge_strategy"] = *strategy
+	if mergeStrategy != "" {
+		body["merge_strategy"] = mergeStrategy
 	}
 	if *closeBranch {
 		body["close_source_branch"] = true
@@ -1801,6 +1810,32 @@ func setOptionalIssueField(body map[string]any, key, value string) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed != "" {
 		body[key] = trimmed
+	}
+}
+
+func normalizePRStateFilter(value string) (string, error) {
+	state := strings.ToUpper(strings.TrimSpace(value))
+	if state == "" {
+		return "", nil
+	}
+	switch state {
+	case "OPEN", "MERGED", "DECLINED":
+		return state, nil
+	default:
+		return "", fmt.Errorf("--state must be one of OPEN, MERGED, DECLINED")
+	}
+}
+
+func normalizePRMergeStrategy(value string) (string, error) {
+	strategy := strings.ToLower(strings.TrimSpace(value))
+	if strategy == "" {
+		return "", nil
+	}
+	switch strategy {
+	case "merge_commit", "squash", "fast_forward":
+		return strategy, nil
+	default:
+		return "", fmt.Errorf("--strategy must be one of merge_commit, squash, fast_forward")
 	}
 }
 
