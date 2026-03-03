@@ -13,6 +13,7 @@ Implemented commands:
 - `bb repo list`
 - `bb pr list`
 - `bb pr create`
+- `bb pr merge`
 - `bb pipeline list`
 - `bb pipeline run`
 - `bb wiki list`
@@ -100,6 +101,7 @@ If developers need to create/update PRs or trigger pipelines, add:
 | `bb repo list` (repo read) | `read:repository:bitbucket` |
 | `bb pr list` (PR read) | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
 | `bb pr create` (PR write) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
+| `bb pr merge` (PR merge) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
 | `bb pipeline list` (pipeline read) | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
 | `bb pipeline run` (pipeline write) | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
 | `bb wiki list/get` (wiki read) | `read:repository:bitbucket`, `read:wiki:bitbucket` |
@@ -168,6 +170,7 @@ Inside a Bitbucket repository, repo-scoped commands can infer `<workspace>/<repo
 ```bash
 bb pr list
 bb pr create --title "My PR" --source feature --destination main
+bb pr merge --id 42 --strategy squash
 bb pipeline list
 bb pipeline run --branch main
 bb issue list
@@ -181,51 +184,59 @@ bb wiki put --page Home.md --content "# Updated"
 7. Create PR (write scope required):
 ```bash
 bb pr create --workspace <workspace-slug> --repo <repo-slug> --title "My PR" --source feature --destination main
+bb pr create --title "My PR" --source feature --destination main --close-branch
 ```
 
-8. List pipelines:
+8. Merge PR (write scope required):
+```bash
+bb pr merge --workspace <workspace-slug> --repo <repo-slug> --id 42
+bb pr merge --id 42 --strategy squash --close-branch
+bb pr merge --id 42 --message "Ship it" --strategy merge_commit
+```
+
+9. List pipelines:
 ```bash
 bb pipeline list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-9. Trigger pipeline (write scope required):
+10. Trigger pipeline (write scope required):
 ```bash
 bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
 ```
 
-10. Generate shell completion (supports subcommand completion):
+11. Generate shell completion (supports subcommand completion):
 ```bash
 bb completion zsh
 # bash/zsh/fish/powershell supported; includes 2-level subcommand completion
-# e.g. `bb pr<TAB>` -> list, create
+# e.g. `bb pr<TAB>` -> list, create, merge
 ```
 
-11. List issues:
+12. List issues:
 ```bash
 bb issue list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-12. Create issue (write scope required):
+13. Create issue (write scope required):
 ```bash
 bb issue create --workspace <workspace-slug> --repo <repo-slug> --title "My issue" --content "details"
 ```
 
-13. Update issue (write scope required):
+14. Update issue (write scope required):
 ```bash
 bb issue update --workspace <workspace-slug> --repo <repo-slug> --id 1 --state resolved
 ```
 
-14. List wiki files:
+15. List wiki files:
 ```bash
 bb wiki list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-15. Read wiki page:
+16. Read wiki page:
 ```bash
 bb wiki get --workspace <workspace-slug> --repo <repo-slug> --page Home.md
 ```
 
-16. Update wiki page (write scope required):
+17. Update wiki page (write scope required):
 ```bash
 bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --content "# Updated"
 ```

@@ -16,6 +16,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -418,6 +419,8 @@ func runPR(args []string, stdout, stderr io.Writer) int {
 		return runPRList(args[1:], stdout, stderr)
 	case "create":
 		return runPRCreate(args[1:], stdout, stderr)
+	case "merge":
+		return runPRMerge(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown pr command: %s\n", args[0])
 		return 1
@@ -507,6 +510,7 @@ func runPRCreate(args []string, stdout, stderr io.Writer) int {
 	source := fs.String("source", "", "source branch name")
 	destination := fs.String("destination", "", "destination branch name")
 	description := fs.String("description", "", "pull request description")
+	closeBranch := fs.Bool("close-branch", false, "delete source branch after merge")
 	profile := fs.String("profile", "", "profile name override")
 	output := fs.String("output", "text", "output format: text|json")
 	fs.Usage = func() { printPRCreateHelp(stdout) }
@@ -557,6 +561,9 @@ func runPRCreate(args []string, stdout, stderr io.Writer) int {
 	if strings.TrimSpace(*description) != "" {
 		body["description"] = *description
 	}
+	if *closeBranch {
+		body["close_source_branch"] = true
+	}
 	payload, err := json.Marshal(body)
 	if err != nil {
 		fmt.Fprintf(stderr, "encode request body: %v\n", err)
@@ -577,6 +584,84 @@ func runPRCreate(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "Created PR #%d (%s): %s\n", created.ID, created.State, created.Title)
 		if strings.TrimSpace(created.Links.HTML.Href) != "" {
 			fmt.Fprintf(stdout, "URL: %s\n", created.Links.HTML.Href)
+		}
+		return 0
+	default:
+		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
+		return 1
+	}
+}
+
+func runPRMerge(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("pr merge", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	workspace := fs.String("workspace", "", "workspace slug")
+	repo := fs.String("repo", "", "repository slug")
+	prID := fs.String("id", "", "pull request ID")
+	message := fs.String("message", "", "merge commit message")
+	strategy := fs.String("strategy", "", "merge strategy: merge_commit|squash|fast_forward")
+	closeBranch := fs.Bool("close-branch", false, "delete source branch after merge")
+	profile := fs.String("profile", "", "profile name override")
+	output := fs.String("output", "text", "output format: text|json")
+	fs.Usage = func() { printPRMergeHelp(stdout) }
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
+	if err != nil {
+		fmt.Fprintln(stderr, err.Error())
+		return 1
+	}
+	idStr := strings.TrimSpace(*prID)
+	if idStr == "" {
+		fmt.Fprintln(stderr, "--id is required")
+		return 1
+	}
+	if _, err := strconv.Atoi(idStr); err != nil {
+		fmt.Fprintf(stderr, "--id must be a number: %s\n", idStr)
+		return 1
+	}
+
+	client, err := newClientFromProfile(*profile)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	body := map[string]any{}
+	if strings.TrimSpace(*message) != "" {
+		body["message"] = *message
+	}
+	if strings.TrimSpace(*strategy) != "" {
+		body["merge_strategy"] = *strategy
+	}
+	if *closeBranch {
+		body["close_source_branch"] = true
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		fmt.Fprintf(stderr, "encode request body: %v\n", err)
+		return 1
+	}
+
+	apiPath := fmt.Sprintf("/repositories/%s/%s/pullrequests/%s/merge", workspaceSlug, repoSlug, idStr)
+	var merged pullRequestRow
+	if err := client.DoJSON(context.Background(), http.MethodPost, apiPath, nil, bytes.NewReader(payload), &merged); err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	switch *output {
+	case "json":
+		return printJSON(stdout, merged, stderr)
+	case "text":
+		fmt.Fprintf(stdout, "Merged PR #%d (%s): %s\n", merged.ID, merged.State, merged.Title)
+		if strings.TrimSpace(merged.Links.HTML.Href) != "" {
+			fmt.Fprintf(stdout, "URL: %s\n", merged.Links.HTML.Href)
 		}
 		return 0
 	default:
@@ -1799,7 +1884,7 @@ const bashCompletionScript = `_bb_complete() {
   case "${prev}" in
     auth)       COMPREPLY=($(compgen -W "login status logout" -- "${cur}")); return;;
     repo)       COMPREPLY=($(compgen -W "list" -- "${cur}")); return;;
-    pr)         COMPREPLY=($(compgen -W "list create" -- "${cur}")); return;;
+    pr)         COMPREPLY=($(compgen -W "list create merge" -- "${cur}")); return;;
     pipeline)   COMPREPLY=($(compgen -W "list run" -- "${cur}")); return;;
     issue)      COMPREPLY=($(compgen -W "list create update" -- "${cur}")); return;;
     wiki)       COMPREPLY=($(compgen -W "list get put" -- "${cur}")); return;;
@@ -1819,7 +1904,7 @@ var zshCompletionScript = strings.Join([]string{
 	"  case $words[1] in",
 	"    auth)       subcmds=(login status logout);;",
 	"    repo)       subcmds=(list);;",
-	"    pr)         subcmds=(list create);;",
+	"    pr)         subcmds=(list create merge);;",
 	"    pipeline)   subcmds=(list run);;",
 	"    issue)      subcmds=(list create update);;",
 	"    wiki)       subcmds=(list get put);;",
@@ -1834,7 +1919,7 @@ var fishCompletionScript = strings.Join([]string{
 	`complete -c bb -f -n '__fish_use_subcommand' -a "auth api repo pr pipeline wiki issue completion version help"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from auth' -a "login status logout"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from repo' -a "list"`,
-	`complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create merge"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from pipeline' -a "list run"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from issue' -a "list create update"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from wiki' -a "list get put"`,
@@ -1848,7 +1933,7 @@ var powershellCompletionScript = strings.Join([]string{
 	"  $subcmds = @{",
 	"    'auth'       = @('login','status','logout')",
 	"    'repo'       = @('list')",
-	"    'pr'         = @('list','create')",
+	"    'pr'         = @('list','create','merge')",
 	"    'pipeline'   = @('list','run')",
 	"    'issue'      = @('list','create','update')",
 	"    'wiki'       = @('list','get','put')",

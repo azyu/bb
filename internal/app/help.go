@@ -53,6 +53,7 @@ func printPRUsage(w io.Writer) {
 	fmt.Fprintln(w, "Commands:")
 	fmt.Fprintln(w, "  list     List pull requests")
 	fmt.Fprintln(w, "  create   Create a pull request")
+	fmt.Fprintln(w, "  merge    Merge a pull request")
 }
 
 func printPipelineUsage(w io.Writer) {
@@ -193,6 +194,23 @@ func printPRCreateHelp(w io.Writer) {
 			{"source", "Source branch name", "(required)"},
 			{"destination", "Destination branch name", "(required)"},
 			{"description", "Pull request description", ""},
+			{"close-branch", "Delete source branch after merge", ""},
+			{"profile", "Profile name override", ""},
+			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPRMergeHelp(w io.Writer) {
+	printCmdHelp(w, "pr merge",
+		"Merge a pull request",
+		"bb pr merge [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"message", "Merge commit message", ""},
+			{"strategy", "Merge strategy: merge_commit|squash|fast_forward", ""},
+			{"close-branch", "Delete source branch after merge", ""},
 			{"profile", "Profile name override", ""},
 			{"output", "Output format: text|json", "(default \"text\")"},
 		})

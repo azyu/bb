@@ -131,11 +131,30 @@ This document is the contract baseline for `bb` command behavior.
   - `--destination`
 - Optional flags:
   - `--description`
+  - `--close-branch` (delete source branch after merge)
   - `--profile`
   - `--output` (`text` default, `json`)
 - Output:
   - `text`: created PR summary and URL when provided by API
   - `json`: created pull request object
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Unsupported output -> non-zero exit
+
+### `bb pr merge`
+- Purpose: Merge a pull request.
+- Required flags:
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
+  - `--id` (pull request ID)
+- Optional flags:
+  - `--message` (merge commit message)
+  - `--strategy` (`merge_commit|squash|fast_forward`)
+  - `--close-branch` (delete source branch after merge)
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: merged PR summary and URL when provided by API
+  - `json`: merged pull request object
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - Unsupported output -> non-zero exit

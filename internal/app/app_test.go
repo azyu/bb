@@ -1808,3 +1808,204 @@ func TestAPIFailsWhenTokenMissing(t *testing.T) {
 		t.Fatalf("expected non-zero exit, stderr=%q", stderr.String())
 	}
 }
+
+func TestPRCreateCloseBranch(t *testing.T) {
+	var gotBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "OPEN",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "create",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--title", "Add feature",
+		"--source", "feature",
+		"--destination", "main",
+		"--close-branch",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotBody["close_source_branch"] != true {
+		t.Fatalf("expected close_source_branch=true, got %v", gotBody["close_source_branch"])
+	}
+}
+
+func TestPRCreateWithoutCloseBranch(t *testing.T) {
+	var gotBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "OPEN",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "create",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--title", "Add feature",
+		"--source", "feature",
+		"--destination", "main",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if _, exists := gotBody["close_source_branch"]; exists {
+		t.Fatalf("expected close_source_branch absent, got %v", gotBody["close_source_branch"])
+	}
+}
+
+func TestPRMerge(t *testing.T) {
+	var gotMethod string
+	var gotPath string
+	var gotBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "MERGED",
+			"links": map[string]any{
+				"html": map[string]any{
+					"href": "https://bitbucket.org/acme/app/pull-requests/42",
+				},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "merge",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--id", "42",
+		"--message", "Ship it",
+		"--strategy", "squash",
+		"--close-branch",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if gotMethod != http.MethodPost {
+		t.Fatalf("expected POST, got %q", gotMethod)
+	}
+	if gotPath != "/2.0/repositories/acme/app/pullrequests/42/merge" {
+		t.Fatalf("unexpected path: %q", gotPath)
+	}
+	if gotBody["message"] != "Ship it" {
+		t.Fatalf("unexpected message: %v", gotBody["message"])
+	}
+	if gotBody["merge_strategy"] != "squash" {
+		t.Fatalf("unexpected strategy: %v", gotBody["merge_strategy"])
+	}
+	if gotBody["close_source_branch"] != true {
+		t.Fatalf("expected close_source_branch=true, got %v", gotBody["close_source_branch"])
+	}
+	if !strings.Contains(stdout.String(), "Merged PR #42") {
+		t.Fatalf("unexpected output: %q", stdout.String())
+	}
+}
+
+func TestPRMergeJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":    42,
+			"title": "Add feature",
+			"state": "MERGED",
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", server.URL+"/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "merge",
+		"--workspace", "acme",
+		"--repo", "app",
+		"--id", "42",
+		"--output", "json",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d, stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "MERGED") {
+		t.Fatalf("expected MERGED in json output, got %q", stdout.String())
+	}
+}
+
+func TestPRMergeRequiredFlags(t *testing.T) {
+	t.Setenv("BB_CONFIG_PATH", filepath.Join(t.TempDir(), "config.json"))
+	cfg := &config.Config{}
+	cfg.SetProfile("default", "token-123", "https://api.bitbucket.org/2.0")
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config failed: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{
+		"pr", "merge",
+		"--workspace", "acme",
+		"--repo", "app",
+	}, &stdout, &stderr)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit when --id missing")
+	}
+	if !strings.Contains(stderr.String(), "--id is required") {
+		t.Fatalf("expected --id required error, got %q", stderr.String())
+	}
+}

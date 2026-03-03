@@ -13,6 +13,7 @@
 - `bb repo list`
 - `bb pr list`
 - `bb pr create`
+- `bb pr merge`
 - `bb pipeline list`
 - `bb pipeline run`
 - `bb wiki list`
@@ -100,6 +101,7 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 | `bb repo list` (저장소 조회) | `read:repository:bitbucket` |
 | `bb pr list` (PR 조회) | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
 | `bb pr create` (PR 생성/수정) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
+| `bb pr merge` (PR 머지) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
 | `bb pipeline list` (Pipeline 조회) | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
 | `bb pipeline run` (Pipeline 실행/수정) | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
 | `bb wiki list/get` (Wiki 조회) | `read:repository:bitbucket`, `read:wiki:bitbucket` |
@@ -168,6 +170,7 @@ Bitbucket 저장소 디렉토리에서 실행하면 repo 대상 명령은 `remot
 ```bash
 bb pr list
 bb pr create --title "My PR" --source feature --destination main
+bb pr merge --id 42 --strategy squash
 bb pipeline list
 bb pipeline run --branch main
 bb issue list
@@ -181,51 +184,59 @@ bb wiki put --page Home.md --content "# Updated"
 7. PR 생성 (쓰기 scope 필요):
 ```bash
 bb pr create --workspace <workspace-slug> --repo <repo-slug> --title "My PR" --source feature --destination main
+bb pr create --title "My PR" --source feature --destination main --close-branch
 ```
 
-8. Pipeline 목록 조회:
+8. PR 머지 (쓰기 scope 필요):
+```bash
+bb pr merge --workspace <workspace-slug> --repo <repo-slug> --id 42
+bb pr merge --id 42 --strategy squash --close-branch
+bb pr merge --id 42 --message "Ship it" --strategy merge_commit
+```
+
+9. Pipeline 목록 조회:
 ```bash
 bb pipeline list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-9. Pipeline 실행 (쓰기 scope 필요):
+10. Pipeline 실행 (쓰기 scope 필요):
 ```bash
 bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
 ```
 
-10. 셸 자동완성 스크립트 생성 (서브커맨드 자동완성 지원):
+11. 셸 자동완성 스크립트 생성 (서브커맨드 자동완성 지원):
 ```bash
 bb completion zsh
 # bash/zsh/fish/powershell 지원; 2단계 서브커맨드 자동완성 포함
-# 예: `bb pr<TAB>` -> list, create
+# 예: `bb pr<TAB>` -> list, create, merge
 ```
 
-11. 이슈 목록 조회:
+12. 이슈 목록 조회:
 ```bash
 bb issue list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-12. 이슈 생성 (쓰기 scope 필요):
+13. 이슈 생성 (쓰기 scope 필요):
 ```bash
 bb issue create --workspace <workspace-slug> --repo <repo-slug> --title "My issue" --content "details"
 ```
 
-13. 이슈 수정 (쓰기 scope 필요):
+14. 이슈 수정 (쓰기 scope 필요):
 ```bash
 bb issue update --workspace <workspace-slug> --repo <repo-slug> --id 1 --state resolved
 ```
 
-14. Wiki 파일 목록 조회:
+15. Wiki 파일 목록 조회:
 ```bash
 bb wiki list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-15. Wiki 페이지 읽기:
+16. Wiki 페이지 읽기:
 ```bash
 bb wiki get --workspace <workspace-slug> --repo <repo-slug> --page Home.md
 ```
 
-16. Wiki 페이지 수정 (쓰기 scope 필요):
+17. Wiki 페이지 수정 (쓰기 scope 필요):
 ```bash
 bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --content "# Updated"
 ```
