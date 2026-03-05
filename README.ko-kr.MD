@@ -6,22 +6,13 @@
 `bb`는 `gh` 스타일 명령 구성을 참고한 Go 기반 Bitbucket Cloud CLI입니다.
 
 현재 구현된 명령:
-- `bb auth login`
-- `bb auth status`
-- `bb auth logout`
+- `bb auth <login|status|logout>`
 - `bb api`
-- `bb repo list`
-- `bb pr list`
-- `bb pr create`
-- `bb pr merge`
-- `bb pipeline list`
-- `bb pipeline run`
-- `bb wiki list`
-- `bb wiki get`
-- `bb wiki put`
-- `bb issue list`
-- `bb issue create`
-- `bb issue update`
+- `bb repo <list>`
+- `bb pr <list|create|merge|view|edit|approve|unapprove|decline|request-changes|comment|comments|diff|statuses|checkout|activity>`
+- `bb pipeline <list|run>`
+- `bb wiki <list|get|put>`
+- `bb issue <list|create|update>`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
 
