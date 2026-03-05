@@ -51,9 +51,21 @@ func printPRUsage(w io.Writer) {
 	fmt.Fprintln(w, "  bb pr <command>")
 	fmt.Fprintln(w, "")
 	fmt.Fprintln(w, "Commands:")
-	fmt.Fprintln(w, "  list     List pull requests")
-	fmt.Fprintln(w, "  create   Create a pull request")
-	fmt.Fprintln(w, "  merge    Merge a pull request")
+	fmt.Fprintln(w, "  list              List pull requests")
+	fmt.Fprintln(w, "  create            Create a pull request")
+	fmt.Fprintln(w, "  merge             Merge a pull request")
+	fmt.Fprintln(w, "  view              View pull request details")
+	fmt.Fprintln(w, "  edit              Update a pull request")
+	fmt.Fprintln(w, "  approve           Approve a pull request")
+	fmt.Fprintln(w, "  decline           Decline a pull request")
+	fmt.Fprintln(w, "  comment           Add a comment to a pull request")
+	fmt.Fprintln(w, "  diff              View pull request diff")
+	fmt.Fprintln(w, "  statuses          Show build/CI statuses")
+	fmt.Fprintln(w, "  unapprove         Remove approval from a pull request")
+	fmt.Fprintln(w, "  request-changes   Request changes on a pull request")
+	fmt.Fprintln(w, "  checkout          Check out PR source branch locally")
+	fmt.Fprintln(w, "  activity          View pull request activity feed")
+	fmt.Fprintln(w, "  comments          List pull request comments")
 }
 
 func printPipelineUsage(w io.Writer) {
@@ -213,6 +225,167 @@ func printPRMergeHelp(w io.Writer) {
 			{"close-branch", "Delete source branch after merge", ""},
 			{"profile", "Profile name override", ""},
 			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPRViewHelp(w io.Writer) {
+	printCmdHelp(w, "pr view",
+		"View pull request details",
+		"bb pr view [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"profile", "Profile name override", ""},
+			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPREditHelp(w io.Writer) {
+	printCmdHelp(w, "pr edit",
+		"Update a pull request",
+		"bb pr edit [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"title", "Pull request title", ""},
+			{"description", "Pull request description", ""},
+			{"close-branch", "Delete source branch after merge", ""},
+			{"profile", "Profile name override", ""},
+			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPRApproveHelp(w io.Writer) {
+	printCmdHelp(w, "pr approve",
+		"Approve a pull request",
+		"bb pr approve [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"profile", "Profile name override", ""},
+			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPRDeclineHelp(w io.Writer) {
+	printCmdHelp(w, "pr decline",
+		"Decline a pull request",
+		"bb pr decline [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"profile", "Profile name override", ""},
+			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPRCommentHelp(w io.Writer) {
+	printCmdHelp(w, "pr comment",
+		"Add a comment to a pull request",
+		"bb pr comment [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"body", "Comment body text", "(required)"},
+			{"profile", "Profile name override", ""},
+			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPRDiffHelp(w io.Writer) {
+	printCmdHelp(w, "pr diff",
+		"View pull request diff",
+		"bb pr diff [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"profile", "Profile name override", ""},
+		})
+}
+
+func printPRStatusesHelp(w io.Writer) {
+	printCmdHelp(w, "pr statuses",
+		"Show build/CI statuses for a pull request",
+		"bb pr statuses [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"output", "Output format: table|json", "(default \"table\")"},
+			{"all", "Fetch all pages", ""},
+			{"profile", "Profile name override", ""},
+		})
+}
+
+func printPRUnapproveHelp(w io.Writer) {
+	printCmdHelp(w, "pr unapprove",
+		"Remove approval from a pull request",
+		"bb pr unapprove [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"profile", "Profile name override", ""},
+			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPRRequestChangesHelp(w io.Writer) {
+	printCmdHelp(w, "pr request-changes",
+		"Request changes on a pull request",
+		"bb pr request-changes [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"profile", "Profile name override", ""},
+			{"output", "Output format: text|json", "(default \"text\")"},
+		})
+}
+
+func printPRCheckoutHelp(w io.Writer) {
+	printCmdHelp(w, "pr checkout",
+		"Check out PR source branch locally",
+		"bb pr checkout [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"profile", "Profile name override", ""},
+		})
+}
+
+func printPRActivityHelp(w io.Writer) {
+	printCmdHelp(w, "pr activity",
+		"View pull request activity feed",
+		"bb pr activity [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"output", "Output format: table|json", "(default \"table\")"},
+			{"all", "Fetch all pages", ""},
+			{"profile", "Profile name override", ""},
+		})
+}
+
+func printPRCommentsHelp(w io.Writer) {
+	printCmdHelp(w, "pr comments",
+		"List pull request comments",
+		"bb pr comments [flags]",
+		[][3]string{
+			{"workspace", "Workspace slug", ""},
+			{"repo", "Repository slug", ""},
+			{"id", "Pull request ID", "(required)"},
+			{"output", "Output format: table|json", "(default \"table\")"},
+			{"all", "Fetch all pages", ""},
+			{"profile", "Profile name override", ""},
 		})
 }
 
