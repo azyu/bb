@@ -16,7 +16,6 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -403,288 +402,6 @@ func runRepoList(args []string, stdout, stderr io.Writer) int {
 		return printJSON(stdout, values, stderr)
 	case "table":
 		return printRepoTable(stdout, values, stderr)
-	default:
-		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
-		return 1
-	}
-}
-
-func runPR(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 || isHelpArg(args[0]) {
-		printPRUsage(stdout)
-		return 0
-	}
-	switch args[0] {
-	case "list":
-		return runPRList(args[1:], stdout, stderr)
-	case "create":
-		return runPRCreate(args[1:], stdout, stderr)
-	case "merge":
-		return runPRMerge(args[1:], stdout, stderr)
-	default:
-		fmt.Fprintf(stderr, "unknown pr command: %s\n", args[0])
-		return 1
-	}
-}
-
-func runPRList(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("pr list", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	workspace := fs.String("workspace", "", "workspace slug")
-	repo := fs.String("repo", "", "repository slug")
-	output := fs.String("output", "table", "output format: table|json")
-	all := fs.Bool("all", false, "fetch all pages")
-	profile := fs.String("profile", "", "profile name override")
-	state := fs.String("state", "", "pull request state filter (OPEN|MERGED|DECLINED)")
-	q := fs.String("q", "", "Bitbucket q filter")
-	sort := fs.String("sort", "", "sort expression")
-	fields := fs.String("fields", "", "partial fields selector")
-	fs.Usage = func() { printPRListHelp(stdout) }
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return 0
-		}
-		fmt.Fprintf(stderr, "%v\n", err)
-		return 1
-	}
-	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
-	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
-		return 1
-	}
-	stateFilter, err := normalizePRStateFilter(*state)
-	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
-		return 1
-	}
-
-	client, err := newClientFromProfile(*profile)
-	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
-		return 1
-	}
-
-	query := url.Values{}
-	setQueryIfNotEmpty(query, "state", stateFilter)
-	setQueryIfNotEmpty(query, "q", *q)
-	setQueryIfNotEmpty(query, "sort", *sort)
-	setQueryIfNotEmpty(query, "fields", *fields)
-
-	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", workspaceSlug, repoSlug)
-	var values []json.RawMessage
-	totalCount := -1
-	if *all {
-		values, err = client.GetAllValues(context.Background(), path, query)
-		if err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
-			return 1
-		}
-	} else {
-		var page struct {
-			Values []json.RawMessage `json:"values"`
-			Size   int               `json:"size"`
-		}
-		if err := client.DoJSON(context.Background(), http.MethodGet, path, query, nil, &page); err != nil {
-			fmt.Fprintf(stderr, "%v\n", err)
-			return 1
-		}
-		values = page.Values
-		if page.Size > 0 {
-			totalCount = page.Size
-		}
-	}
-
-	switch *output {
-	case "json":
-		return printJSON(stdout, values, stderr)
-	case "table":
-		return printPRTable(stdout, values, workspaceSlug, repoSlug, stateFilter, totalCount, stderr)
-	default:
-		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
-		return 1
-	}
-}
-
-func runPRCreate(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("pr create", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	workspace := fs.String("workspace", "", "workspace slug")
-	repo := fs.String("repo", "", "repository slug")
-	title := fs.String("title", "", "pull request title")
-	source := fs.String("source", "", "source branch name")
-	destination := fs.String("destination", "", "destination branch name")
-	description := fs.String("description", "", "pull request description")
-	closeBranch := fs.Bool("close-branch", false, "delete source branch after merge")
-	profile := fs.String("profile", "", "profile name override")
-	output := fs.String("output", "text", "output format: text|json")
-	fs.Usage = func() { printPRCreateHelp(stdout) }
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return 0
-		}
-		fmt.Fprintf(stderr, "%v\n", err)
-		return 1
-	}
-	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
-	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
-		return 1
-	}
-	if strings.TrimSpace(*title) == "" {
-		fmt.Fprintln(stderr, "--title is required")
-		return 1
-	}
-	if strings.TrimSpace(*source) == "" {
-		fmt.Fprintln(stderr, "--source is required")
-		return 1
-	}
-	if strings.TrimSpace(*destination) == "" {
-		fmt.Fprintln(stderr, "--destination is required")
-		return 1
-	}
-	switch *output {
-	case "json", "text":
-	default:
-		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
-		return 1
-	}
-
-	client, err := newClientFromProfile(*profile)
-	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
-		return 1
-	}
-
-	body := map[string]any{
-		"title": *title,
-		"source": map[string]any{
-			"branch": map[string]any{
-				"name": *source,
-			},
-		},
-		"destination": map[string]any{
-			"branch": map[string]any{
-				"name": *destination,
-			},
-		},
-	}
-	if strings.TrimSpace(*description) != "" {
-		body["description"] = *description
-	}
-	if *closeBranch {
-		body["close_source_branch"] = true
-	}
-	payload, err := json.Marshal(body)
-	if err != nil {
-		fmt.Fprintf(stderr, "encode request body: %v\n", err)
-		return 1
-	}
-
-	path := fmt.Sprintf("/repositories/%s/%s/pullrequests", workspaceSlug, repoSlug)
-	var created pullRequestRow
-	if err := client.DoJSON(context.Background(), http.MethodPost, path, nil, bytes.NewReader(payload), &created); err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
-		return 1
-	}
-
-	switch *output {
-	case "json":
-		return printJSON(stdout, created, stderr)
-	case "text":
-		fmt.Fprintf(stdout, "Created PR #%d (%s): %s\n", created.ID, created.State, created.Title)
-		if strings.TrimSpace(created.Links.HTML.Href) != "" {
-			fmt.Fprintf(stdout, "URL: %s\n", created.Links.HTML.Href)
-		}
-		return 0
-	default:
-		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
-		return 1
-	}
-}
-
-func runPRMerge(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("pr merge", flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	workspace := fs.String("workspace", "", "workspace slug")
-	repo := fs.String("repo", "", "repository slug")
-	prID := fs.String("id", "", "pull request ID")
-	message := fs.String("message", "", "merge commit message")
-	strategy := fs.String("strategy", "", "merge strategy: merge_commit|squash|fast_forward")
-	closeBranch := fs.Bool("close-branch", false, "delete source branch after merge")
-	profile := fs.String("profile", "", "profile name override")
-	output := fs.String("output", "text", "output format: text|json")
-	fs.Usage = func() { printPRMergeHelp(stdout) }
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return 0
-		}
-		fmt.Fprintf(stderr, "%v\n", err)
-		return 1
-	}
-	workspaceSlug, repoSlug, err := resolveRepoTarget(*workspace, *repo, true)
-	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
-		return 1
-	}
-	idStr := strings.TrimSpace(*prID)
-	if idStr == "" {
-		fmt.Fprintln(stderr, "--id is required")
-		return 1
-	}
-	if _, err := strconv.Atoi(idStr); err != nil {
-		fmt.Fprintf(stderr, "--id must be a number: %s\n", idStr)
-		return 1
-	}
-	switch *output {
-	case "json", "text":
-	default:
-		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
-		return 1
-	}
-	mergeStrategy, err := normalizePRMergeStrategy(*strategy)
-	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
-		return 1
-	}
-
-	client, err := newClientFromProfile(*profile)
-	if err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
-		return 1
-	}
-
-	body := map[string]any{}
-	if strings.TrimSpace(*message) != "" {
-		body["message"] = *message
-	}
-	if mergeStrategy != "" {
-		body["merge_strategy"] = mergeStrategy
-	}
-	if *closeBranch {
-		body["close_source_branch"] = true
-	}
-	payload, err := json.Marshal(body)
-	if err != nil {
-		fmt.Fprintf(stderr, "encode request body: %v\n", err)
-		return 1
-	}
-
-	apiPath := fmt.Sprintf("/repositories/%s/%s/pullrequests/%s/merge", workspaceSlug, repoSlug, idStr)
-	var merged pullRequestRow
-	if err := client.DoJSON(context.Background(), http.MethodPost, apiPath, nil, bytes.NewReader(payload), &merged); err != nil {
-		fmt.Fprintf(stderr, "%v\n", err)
-		return 1
-	}
-
-	switch *output {
-	case "json":
-		return printJSON(stdout, merged, stderr)
-	case "text":
-		fmt.Fprintf(stdout, "Merged PR #%d (%s): %s\n", merged.ID, merged.State, merged.Title)
-		if strings.TrimSpace(merged.Links.HTML.Href) != "" {
-			fmt.Fprintf(stdout, "URL: %s\n", merged.Links.HTML.Href)
-		}
-		return 0
 	default:
 		fmt.Fprintf(stderr, "unsupported output format: %s\n", *output)
 		return 1
@@ -1397,28 +1114,6 @@ func runCompletion(args []string, stdout, stderr io.Writer) int {
 	}
 }
 
-type pullRequestRow struct {
-	ID        int    `json:"id"`
-	Title     string `json:"title"`
-	State     string `json:"state"`
-	CreatedOn string `json:"created_on"`
-	Links     struct {
-		HTML struct {
-			Href string `json:"href"`
-		} `json:"html"`
-	} `json:"links"`
-	Source struct {
-		Branch struct {
-			Name string `json:"name"`
-		} `json:"branch"`
-	} `json:"source"`
-	Destination struct {
-		Branch struct {
-			Name string `json:"name"`
-		} `json:"branch"`
-	} `json:"destination"`
-}
-
 type pipelineRow struct {
 	UUID  string `json:"uuid"`
 	State struct {
@@ -1471,108 +1166,6 @@ func printRepoTable(stdout io.Writer, values []json.RawMessage, stderr io.Writer
 		return 1
 	}
 	return 0
-}
-
-func printPRTable(stdout io.Writer, values []json.RawMessage, workspace, repo, stateFilter string, totalCount int, stderr io.Writer) int {
-	rows := make([]pullRequestRow, 0, len(values))
-	for _, raw := range values {
-		var row pullRequestRow
-		if err := json.Unmarshal(raw, &row); err != nil {
-			fmt.Fprintf(stderr, "decode pull request row: %v\n", err)
-			return 1
-		}
-		rows = append(rows, row)
-	}
-
-	stateLabel := describePRListState(stateFilter)
-	if totalCount > len(rows) {
-		fmt.Fprintf(stdout, "Showing %d of %d %s in %s/%s\n\n", len(rows), totalCount, stateLabel, workspace, repo)
-	} else {
-		fmt.Fprintf(stdout, "Showing %d %s in %s/%s\n\n", len(rows), stateLabel, workspace, repo)
-	}
-
-	useColor := shouldUseColor(stdout)
-	headers := []string{"ID", "TITLE", "BRANCH", "CREATED AT"}
-	type viewRow struct {
-		ID        string
-		Title     string
-		Branch    string
-		CreatedAt string
-	}
-	viewRows := make([]viewRow, 0, len(rows))
-	widthID := utf8.RuneCountInString(headers[0])
-	widthTitle := utf8.RuneCountInString(headers[1])
-	widthBranch := utf8.RuneCountInString(headers[2])
-	widthCreatedAt := utf8.RuneCountInString(headers[3])
-
-	for _, row := range rows {
-		branch := strings.TrimSpace(row.Source.Branch.Name)
-		if branch == "" {
-			branch = "-"
-		}
-		title := strings.TrimSpace(row.Title)
-		if title == "" {
-			title = "-"
-		}
-		createdAt := relativeTimeLabel(row.CreatedOn)
-		view := viewRow{
-			ID:        fmt.Sprintf("#%d", row.ID),
-			Title:     title,
-			Branch:    branch,
-			CreatedAt: createdAt,
-		}
-		viewRows = append(viewRows, view)
-		widthID = maxRuneWidth(widthID, view.ID)
-		widthTitle = maxRuneWidth(widthTitle, view.Title)
-		widthBranch = maxRuneWidth(widthBranch, view.Branch)
-		widthCreatedAt = maxRuneWidth(widthCreatedAt, view.CreatedAt)
-	}
-
-	headerID := padRight(headers[0], widthID)
-	headerTitle := padRight(headers[1], widthTitle)
-	headerBranch := padRight(headers[2], widthBranch)
-	headerCreatedAt := padRight(headers[3], widthCreatedAt)
-	fmt.Fprintf(
-		stdout,
-		"%s  %s  %s  %s\n",
-		ansi(headerID, "1", useColor),
-		ansi(headerTitle, "1", useColor),
-		ansi(headerBranch, "1", useColor),
-		ansi(headerCreatedAt, "1", useColor),
-	)
-
-	for _, row := range viewRows {
-		id := padRight(row.ID, widthID)
-		title := padRight(row.Title, widthTitle)
-		branch := padRight(row.Branch, widthBranch)
-		createdAt := padRight(row.CreatedAt, widthCreatedAt)
-		fmt.Fprintf(
-			stdout,
-			"%s  %s  %s  %s\n",
-			ansi(id, "1;36", useColor),
-			title,
-			ansi(branch, "36", useColor),
-			ansi(createdAt, "2", useColor),
-		)
-	}
-
-	return 0
-}
-
-func describePRListState(stateFilter string) string {
-	state := strings.ToUpper(strings.TrimSpace(stateFilter))
-	switch state {
-	case "OPEN":
-		return "open pull requests"
-	case "MERGED":
-		return "merged pull requests"
-	case "DECLINED":
-		return "declined pull requests"
-	case "":
-		return "pull requests"
-	default:
-		return strings.ToLower(state) + " pull requests"
-	}
 }
 
 func relativeTimeLabel(createdOn string) string {
@@ -1813,32 +1406,6 @@ func setOptionalIssueField(body map[string]any, key, value string) {
 	}
 }
 
-func normalizePRStateFilter(value string) (string, error) {
-	state := strings.ToUpper(strings.TrimSpace(value))
-	if state == "" {
-		return "", nil
-	}
-	switch state {
-	case "OPEN", "MERGED", "DECLINED":
-		return state, nil
-	default:
-		return "", fmt.Errorf("--state must be one of OPEN, MERGED, DECLINED")
-	}
-}
-
-func normalizePRMergeStrategy(value string) (string, error) {
-	strategy := strings.ToLower(strings.TrimSpace(value))
-	if strategy == "" {
-		return "", nil
-	}
-	switch strategy {
-	case "merge_commit", "squash", "fast_forward":
-		return strategy, nil
-	default:
-		return "", fmt.Errorf("--strategy must be one of merge_commit, squash, fast_forward")
-	}
-}
-
 func resolveRepoTarget(workspaceValue, repoValue string, requireRepo bool) (string, string, error) {
 	workspace := strings.TrimSpace(workspaceValue)
 	repo := strings.TrimSpace(repoValue)
@@ -1931,7 +1498,7 @@ const bashCompletionScript = `_bb_complete() {
   case "${prev}" in
     auth)       COMPREPLY=($(compgen -W "login status logout" -- "${cur}")); return;;
     repo)       COMPREPLY=($(compgen -W "list" -- "${cur}")); return;;
-    pr)         COMPREPLY=($(compgen -W "list create merge" -- "${cur}")); return;;
+    pr)         COMPREPLY=($(compgen -W "list create merge view edit approve decline comment diff statuses" -- "${cur}")); return;;
     pipeline)   COMPREPLY=($(compgen -W "list run" -- "${cur}")); return;;
     issue)      COMPREPLY=($(compgen -W "list create update" -- "${cur}")); return;;
     wiki)       COMPREPLY=($(compgen -W "list get put" -- "${cur}")); return;;
@@ -1966,7 +1533,7 @@ var fishCompletionScript = strings.Join([]string{
 	`complete -c bb -f -n '__fish_use_subcommand' -a "auth api repo pr pipeline wiki issue completion version help"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from auth' -a "login status logout"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from repo' -a "list"`,
-	`complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create merge"`,
+	`complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create merge view edit approve decline comment diff statuses"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from pipeline' -a "list run"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from issue' -a "list create update"`,
 	`complete -c bb -f -n '__fish_seen_subcommand_from wiki' -a "list get put"`,
@@ -1980,7 +1547,7 @@ var powershellCompletionScript = strings.Join([]string{
 	"  $subcmds = @{",
 	"    'auth'       = @('login','status','logout')",
 	"    'repo'       = @('list')",
-	"    'pr'         = @('list','create','merge')",
+	"    'pr'         = @('list','create','merge','view','edit','approve','decline','comment','diff','statuses')",
 	"    'pipeline'   = @('list','run')",
 	"    'issue'      = @('list','create','update')",
 	"    'wiki'       = @('list','get','put')",
