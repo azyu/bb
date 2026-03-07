@@ -127,6 +127,21 @@ Current minimum checklist:
 
 Use file-scoped checks first when possible (e.g. `cargo test --manifest-path rust/Cargo.toml -p bb-core`).
 
+## Definition of Done
+
+A task is done only when all of the following are true:
+- The requested code or documentation change is implemented with the smallest necessary diff.
+- `docs/SPEC.md`, `docs/references.md`, `AGENTS.md`, `.context/STEERING.md`, and `.context/TASKS.md` are updated when the task changes their source-of-truth scope.
+- Relevant verification commands have been run at the smallest meaningful scope and passed, or any skipped checks are called out explicitly.
+- The final diff is reviewable and free of unrelated edits.
+- The final change set is ready to land through the Git/PR flow below.
+
+After the DoD checklist is satisfied, do not treat the task as closed until all of the following are complete:
+1. Put the final change set on a branch based on the latest `main`.
+2. Split the work into logical commits.
+3. Push that branch to `origin`.
+4. Open a PR with the summary, verification commands, assumptions, and unresolved questions.
+
 ## Testing
 
 Testing uses Rust's standard testing support via Cargo.
@@ -140,6 +155,9 @@ Rules:
 ## Commit & PR Guidelines
 
 - Keep each change set focused on one goal.
+- Use a branch based on the latest `main` for the final reviewable change set.
+- Split non-trivial work into logical commits instead of one large checkpoint commit.
+- Push the review branch and open a PR once the DoD checklist is satisfied.
 - Include verification commands actually run.
 - If a command could not be run, state that explicitly.
 - Document assumptions and unresolved questions in the PR description.
