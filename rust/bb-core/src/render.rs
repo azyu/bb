@@ -64,7 +64,7 @@ pub fn repo_usage() -> &'static str {
 }
 
 pub fn pr_usage() -> &'static str {
-    "Pull request operations\n\nUsage:\n  bb pr <command>\n\nCommands:\n  list    List pull requests\n  create  Create a pull request\n  merge   Merge a pull request\n"
+    "Pull request operations\n\nUsage:\n  bb pr <command>\n\nCommands:\n  list                    List pull requests\n  create                  Create a pull request\n  merge                   Merge a pull request\n  get                     Get a pull request\n  update                  Update a pull request\n  approve                 Approve a pull request\n  unapprove               Unapprove a pull request\n  request-changes         Request changes on a pull request\n  remove-request-changes  Remove change request for a pull request\n  decline                 Decline a pull request\n  comment                 Create a pull request comment\n  comments                List pull request comments\n  diff                    Get the diff for a pull request\n  statuses                List commit statuses for a pull request\n  activity                List pull request activity\n"
 }
 
 pub fn pipeline_usage() -> &'static str {
@@ -90,7 +90,7 @@ pub fn bash_completion_script() -> &'static str {
   case "${prev}" in
     auth)       COMPREPLY=($(compgen -W "login status logout" -- "${cur}")); return;;
     repo)       COMPREPLY=($(compgen -W "list" -- "${cur}")); return;;
-    pr)         COMPREPLY=($(compgen -W "list create merge" -- "${cur}")); return;;
+    pr)         COMPREPLY=($(compgen -W "list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity" -- "${cur}")); return;;
     pipeline)   COMPREPLY=($(compgen -W "list run" -- "${cur}")); return;;
     issue)      COMPREPLY=($(compgen -W "list create update" -- "${cur}")); return;;
     wiki)       COMPREPLY=($(compgen -W "list get put" -- "${cur}")); return;;
@@ -111,7 +111,7 @@ _bb() {
   case $words[1] in
     auth)       subcmds=(login status logout);;
     repo)       subcmds=(list);;
-    pr)         subcmds=(list create merge);;
+    pr)         subcmds=(list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity);;
     pipeline)   subcmds=(list run);;
     issue)      subcmds=(list create update);;
     wiki)       subcmds=(list get put);;
@@ -126,7 +126,7 @@ pub fn fish_completion_script() -> &'static str {
     r#"complete -c bb -f -n '__fish_use_subcommand' -a "auth api repo pr pipeline wiki issue completion version help"
 complete -c bb -f -n '__fish_seen_subcommand_from auth' -a "login status logout"
 complete -c bb -f -n '__fish_seen_subcommand_from repo' -a "list"
-complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create merge"
+complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity"
 complete -c bb -f -n '__fish_seen_subcommand_from pipeline' -a "list run"
 complete -c bb -f -n '__fish_seen_subcommand_from issue' -a "list create update"
 complete -c bb -f -n '__fish_seen_subcommand_from wiki' -a "list get put"
@@ -140,7 +140,7 @@ pub fn powershell_completion_script() -> &'static str {
   $subcmds = @{
     'auth'       = @('login','status','logout')
     'repo'       = @('list')
-    'pr'         = @('list','create','merge')
+    'pr'         = @('list','create','merge','get','update','approve','unapprove','request-changes','remove-request-changes','decline','comment','comments','diff','statuses','activity')
     'pipeline'   = @('list','run')
     'issue'      = @('list','create','update')
     'wiki'       = @('list','get','put')
@@ -266,6 +266,91 @@ pub fn render_pr_table(
     output
 }
 
+pub fn render_pr_comments_table(values: &[Value]) -> String {
+    let rows = values
+        .iter()
+        .map(|value| {
+            vec![
+                int_field(value, &["id"]).unwrap_or_default().to_string(),
+                first_string_field(
+                    value,
+                    &[&["user", "display_name"], &["author", "display_name"]],
+                )
+                .unwrap_or("-")
+                .to_string(),
+                relative_time_label(string_field(value, &["created_on"]).unwrap_or_default()),
+                compact_text(string_field(value, &["content", "raw"]).unwrap_or("-"), 60),
+            ]
+        })
+        .collect::<Vec<_>>();
+    format!(
+        "{}\n",
+        render_table(&["ID", "AUTHOR", "CREATED AT", "CONTENT"], &rows)
+    )
+}
+
+pub fn render_pr_statuses_table(values: &[Value]) -> String {
+    let rows = values
+        .iter()
+        .map(|value| {
+            vec![
+                string_field(value, &["key"]).unwrap_or("-").to_string(),
+                string_field(value, &["state"]).unwrap_or("-").to_string(),
+                first_string_field(value, &[&["name"], &["description"]])
+                    .unwrap_or("-")
+                    .to_string(),
+                relative_time_label(
+                    first_string_field(value, &[&["updated_on"], &["created_on"]])
+                        .unwrap_or_default(),
+                ),
+            ]
+        })
+        .collect::<Vec<_>>();
+    format!(
+        "{}\n",
+        render_table(&["KEY", "STATE", "NAME", "UPDATED AT"], &rows)
+    )
+}
+
+pub fn render_pr_activity_table(values: &[Value]) -> String {
+    let rows = values
+        .iter()
+        .map(|value| {
+            vec![
+                pr_activity_type(value),
+                first_string_field(
+                    value,
+                    &[
+                        &["user", "display_name"],
+                        &["approval", "user", "display_name"],
+                        &["comment", "user", "display_name"],
+                        &["update", "author", "display_name"],
+                    ],
+                )
+                .unwrap_or("-")
+                .to_string(),
+                relative_time_label(
+                    first_string_field(
+                        value,
+                        &[
+                            &["created_on"],
+                            &["comment", "created_on"],
+                            &["approval", "date"],
+                            &["update", "date"],
+                        ],
+                    )
+                    .unwrap_or_default(),
+                ),
+                compact_text(pr_activity_detail(value).as_str(), 60),
+            ]
+        })
+        .collect::<Vec<_>>();
+    format!(
+        "{}\n",
+        render_table(&["TYPE", "USER", "CREATED AT", "DETAIL"], &rows)
+    )
+}
+
 pub fn render_pipeline_table(values: &[Value]) -> String {
     let rows = values
         .iter()
@@ -332,6 +417,66 @@ pub fn pipeline_state_label(value: &Value) -> String {
         .or_else(|| string_field(value, &["state", "name"]))
         .unwrap_or("-")
         .to_string()
+}
+
+fn first_string_field<'a>(value: &'a Value, paths: &[&[&str]]) -> Option<&'a str> {
+    paths.iter().find_map(|path| string_field(value, path))
+}
+
+fn compact_text(value: &str, limit: usize) -> String {
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.is_empty() {
+        return "-".to_string();
+    }
+    let mut chars = compact.chars();
+    let truncated = chars.by_ref().take(limit).collect::<String>();
+    if chars.next().is_some() {
+        format!("{truncated}...")
+    } else {
+        compact
+    }
+}
+
+fn pr_activity_type(value: &Value) -> String {
+    if value.get("approval").is_some() {
+        return "approval".to_string();
+    }
+    if value.get("request_changes").is_some() || value.get("changes_request").is_some() {
+        return "request_changes".to_string();
+    }
+    if value.get("comment").is_some() {
+        return "comment".to_string();
+    }
+    if value.get("update").is_some() {
+        return "update".to_string();
+    }
+    if value.get("merge").is_some() {
+        return "merge".to_string();
+    }
+    if value.get("decline").is_some() {
+        return "decline".to_string();
+    }
+    if value.get("task").is_some() {
+        return "task".to_string();
+    }
+    string_field(value, &["type"]).unwrap_or("-").to_string()
+}
+
+fn pr_activity_detail(value: &Value) -> String {
+    first_string_field(
+        value,
+        &[
+            &["comment", "content", "raw"],
+            &["task", "content", "raw"],
+            &["update", "description"],
+            &["update", "title"],
+            &["decline", "reason"],
+            &["merge", "commit", "message"],
+            &["approval", "date"],
+        ],
+    )
+    .unwrap_or("-")
+    .to_string()
 }
 
 pub fn relative_time_label(value: &str) -> String {

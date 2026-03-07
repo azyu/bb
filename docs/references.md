@@ -120,12 +120,27 @@ Operational UX:
 - `GET /repositories/{workspace}`
 - `GET /repositories/{workspace}/{repo_slug}/pullrequests`
 - `POST /repositories/{workspace}/{repo_slug}/pullrequests`
+- `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}`
+- `PUT /repositories/{workspace}/{repo_slug}/pullrequests/{id}`
 - `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/merge`
+- `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/approve`
+- `DELETE /repositories/{workspace}/{repo_slug}/pullrequests/{id}/approve`
+- `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/request-changes`
+- `DELETE /repositories/{workspace}/{repo_slug}/pullrequests/{id}/request-changes`
+- `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/decline`
+- `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/comments`
+- `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/comments`
+- `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/diff`
+- `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/statuses`
+- `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/activity`
 - `GET /repositories/{workspace}/{repo_slug}/pipelines`
 - `POST /repositories/{workspace}/{repo_slug}/pipelines`
 - `GET /repositories/{workspace}/{repo_slug}/issues`
 - Wiki operations via Git remote:
   - `https://bitbucket.org/{workspace}/{repo_slug}.git/wiki`
+
+Command naming rule for wrapper commands:
+- When a CLI subcommand is a thin wrapper over a Bitbucket Cloud REST operation, prefer the Bitbucket API operation/resource name in the CLI (`get`, `update`, `request-changes`, `remove-request-changes`) instead of local synonyms like `view` or `edit`.
 
 ## 6) Risks and Boundaries
 - Bitbucket Cloud and Bitbucket Data Center APIs differ significantly.
@@ -158,7 +173,7 @@ Avoid by default:
 - `delete:*`
 - `write:permission:bitbucket` unless explicitly required
 
-## 8) Implementation Status (2026-03-07)
+## 8) Implementation Status (2026-03-08)
 
 Current repository state:
 - The Rust rewrite is now the only implementation in this repository.
@@ -168,17 +183,18 @@ Rust migration decisions:
 - Toolchain target: Rust
 - Workspace shape: `bb-cli` + `bb-core`
 - Public binary name remains `bb`
-- Phase 1 scope is limited to the documented MVP command set:
+- Phase 1 established the MVP command set, and current follow-up work expands only the PR area:
   - `bb auth login|status|logout`
   - `bb api`
   - `bb repo list`
-  - `bb pr list|create|merge`
+  - `bb pr list|create|merge|get|update|approve|unapprove|request-changes|remove-request-changes|decline|comment|comments|diff|statuses|activity`
   - `bb pipeline list|run`
   - `bb issue list|create|update`
   - `bb wiki list|get|put`
   - `bb completion`
   - `bb version`
-- Go-only PR extras (`view`, `edit`, `approve`, `decline`, `comment`, `comments`, `diff`, `statuses`, `unapprove`, `request-changes`, `checkout`, `activity`) are out of phase 1 scope.
+- Command naming for direct PR wrappers follows Bitbucket Cloud API titles (`get`, `update`, `request-changes`, `remove-request-changes`) instead of older wrapper synonyms (`view`, `edit`).
+- `bb pr checkout` remains out of scope because it requires local Git workflow design beyond a direct REST wrapper.
 - Go config/runtime compatibility is intentionally dropped for the Rust rewrite.
 
 Behavior preserved by the Rust rewrite:

@@ -12,12 +12,16 @@
 - `bb auth <login|status|logout>`
 - `bb api`
 - `bb repo <list>`
-- `bb pr <list|create|merge>`
+- `bb pr <list|create|merge|get|update|approve|unapprove|request-changes|remove-request-changes|decline|comment|comments|diff|statuses|activity>`
 - `bb pipeline <list|run>`
 - `bb wiki <list|get|put>`
 - `bb issue <list|create|update>`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
+
+PR 래퍼 명령 이름은 Bitbucket Cloud REST operation 제목과 직접 맞춥니다:
+- `view` / `edit` 대신 `get` / `update`
+- 로컬 별칭 대신 `request-changes` / `remove-request-changes`
 
 모든 명령은 `--help` / `-h`로 상세 사용법을 확인할 수 있습니다 (`--flag` 형식):
 ```bash
@@ -90,9 +94,8 @@ PR 생성/수정 또는 Pipeline 실행이 필요하면 추가:
 | 명령/사용 목적 | 권장 scope |
 | --- | --- |
 | `bb repo list` (저장소 조회) | `read:repository:bitbucket` |
-| `bb pr list` (PR 조회) | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
-| `bb pr create` (PR 생성/수정) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
-| `bb pr merge` (PR 머지) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
+| `bb pr list/get/comments/diff/statuses/activity` (PR 조회) | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
+| `bb pr create/update/merge/approve/unapprove/request-changes/remove-request-changes/decline/comment` (PR 쓰기) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
 | `bb pipeline list` (Pipeline 조회) | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
 | `bb pipeline run` (Pipeline 실행/수정) | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
 | `bb wiki list/get` (Wiki 조회) | `read:repository:bitbucket`, `read:wiki:bitbucket` |
@@ -185,49 +188,69 @@ bb pr merge --id 42 --strategy squash --close-branch
 bb pr merge --id 42 --message "Ship it" --strategy merge_commit
 ```
 
-9. Pipeline 목록 조회:
+9. 기존 PR 조회/리뷰:
+```bash
+bb pr get --id 42
+bb pr diff --id 42
+bb pr comments --id 42
+bb pr statuses --id 42 --output json
+bb pr activity --id 42
+```
+
+10. PR 상태 변경/수정 (쓰기 scope 필요):
+```bash
+bb pr update --id 42 --title "Retitle PR" --description "Updated summary"
+bb pr approve --id 42
+bb pr unapprove --id 42
+bb pr request-changes --id 42
+bb pr remove-request-changes --id 42
+bb pr decline --id 42
+bb pr comment --id 42 --content "Please rename this function."
+```
+
+11. Pipeline 목록 조회:
 ```bash
 bb pipeline list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-10. Pipeline 실행 (쓰기 scope 필요):
+12. Pipeline 실행 (쓰기 scope 필요):
 ```bash
 bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
 ```
 
-11. 셸 자동완성 스크립트 생성 (서브커맨드 자동완성 지원):
+13. 셸 자동완성 스크립트 생성 (서브커맨드 자동완성 지원):
 ```bash
 bb completion zsh
 # bash/zsh/fish/powershell 지원; 2단계 서브커맨드 자동완성 포함
-# 예: `bb pr<TAB>` -> list, create, merge
+# 예: `bb pr<TAB>` -> list, create, merge, get, update, approve, ...
 ```
 
-12. 이슈 목록 조회:
+14. 이슈 목록 조회:
 ```bash
 bb issue list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-13. 이슈 생성 (쓰기 scope 필요):
+15. 이슈 생성 (쓰기 scope 필요):
 ```bash
 bb issue create --workspace <workspace-slug> --repo <repo-slug> --title "My issue" --content "details"
 ```
 
-14. 이슈 수정 (쓰기 scope 필요):
+16. 이슈 수정 (쓰기 scope 필요):
 ```bash
 bb issue update --workspace <workspace-slug> --repo <repo-slug> --id 1 --state resolved
 ```
 
-15. Wiki 파일 목록 조회:
+17. Wiki 파일 목록 조회:
 ```bash
 bb wiki list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-16. Wiki 페이지 읽기:
+18. Wiki 페이지 읽기:
 ```bash
 bb wiki get --workspace <workspace-slug> --repo <repo-slug> --page Home.md
 ```
 
-17. Wiki 페이지 수정 (쓰기 scope 필요):
+19. Wiki 페이지 수정 (쓰기 scope 필요):
 ```bash
 bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --content "# Updated"
 ```

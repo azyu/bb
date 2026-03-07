@@ -14,9 +14,12 @@ use crate::version;
 use crate::{
     ApiRequest, AuthLoginRequest, AuthRequest, AuthStatusRequest, CompletionShell,
     IssueCreateRequest, IssueListRequest, IssueRequest, IssueUpdateRequest, ListOutput,
-    PipelineListRequest, PipelineRequest, PipelineRunRequest, PrCreateRequest, PrListRequest,
-    PrMergeRequest, PrRequest, RepoListRequest, RepoRequest, Request, WikiGetRequest,
-    WikiListRequest, WikiPutRequest, WikiRequest, WriteOutput,
+    PipelineListRequest, PipelineRequest, PipelineRunRequest, PrActivityRequest, PrApproveRequest,
+    PrCommentRequest, PrCommentsRequest, PrCreateRequest, PrDeclineRequest, PrDiffRequest,
+    PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest, PrRequest,
+    PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
+    RepoListRequest, RepoRequest, Request, WikiGetRequest, WikiListRequest, WikiPutRequest,
+    WikiRequest, WriteOutput,
 };
 
 pub const STDIN_TOKEN_SENTINEL: &str = "__bb_stdin_token__";
@@ -108,6 +111,22 @@ fn wants_json_errors(request: &Request) -> bool {
         Request::Pr(PrRequest::List(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Create(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Merge(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Get(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Update(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Approve(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Unapprove(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::RequestChanges(req)) => {
+            req.output.trim().eq_ignore_ascii_case("json")
+        }
+        Request::Pr(PrRequest::RemoveRequestChanges(req)) => {
+            req.output.trim().eq_ignore_ascii_case("json")
+        }
+        Request::Pr(PrRequest::Decline(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Comment(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Comments(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Diff(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Statuses(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Activity(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pipeline(PipelineRequest::List(req)) => {
             req.output.trim().eq_ignore_ascii_case("json")
         }
@@ -302,6 +321,20 @@ fn handle_pr<O: Write>(
         PrRequest::List(request) => handle_pr_list(request, stdout, stdout_is_tty),
         PrRequest::Create(request) => handle_pr_create(request, stdout),
         PrRequest::Merge(request) => handle_pr_merge(request, stdout),
+        PrRequest::Get(request) => handle_pr_get(request, stdout),
+        PrRequest::Update(request) => handle_pr_update(request, stdout),
+        PrRequest::Approve(request) => handle_pr_approve(request, stdout),
+        PrRequest::Unapprove(request) => handle_pr_unapprove(request, stdout),
+        PrRequest::RequestChanges(request) => handle_pr_request_changes(request, stdout),
+        PrRequest::RemoveRequestChanges(request) => {
+            handle_pr_remove_request_changes(request, stdout)
+        }
+        PrRequest::Decline(request) => handle_pr_decline(request, stdout),
+        PrRequest::Comment(request) => handle_pr_comment(request, stdout),
+        PrRequest::Comments(request) => handle_pr_comments(request, stdout),
+        PrRequest::Diff(request) => handle_pr_diff(request, stdout),
+        PrRequest::Statuses(request) => handle_pr_statuses(request, stdout),
+        PrRequest::Activity(request) => handle_pr_activity(request, stdout),
     }
 }
 
@@ -458,6 +491,404 @@ fn handle_pr_merge<O: Write>(request: &PrMergeRequest, stdout: &mut O) -> Result
             }
             Ok(())
         }
+    }
+}
+
+fn handle_pr_get<O: Write>(request: &PrGetRequest, stdout: &mut O) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let value = client.request_value(
+        Method::GET,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}"),
+        &collect_query([("fields", request.fields.as_deref())]),
+        None,
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Text => {
+            writeln!(
+                stdout,
+                "PR #{} ({})",
+                render::int_field(&value, &["id"]).unwrap_or_default(),
+                render::string_field(&value, &["state"]).unwrap_or("-")
+            )?;
+            writeln!(
+                stdout,
+                "Title: {}",
+                render::string_field(&value, &["title"]).unwrap_or("-")
+            )?;
+            writeln!(
+                stdout,
+                "Source: {}",
+                render::string_field(&value, &["source", "branch", "name"]).unwrap_or("-")
+            )?;
+            writeln!(
+                stdout,
+                "Destination: {}",
+                render::string_field(&value, &["destination", "branch", "name"]).unwrap_or("-")
+            )?;
+            if let Some(author) = render::string_field(&value, &["author", "display_name"]) {
+                if !author.trim().is_empty() {
+                    writeln!(stdout, "Author: {author}")?;
+                }
+            }
+            if let Some(description) = render::string_field(&value, &["description"]) {
+                if !description.trim().is_empty() {
+                    writeln!(stdout, "Description: {description}")?;
+                }
+            }
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
+                if !url.trim().is_empty() {
+                    writeln!(stdout, "URL: {url}")?;
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+fn handle_pr_update<O: Write>(request: &PrUpdateRequest, stdout: &mut O) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let mut body = json!({});
+
+    set_optional_string(&mut body, "title", request.title.as_deref());
+    set_optional_string(&mut body, "description", request.description.as_deref());
+    if let Some(source) = optional_trimmed(request.source.as_deref()) {
+        body["source"] = json!({ "branch": { "name": source } });
+    }
+    if let Some(destination) = optional_trimmed(request.destination.as_deref()) {
+        body["destination"] = json!({ "branch": { "name": destination } });
+    }
+
+    if body
+        .as_object()
+        .map(|value| value.is_empty())
+        .unwrap_or(false)
+    {
+        return Err(CliError::InvalidInput(
+            "at least one of --title, --description, --source, --destination is required"
+                .to_string(),
+        ));
+    }
+
+    let value = client.request_value(
+        Method::PUT,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}"),
+        &[],
+        Some(body),
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Text => write_pr_response_text(stdout, "Updated", &value),
+    }
+}
+
+fn handle_pr_approve<O: Write>(request: &PrApproveRequest, stdout: &mut O) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let value = client.request_value(
+        Method::POST,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/approve"),
+        &[],
+        None,
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Text => write_pr_participant_action_text(stdout, "Approved", &id, &value),
+    }
+}
+
+fn handle_pr_unapprove<O: Write>(
+    request: &PrUnapproveRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    client.request_text(
+        Method::DELETE,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/approve"),
+        &[],
+    )?;
+    write_pr_no_content_action(stdout, output, &id, "Removed approval from")?;
+    Ok(())
+}
+
+fn handle_pr_request_changes<O: Write>(
+    request: &PrRequestChangesRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let value = client.request_value(
+        Method::POST,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/request-changes"),
+        &[],
+        None,
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Text => {
+            write_pr_participant_action_text(stdout, "Requested changes on", &id, &value)
+        }
+    }
+}
+
+fn handle_pr_remove_request_changes<O: Write>(
+    request: &PrRemoveRequestChangesRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    client.request_text(
+        Method::DELETE,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/request-changes"),
+        &[],
+    )?;
+    write_pr_no_content_action(stdout, output, &id, "Removed change request from")?;
+    Ok(())
+}
+
+fn handle_pr_decline<O: Write>(request: &PrDeclineRequest, stdout: &mut O) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let value = client.request_value(
+        Method::POST,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/decline"),
+        &[],
+        None,
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Text => write_pr_response_text(stdout, "Declined", &value),
+    }
+}
+
+fn handle_pr_comment<O: Write>(request: &PrCommentRequest, stdout: &mut O) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let content = required_string("--content is required", request.content.as_deref())?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let value = client.request_value(
+        Method::POST,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/comments"),
+        &[],
+        Some(json!({
+            "content": {
+                "raw": content,
+            }
+        })),
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Text => {
+            writeln!(
+                stdout,
+                "Created comment #{} on PR #{}",
+                render::int_field(&value, &["id"]).unwrap_or_default(),
+                id
+            )?;
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
+                if !url.trim().is_empty() {
+                    writeln!(stdout, "URL: {url}")?;
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+fn handle_pr_comments<O: Write>(
+    request: &PrCommentsRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_list_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let path = format!("/repositories/{workspace}/{repo}/pullrequests/{id}/comments");
+    let query = collect_query([
+        ("q", request.q.as_deref()),
+        ("sort", request.sort.as_deref()),
+        ("fields", request.fields.as_deref()),
+    ]);
+    let values = fetch_values(&client, &path, &query, request.all)?;
+
+    match output {
+        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Table => {
+            write!(stdout, "{}", render::render_pr_comments_table(&values)).map_err(CliError::from)
+        }
+    }
+}
+
+fn handle_pr_diff<O: Write>(request: &PrDiffRequest, stdout: &mut O) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let diff = client.request_text(
+        Method::GET,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/diff"),
+        &[],
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &json!({ "diff": diff })),
+        WriteOutput::Text => {
+            write!(stdout, "{diff}")?;
+            if !diff.ends_with('\n') {
+                writeln!(stdout)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn handle_pr_statuses<O: Write>(
+    request: &PrStatusesRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_list_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let path = format!("/repositories/{workspace}/{repo}/pullrequests/{id}/statuses");
+    let query = collect_query([
+        ("q", request.q.as_deref()),
+        ("sort", request.sort.as_deref()),
+        ("fields", request.fields.as_deref()),
+    ]);
+    let values = fetch_values(&client, &path, &query, request.all)?;
+
+    match output {
+        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Table => {
+            write!(stdout, "{}", render::render_pr_statuses_table(&values)).map_err(CliError::from)
+        }
+    }
+}
+
+fn handle_pr_activity<O: Write>(
+    request: &PrActivityRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_list_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let path = format!("/repositories/{workspace}/{repo}/pullrequests/{id}/activity");
+    let query = collect_query([
+        ("q", request.q.as_deref()),
+        ("sort", request.sort.as_deref()),
+        ("fields", request.fields.as_deref()),
+    ]);
+    let values = fetch_values(&client, &path, &query, request.all)?;
+
+    match output {
+        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Table => {
+            write!(stdout, "{}", render::render_pr_activity_table(&values)).map_err(CliError::from)
+        }
+    }
+}
+
+fn fetch_values(
+    client: &Client,
+    path: &str,
+    query: &[(String, String)],
+    all: bool,
+) -> Result<Vec<Value>, CliError> {
+    if all {
+        client.get_all_values(path, query)
+    } else {
+        Ok(client.get_page(path, query)?.0)
+    }
+}
+
+fn write_pr_response_text<O: Write>(
+    stdout: &mut O,
+    action: &str,
+    value: &Value,
+) -> Result<(), CliError> {
+    writeln!(
+        stdout,
+        "{action} PR #{} ({}): {}",
+        render::int_field(value, &["id"]).unwrap_or_default(),
+        render::string_field(value, &["state"]).unwrap_or("-"),
+        render::string_field(value, &["title"]).unwrap_or("-")
+    )?;
+    if let Some(url) = render::string_field(value, &["links", "html", "href"]) {
+        if !url.trim().is_empty() {
+            writeln!(stdout, "URL: {url}")?;
+        }
+    }
+    Ok(())
+}
+
+fn write_pr_participant_action_text<O: Write>(
+    stdout: &mut O,
+    action: &str,
+    pr_id: &str,
+    value: &Value,
+) -> Result<(), CliError> {
+    let actor = render::string_field(value, &["user", "display_name"])
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| format!(" by {value}"))
+        .unwrap_or_default();
+    writeln!(stdout, "{action} PR #{pr_id}{actor}")?;
+    Ok(())
+}
+
+fn write_pr_no_content_action<O: Write>(
+    stdout: &mut O,
+    output: WriteOutput,
+    pr_id: &str,
+    action: &str,
+) -> Result<(), CliError> {
+    match output {
+        WriteOutput::Text => writeln!(stdout, "{action} PR #{pr_id}").map_err(CliError::from),
+        WriteOutput::Json => render::print_json(
+            stdout,
+            &json!({
+                "id": pr_id.parse::<u64>().unwrap_or_default(),
+                "action": action,
+                "ok": true,
+            }),
+        ),
     }
 }
 

@@ -82,6 +82,18 @@ impl Client {
         self.request_json(method, path, query, body)
     }
 
+    pub fn request_text(
+        &self,
+        method: Method,
+        path: &str,
+        query: &[(String, String)],
+    ) -> Result<String, CliError> {
+        let response = self.send_request(method, path, query, None)?;
+        response
+            .text()
+            .map_err(|error| CliError::Internal(format!("decode response: {error}")))
+    }
+
     pub fn request_json<T: DeserializeOwned>(
         &self,
         method: Method,
@@ -89,6 +101,19 @@ impl Client {
         query: &[(String, String)],
         body: Option<Value>,
     ) -> Result<T, CliError> {
+        let response = self.send_request(method, path, query, body)?;
+        response
+            .json::<T>()
+            .map_err(|error| CliError::Internal(format!("decode response: {error}")))
+    }
+
+    fn send_request(
+        &self,
+        method: Method,
+        path: &str,
+        query: &[(String, String)],
+        body: Option<Value>,
+    ) -> Result<reqwest::blocking::Response, CliError> {
         let mut url = if path.starts_with("http://") || path.starts_with("https://") {
             reqwest::Url::parse(path).map_err(|error| CliError::InvalidInput(error.to_string()))?
         } else {
@@ -128,9 +153,7 @@ impl Client {
             return Err(CliError::Api { status, body });
         }
 
-        response
-            .json::<T>()
-            .map_err(|error| CliError::Internal(format!("decode response: {error}")))
+        Ok(response)
     }
 }
 
@@ -168,5 +191,25 @@ mod tests {
         assert_eq!(values.len(), 2);
         page1.assert();
         page2.assert();
+    }
+
+    #[test]
+    fn request_text_reads_plain_text_response() {
+        let server = MockServer::start();
+        let diff = server.mock(|when, then| {
+            when.method(GET).path("/diff");
+            then.body("diff --git a/file b/file\n");
+        });
+
+        let client = Client::from_profile(&Profile {
+            base_url: server.base_url(),
+            token: "token".to_string(),
+            username: String::new(),
+        })
+        .unwrap();
+
+        let body = client.request_text(Method::GET, "/diff", &[]).unwrap();
+        assert_eq!(body, "diff --git a/file b/file\n");
+        diff.assert();
     }
 }

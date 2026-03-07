@@ -3,7 +3,10 @@ use std::ffi::OsString;
 use bb_core::{
     ApiRequest, AuthLoginRequest, AuthLogoutRequest, AuthRequest, AuthStatusRequest,
     IssueCreateRequest, IssueListRequest, IssueRequest, IssueUpdateRequest, PipelineListRequest,
-    PipelineRequest, PipelineRunRequest, PrCreateRequest, PrListRequest, PrMergeRequest, PrRequest,
+    PipelineRequest, PipelineRunRequest, PrActivityRequest, PrApproveRequest, PrCommentRequest,
+    PrCommentsRequest, PrCreateRequest, PrDeclineRequest, PrDiffRequest, PrGetRequest,
+    PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest, PrRequest,
+    PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
     RepoListRequest, RepoRequest, Request, WikiGetRequest, WikiListRequest, WikiPutRequest,
     WikiRequest,
 };
@@ -73,6 +76,18 @@ pub enum PrCommands {
     List(PrListArgs),
     Create(PrCreateArgs),
     Merge(PrMergeArgs),
+    Get(PrGetArgs),
+    Update(PrUpdateArgs),
+    Approve(PrApproveArgs),
+    Unapprove(PrUnapproveArgs),
+    RequestChanges(PrRequestChangesArgs),
+    RemoveRequestChanges(PrRemoveRequestChangesArgs),
+    Decline(PrDeclineArgs),
+    Comment(PrCommentArgs),
+    Comments(PrCommentsArgs),
+    Diff(PrDiffArgs),
+    Statuses(PrStatusesArgs),
+    Activity(PrActivityArgs),
 }
 
 #[derive(Debug, Subcommand)]
@@ -223,6 +238,210 @@ pub struct PrMergeArgs {
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
     pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrGetArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+    #[arg(long)]
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct PrUpdateArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub title: Option<String>,
+    #[arg(long)]
+    pub description: Option<String>,
+    #[arg(long)]
+    pub source: Option<String>,
+    #[arg(long)]
+    pub destination: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrApproveArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrUnapproveArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrRequestChangesArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrRemoveRequestChangesArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrDeclineArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrCommentArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub content: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrCommentsArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long, default_value = "table")]
+    pub output: String,
+    #[arg(long)]
+    pub all: bool,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long)]
+    pub q: Option<String>,
+    #[arg(long)]
+    pub sort: Option<String>,
+    #[arg(long)]
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct PrDiffArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrStatusesArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long, default_value = "table")]
+    pub output: String,
+    #[arg(long)]
+    pub all: bool,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long)]
+    pub q: Option<String>,
+    #[arg(long)]
+    pub sort: Option<String>,
+    #[arg(long)]
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct PrActivityArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(long, default_value = "table")]
+    pub output: String,
+    #[arg(long)]
+    pub all: bool,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long)]
+    pub q: Option<String>,
+    #[arg(long)]
+    pub sort: Option<String>,
+    #[arg(long)]
+    pub fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -487,6 +706,112 @@ fn map_request(cli: Cli) -> Request {
                 profile: args.profile,
                 output: args.output,
             }),
+            Some(PrCommands::Get(args)) => PrRequest::Get(PrGetRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                profile: args.profile,
+                output: args.output,
+                fields: args.fields,
+            }),
+            Some(PrCommands::Update(args)) => PrRequest::Update(PrUpdateRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                title: args.title,
+                description: args.description,
+                source: args.source,
+                destination: args.destination,
+                profile: args.profile,
+                output: args.output,
+            }),
+            Some(PrCommands::Approve(args)) => PrRequest::Approve(PrApproveRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                profile: args.profile,
+                output: args.output,
+            }),
+            Some(PrCommands::Unapprove(args)) => PrRequest::Unapprove(PrUnapproveRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                profile: args.profile,
+                output: args.output,
+            }),
+            Some(PrCommands::RequestChanges(args)) => {
+                PrRequest::RequestChanges(PrRequestChangesRequest {
+                    workspace: args.workspace,
+                    repo: args.repo,
+                    id: args.id,
+                    profile: args.profile,
+                    output: args.output,
+                })
+            }
+            Some(PrCommands::RemoveRequestChanges(args)) => {
+                PrRequest::RemoveRequestChanges(PrRemoveRequestChangesRequest {
+                    workspace: args.workspace,
+                    repo: args.repo,
+                    id: args.id,
+                    profile: args.profile,
+                    output: args.output,
+                })
+            }
+            Some(PrCommands::Decline(args)) => PrRequest::Decline(PrDeclineRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                profile: args.profile,
+                output: args.output,
+            }),
+            Some(PrCommands::Comment(args)) => PrRequest::Comment(PrCommentRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                content: args.content,
+                profile: args.profile,
+                output: args.output,
+            }),
+            Some(PrCommands::Comments(args)) => PrRequest::Comments(PrCommentsRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                output: args.output,
+                all: args.all,
+                profile: args.profile,
+                q: args.q,
+                sort: args.sort,
+                fields: args.fields,
+            }),
+            Some(PrCommands::Diff(args)) => PrRequest::Diff(PrDiffRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                profile: args.profile,
+                output: args.output,
+            }),
+            Some(PrCommands::Statuses(args)) => PrRequest::Statuses(PrStatusesRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                output: args.output,
+                all: args.all,
+                profile: args.profile,
+                q: args.q,
+                sort: args.sort,
+                fields: args.fields,
+            }),
+            Some(PrCommands::Activity(args)) => PrRequest::Activity(PrActivityRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: args.id,
+                output: args.output,
+                all: args.all,
+                profile: args.profile,
+                q: args.q,
+                sort: args.sort,
+                fields: args.fields,
+            }),
         }),
         Some(Commands::Pipeline { command }) => Request::Pipeline(match command {
             None => PipelineRequest::Help,
@@ -595,5 +920,50 @@ mod tests {
     fn version_flag_maps_to_version_request() {
         let request = parse_from(["bb", "--version"]).expect("parse should succeed");
         assert!(matches!(request, Request::Version));
+    }
+
+    #[test]
+    fn pr_get_maps_to_get_request() {
+        let request = parse_from(["bb", "pr", "get", "--id", "42"]).expect("parse should succeed");
+        let Request::Pr(PrRequest::Get(request)) = request else {
+            panic!("expected pr get");
+        };
+        assert_eq!(request.id.as_deref(), Some("42"));
+        assert_eq!(request.output, "text");
+    }
+
+    #[test]
+    fn pr_request_changes_maps_to_request_changes_request() {
+        let request = parse_from(["bb", "pr", "request-changes", "--id", "42"])
+            .expect("parse should succeed");
+        assert!(matches!(
+            request,
+            Request::Pr(PrRequest::RequestChanges(PrRequestChangesRequest {
+                id: Some(id),
+                ..
+            })) if id == "42"
+        ));
+    }
+
+    #[test]
+    fn pr_comment_maps_content_and_output() {
+        let request = parse_from([
+            "bb",
+            "pr",
+            "comment",
+            "--id",
+            "42",
+            "--content",
+            "needs changes",
+            "--output",
+            "json",
+        ])
+        .expect("parse should succeed");
+        let Request::Pr(PrRequest::Comment(request)) = request else {
+            panic!("expected pr comment");
+        };
+        assert_eq!(request.id.as_deref(), Some("42"));
+        assert_eq!(request.content.as_deref(), Some("needs changes"));
+        assert_eq!(request.output, "json");
     }
 }

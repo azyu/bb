@@ -12,12 +12,16 @@ Implemented commands:
 - `bb auth <login|status|logout>`
 - `bb api`
 - `bb repo <list>`
-- `bb pr <list|create|merge>`
+- `bb pr <list|create|merge|get|update|approve|unapprove|request-changes|remove-request-changes|decline|comment|comments|diff|statuses|activity>`
 - `bb pipeline <list|run>`
 - `bb wiki <list|get|put>`
 - `bb issue <list|create|update>`
 - `bb completion <bash|zsh|fish|powershell>`
 - `bb version` / `bb --version`
+
+PR wrapper naming follows Bitbucket Cloud REST operation titles where there is a direct mapping:
+- `get` / `update` instead of `view` / `edit`
+- `request-changes` / `remove-request-changes` instead of local synonyms
 
 Every command supports `--help` / `-h` for detailed usage with `--flag` format:
 ```bash
@@ -90,9 +94,8 @@ If developers need to create/update PRs or trigger pipelines, add:
 | Command / use case | Recommended scopes |
 | --- | --- |
 | `bb repo list` (repo read) | `read:repository:bitbucket` |
-| `bb pr list` (PR read) | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
-| `bb pr create` (PR write) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
-| `bb pr merge` (PR merge) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
+| `bb pr list/get/comments/diff/statuses/activity` (PR read) | `read:repository:bitbucket`, `read:pullrequest:bitbucket` |
+| `bb pr create/update/merge/approve/unapprove/request-changes/remove-request-changes/decline/comment` (PR write) | `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` |
 | `bb pipeline list` (pipeline read) | `read:repository:bitbucket`, `read:pipeline:bitbucket` |
 | `bb pipeline run` (pipeline write) | `read:repository:bitbucket`, `read:pipeline:bitbucket`, `write:pipeline:bitbucket` |
 | `bb wiki list/get` (wiki read) | `read:repository:bitbucket`, `read:wiki:bitbucket` |
@@ -185,49 +188,69 @@ bb pr merge --id 42 --strategy squash --close-branch
 bb pr merge --id 42 --message "Ship it" --strategy merge_commit
 ```
 
-9. List pipelines:
+9. Inspect or review an existing PR:
+```bash
+bb pr get --id 42
+bb pr diff --id 42
+bb pr comments --id 42
+bb pr statuses --id 42 --output json
+bb pr activity --id 42
+```
+
+10. Update or review-state a PR (write scope required):
+```bash
+bb pr update --id 42 --title "Retitle PR" --description "Updated summary"
+bb pr approve --id 42
+bb pr unapprove --id 42
+bb pr request-changes --id 42
+bb pr remove-request-changes --id 42
+bb pr decline --id 42
+bb pr comment --id 42 --content "Please rename this function."
+```
+
+11. List pipelines:
 ```bash
 bb pipeline list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-10. Trigger pipeline (write scope required):
+12. Trigger pipeline (write scope required):
 ```bash
 bb pipeline run --workspace <workspace-slug> --repo <repo-slug> --branch main
 ```
 
-11. Generate shell completion (supports subcommand completion):
+13. Generate shell completion (supports subcommand completion):
 ```bash
 bb completion zsh
 # bash/zsh/fish/powershell supported; includes 2-level subcommand completion
-# e.g. `bb pr<TAB>` -> list, create, merge
+# e.g. `bb pr<TAB>` -> list, create, merge, get, update, approve, ...
 ```
 
-12. List issues:
+14. List issues:
 ```bash
 bb issue list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-13. Create issue (write scope required):
+15. Create issue (write scope required):
 ```bash
 bb issue create --workspace <workspace-slug> --repo <repo-slug> --title "My issue" --content "details"
 ```
 
-14. Update issue (write scope required):
+16. Update issue (write scope required):
 ```bash
 bb issue update --workspace <workspace-slug> --repo <repo-slug> --id 1 --state resolved
 ```
 
-15. List wiki files:
+17. List wiki files:
 ```bash
 bb wiki list --workspace <workspace-slug> --repo <repo-slug>
 ```
 
-16. Read wiki page:
+18. Read wiki page:
 ```bash
 bb wiki get --workspace <workspace-slug> --repo <repo-slug> --page Home.md
 ```
 
-17. Update wiki page (write scope required):
+19. Update wiki page (write scope required):
 ```bash
 bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --content "# Updated"
 ```

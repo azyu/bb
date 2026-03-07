@@ -20,4 +20,6 @@
 
 ## Backlog
 
+- [x] Expand `bb pr` with Bitbucket API-aligned read/write commands (`get`, `update`, `approve`, `unapprove`, `request-changes`, `remove-request-changes`, `decline`, `comment`, `comments`, `diff`, `statuses`, `activity`) - owner: agent
+- [ ] Evaluate `bb pr checkout` local Git workflow for a future follow-up - owner: agent
 - [ ] Evaluate phase 2 agent-first extensions (`--describe` or schema introspection, `--dry-run`, separate automation surface if needed) - owner: agent

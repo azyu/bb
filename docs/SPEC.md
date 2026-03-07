@@ -3,7 +3,7 @@
 ## Purpose
 - Rebuild `bb` as a Rust-first Bitbucket Cloud CLI.
 - Keep the public binary name `bb`.
-- Phase 1 scope is the documented Cloud MVP command set only.
+- Phase 1 established the Cloud MVP command set; current follow-up work may extend that surface without changing the Cloud-only target.
 - Treat the CLI as friendly to both humans and automation/agents, with predictable machine-readable behavior.
 
 ## Agent-First Design Notes
@@ -32,7 +32,7 @@
 - `bb-cli` delegates execution to `bb-core`.
 - The phase 1 rewrite is synchronous/blocking.
 
-## Phase 1 Command Surface
+## Current Command Surface
 - `bb auth login`
 - `bb auth status`
 - `bb auth logout`
@@ -41,6 +41,18 @@
 - `bb pr list`
 - `bb pr create`
 - `bb pr merge`
+- `bb pr get`
+- `bb pr update`
+- `bb pr approve`
+- `bb pr unapprove`
+- `bb pr request-changes`
+- `bb pr remove-request-changes`
+- `bb pr decline`
+- `bb pr comment`
+- `bb pr comments`
+- `bb pr diff`
+- `bb pr statuses`
+- `bb pr activity`
 - `bb pipeline list`
 - `bb pipeline run`
 - `bb issue list`
@@ -53,8 +65,9 @@
 - `bb version`
 - `bb --version`
 
-Out of phase 1 scope:
-- Go-only PR extras such as `pr view`, `pr edit`, `pr approve`, `pr decline`, `pr comment`, `pr comments`, `pr diff`, `pr statuses`, `pr unapprove`, `pr request-changes`, `pr checkout`, `pr activity`
+Still out of scope:
+- local Git checkout helpers such as `bb pr checkout`
+- extra PR wrappers not backed by a clear Bitbucket Cloud REST operation title
 
 ## Config and Auth
 - Default config path:
@@ -101,6 +114,10 @@ Out of phase 1 scope:
   - write/detail commands: `text|json`
   - wiki get: `text|json`
   - `bb api`: JSON only
+- PR-specific conventions:
+  - `bb pr get`, `bb pr update`, `bb pr approve`, `bb pr unapprove`, `bb pr request-changes`, `bb pr remove-request-changes`, `bb pr decline`, `bb pr comment`: `text|json`
+  - `bb pr comments`, `bb pr statuses`, `bb pr activity`: `table|json`
+  - `bb pr diff`: `text|json`, where JSON wraps the raw diff payload in an object
 - `bb pr list` text output keeps:
   - summary line
   - columns `ID`, `TITLE`, `BRANCH`, `CREATED AT`
@@ -111,6 +128,7 @@ Out of phase 1 scope:
 - Prefer predictable structured output over prose for automation-facing commands.
 - Keep runtime validation strict for all user/agent-provided inputs.
 - Reject invalid or ambiguous command inputs early, before making network or git write operations.
+- When a CLI command is a thin wrapper over a Bitbucket Cloud REST operation, prefer the Bitbucket API operation/resource naming in the CLI contract (`get`, `update`, `request-changes`, `remove-request-changes`) instead of local synonyms such as `view` or `edit`.
 - Keep the active contract in repository documents instead of relying on stale prompt context:
   - `docs/SPEC.md` for implementation rules
   - `docs/references.md` for research and external references

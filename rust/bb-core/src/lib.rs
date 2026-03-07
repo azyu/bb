@@ -124,6 +124,132 @@ pub struct PrMergeRequest {
 }
 
 #[derive(Debug, Clone)]
+pub struct PrGetRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrUpdateRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub source: Option<String>,
+    pub destination: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrApproveRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrUnapproveRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrRequestChangesRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrRemoveRequestChangesRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrDeclineRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrCommentRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub content: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrCommentsRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub output: String,
+    pub all: bool,
+    pub profile: Option<String>,
+    pub q: Option<String>,
+    pub sort: Option<String>,
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrDiffRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrStatusesRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub output: String,
+    pub all: bool,
+    pub profile: Option<String>,
+    pub q: Option<String>,
+    pub sort: Option<String>,
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrActivityRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub output: String,
+    pub all: bool,
+    pub profile: Option<String>,
+    pub q: Option<String>,
+    pub sort: Option<String>,
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct PipelineListRequest {
     pub workspace: Option<String>,
     pub repo: Option<String>,
@@ -231,6 +357,18 @@ pub enum PrRequest {
     List(PrListRequest),
     Create(PrCreateRequest),
     Merge(PrMergeRequest),
+    Get(PrGetRequest),
+    Update(PrUpdateRequest),
+    Approve(PrApproveRequest),
+    Unapprove(PrUnapproveRequest),
+    RequestChanges(PrRequestChangesRequest),
+    RemoveRequestChanges(PrRemoveRequestChangesRequest),
+    Decline(PrDeclineRequest),
+    Comment(PrCommentRequest),
+    Comments(PrCommentsRequest),
+    Diff(PrDiffRequest),
+    Statuses(PrStatusesRequest),
+    Activity(PrActivityRequest),
 }
 
 #[derive(Debug, Clone)]
