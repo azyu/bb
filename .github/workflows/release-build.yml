@@ -13,8 +13,42 @@ permissions:
 
 jobs:
   build:
-    name: Build linux-amd64
-    runs-on: ubuntu-latest
+    name: Build ${{ matrix.label }}
+    runs-on: ${{ matrix.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-amd64
+            runs_on: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform_id: linux_amd64
+            artifact_name: bb_linux_amd64
+            binary_name: bb
+          - label: linux-arm64
+            runs_on: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            platform_id: linux_arm64
+            artifact_name: bb_linux_arm64
+            binary_name: bb
+          - label: macos-arm64
+            runs_on: macos-14
+            target: aarch64-apple-darwin
+            platform_id: macos_arm64
+            artifact_name: bb_macos_arm64
+            binary_name: bb
+          - label: windows-x64
+            runs_on: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform_id: windows_x64
+            artifact_name: bb_windows_x64
+            binary_name: bb.exe
+          - label: windows-arm64
+            runs_on: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            platform_id: windows_arm64
+            artifact_name: bb_windows_arm64
+            binary_name: bb.exe
 
     steps:
       - name: Checkout
@@ -48,27 +82,41 @@ jobs:
           BB_BUILD_DATE: ${{ github.event.repository.updated_at }}
         run: |
           set -euo pipefail
-          cargo build --manifest-path rust/Cargo.toml -p bb-cli --bin bb --release
+          cargo build --manifest-path rust/Cargo.toml -p bb-cli --bin bb --release --target "${{ matrix.target }}"
 
-      - name: Package archive
+      - name: Package archive (unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
           VERSION="${{ inputs.release_tag }}"
           VERSION="${VERSION#v}"
-          ARCHIVE_NAME="bb_${VERSION}_linux_amd64"
+          ARCHIVE_NAME="bb_${VERSION}_${{ matrix.platform_id }}"
 
           mkdir staging
-          cp rust/target/release/bb staging/
+          cp "rust/target/${{ matrix.target }}/release/${{ matrix.binary_name }}" staging/
           cp README.MD staging/
           cp LICENSE staging/
-          tar -czf "${ARCHIVE_NAME}.tar.gz" -C staging bb README.MD LICENSE
+          tar -czf "${ARCHIVE_NAME}.tar.gz" -C staging "${{ matrix.binary_name }}" README.MD LICENSE
+
+      - name: Package archive (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $Version = "${{ inputs.release_tag }}" -replace '^v', ''
+          $ArchiveName = "bb_${Version}_${{ matrix.platform_id }}"
+
+          New-Item -ItemType Directory -Path staging | Out-Null
+          Copy-Item "rust/target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "staging/${{ matrix.binary_name }}"
+          Copy-Item README.MD staging/
+          Copy-Item LICENSE staging/
+          Compress-Archive -Path staging/* -DestinationPath "${ArchiveName}.zip" -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: bb_linux_amd64
-          path: bb_*.tar.gz
+          name: ${{ matrix.artifact_name }}
+          path: bb_*
 
   release:
     name: Publish GitHub Release
@@ -89,7 +137,10 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          sha256sum *.tar.gz | sort -k2 > checksums.txt
+          find . -maxdepth 1 -type f ! -name checksums.txt -print0 | \
+            xargs -0 sha256sum | \
+            sed 's# \./# #g' | \
+            sort -k2 > checksums.txt
 
       - name: Create or update release
         shell: bash

@@ -146,4 +146,11 @@ Out of phase 1 scope:
 ## Build and Release
 - Cargo is the primary build surface.
 - CI and release workflows build Rust artifacts named `bb`.
+- Release workflow publishes:
+  - `linux_amd64` as `.tar.gz`
+  - `linux_arm64` as `.tar.gz`
+  - `macos_arm64` as `.tar.gz`
+  - `windows_x64` as `.zip`
+  - `windows_arm64` as `.zip`
+- Release workflow also uploads `checksums.txt` covering all published archives.
 - Go build/test/release paths are removed after Rust verification passes.

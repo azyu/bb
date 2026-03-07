@@ -12,6 +12,7 @@
 - [x] Port `bb wiki list/get/put` to Rust - owner: agent
 - [x] Rewrite README/build instructions and command docs for the Rust implementation - owner: agent
 - [x] Convert CI and release workflows from Go to Rust - owner: agent
+- [x] Expand release workflow to publish Linux amd64/arm64, Windows x64/arm64, and macOS arm64 artifacts - owner: agent
 - [x] Remove Go entrypoints, Go tests, and Go-specific build files after Rust verification passes - owner: agent
 
 ## Backlog
