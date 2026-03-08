@@ -40,7 +40,7 @@ Update rules during work:
 
 ## Build & Development
 
-Primary toolchain: **Rust 1.93+**
+Primary toolchain: **Rust 1.93.0** via `rust-toolchain.toml`
 
 Useful current commands:
 - List tracked/untracked files quickly:
@@ -69,9 +69,21 @@ Useful current commands:
   ```bash
   cargo test --manifest-path rust/Cargo.toml
   ```
+- Run clippy with warnings denied:
+  ```bash
+  cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
+  ```
 - Format Rust files:
   ```bash
   cargo fmt --manifest-path rust/Cargo.toml --all
+  ```
+- Check formatting without rewriting files:
+  ```bash
+  cargo fmt --manifest-path rust/Cargo.toml --all --check
+  ```
+- Install repo-managed Git hooks:
+  ```bash
+  make hooks-install
   ```
 
 ## Code Standards
@@ -89,6 +101,7 @@ Useful current commands:
 - Implement API pagination using Bitbucket `next` links.
 - Support both human-readable output and JSON output for automation.
 - Keep non-interactive behavior deterministic with explicit flags when needed.
+- Keep local quality checks aligned across `.githooks/`, `Makefile`, and GitHub Actions.
 
 ### Don’t
 - Don’t silently assume requirements when multiple interpretations exist; state assumptions.
@@ -126,6 +139,21 @@ Current minimum checklist:
    ```
 
 Use file-scoped checks first when possible (e.g. `cargo test --manifest-path rust/Cargo.toml -p bb-core`).
+
+Before creating a commit in normal development flow:
+1. Install repo-managed hooks once per clone:
+   ```bash
+   make hooks-install
+   ```
+2. Let `pre-commit` enforce:
+   ```bash
+   make fmt-check
+   make lint
+   ```
+3. Let `pre-push` enforce:
+   ```bash
+   make test
+   ```
 
 ## Definition of Done
 

@@ -32,15 +32,17 @@ bb pr create --help   # leaf: show flags with descriptions
 ## Install
 
 ### From source
-Requires Rust `1.93+`.
+Requires Rust `1.93.0` via `rust-toolchain.toml`.
 
 ## Build
 ```bash
 make build        # -> rust/target/debug/bb
 make install      # -> ~/.local/bin/bb
 make test         # run all tests
-make lint         # cargo check --all-targets
+make lint         # cargo clippy --all-targets -- -D warnings
 make fmt          # cargo fmt --all
+make fmt-check    # cargo fmt --all --check
+make hooks-install # git config core.hooksPath .githooks
 make help         # show all targets
 ```
 
@@ -270,10 +272,17 @@ Security note:
 
 ## Development
 ```bash
-make test
+make hooks-install
+make fmt-check
 make lint
+make test
 make fmt
 ```
+
+Repo-managed Git hooks live in `.githooks/`:
+- `pre-commit` runs `make fmt-check` and `make lint`
+- `pre-push` runs `make test`
+- Reusable setup notes for other repositories: `docs/development-checks.md`
 
 For detailed command contracts:
 - `docs/command-contracts.md`

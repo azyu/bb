@@ -3,7 +3,7 @@ COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 DATE    ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 BINARY  := bb
 
-.PHONY: build install test fmt lint clean help
+.PHONY: build install test fmt fmt-check lint hooks-install clean help
 
 build: ## Build binary
 	@BB_BUILD_COMMIT=$(COMMIT) BB_BUILD_DATE=$(DATE) cargo build --manifest-path rust/Cargo.toml -p bb-cli --bin $(BINARY)
@@ -19,8 +19,14 @@ test: ## Run all tests
 fmt: ## Format Rust source files
 	@cargo fmt --manifest-path rust/Cargo.toml --all
 
-lint: ## Run cargo check for all targets
-	@cargo check --manifest-path rust/Cargo.toml --all-targets
+fmt-check: ## Check Rust formatting without modifying files
+	@cargo fmt --manifest-path rust/Cargo.toml --all --check
+
+lint: ## Run clippy with warnings denied
+	@cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
+
+hooks-install: ## Configure git to use repo-managed hooks in .githooks
+	@git config core.hooksPath .githooks
 
 clean: ## Remove Rust build artifacts
 	@rm -rf rust/target

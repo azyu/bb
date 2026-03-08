@@ -32,15 +32,17 @@ bb pr create --help   # 리프: 플래그와 설명 표시
 ## 설치
 
 ### 소스에서 빌드
-Rust `1.93+` 필요.
+`rust-toolchain.toml`에 고정된 Rust `1.93.0` 필요.
 
 ## 빌드
 ```bash
 make build        # -> rust/target/debug/bb
 make install      # -> ~/.local/bin/bb
 make test         # 전체 테스트 실행
-make lint         # cargo check --all-targets
+make lint         # cargo clippy --all-targets -- -D warnings
 make fmt          # cargo fmt --all
+make fmt-check    # cargo fmt --all --check
+make hooks-install # git config core.hooksPath .githooks
 make help         # 모든 타겟 표시
 ```
 
@@ -270,10 +272,17 @@ bb wiki put --workspace <workspace-slug> --repo <repo-slug> --page Home.md --con
 
 ## 개발
 ```bash
-make test
+make hooks-install
+make fmt-check
 make lint
+make test
 make fmt
 ```
+
+repo-managed Git hook은 `.githooks/`에 있습니다:
+- `pre-commit`은 `make fmt-check`와 `make lint`를 실행합니다.
+- `pre-push`는 `make test`를 실행합니다.
+- 다른 저장소로 옮길 때 참고할 패턴 문서: `docs/development-checks.md`
 
 명령 계약 상세 문서:
 - `docs/command-contracts.md`

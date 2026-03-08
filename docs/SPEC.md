@@ -171,6 +171,11 @@ Still out of scope:
 
 ## Build and Release
 - Cargo is the primary build surface.
+- The repository pins Rust `1.93.0` via `rust-toolchain.toml`.
+- Repo-managed Git hooks and CI share the same quality gates:
+  - `cargo fmt --manifest-path rust/Cargo.toml --all --check`
+  - `cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings`
+  - `cargo test --manifest-path rust/Cargo.toml`
 - CI and release workflows build Rust artifacts named `bb`.
 - Release workflow publishes:
   - `linux_amd64` as `.tar.gz`
