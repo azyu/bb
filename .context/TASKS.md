@@ -24,4 +24,7 @@
 - [x] Document project DoD and post-DoD branch/commit/push/PR workflow in `AGENTS.md` - owner: agent
 - [x] Implement `bb pr checkout` local Git workflow for same-repository pull requests - owner: agent
 - [x] Configure deterministic local Rust checks with pinned toolchain and repo-managed Git hooks (`rust-toolchain.toml`, `.githooks`, CI alignment) - owner: agent
-- [ ] Evaluate phase 2 agent-first extensions (`--describe` or schema introspection, `--dry-run`, separate automation surface if needed) - owner: agent
+- [x] Align MVP contract behavior for `completion`, `issue` validation, and `pr checkout` guardrails - owner: agent
+- [x] Broaden smoke coverage for `pipeline`, `issue`, and `wiki` command flows - owner: agent
+- [x] Implement phase 2 agent-first extensions (`--describe`, `--dry-run`) - owner: agent
+- [ ] Harden agent-specific invalid input handling (control characters, embedded query fragments, double-encoded identifiers) - owner: agent

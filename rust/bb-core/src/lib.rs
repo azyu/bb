@@ -410,7 +410,9 @@ pub enum WikiRequest {
 pub enum Request {
     RootHelp,
     Version,
-    Completion(Option<String>),
+    Describe(Box<Request>),
+    DryRun(Box<Request>),
+    Completion(String),
     Auth(AuthRequest),
     Api(ApiRequest),
     Repo(RepoRequest),

@@ -24,6 +24,12 @@ use crate::{
 
 pub const STDIN_TOKEN_SENTINEL: &str = "__bb_stdin_token__";
 
+struct DryRunPlan {
+    output: Option<WriteOutput>,
+    text_lines: Vec<String>,
+    json: Value,
+}
+
 pub fn run<R: BufRead, O: Write, E: Write>(
     request: Request,
     stdin: &mut R,
@@ -59,11 +65,9 @@ fn dispatch<R: BufRead, O: Write>(
                 version::BUILD_DATE
             )?;
         }
+        Request::Describe(inner) => handle_describe(inner, stdout)?,
+        Request::DryRun(inner) => handle_dry_run(inner, stdout)?,
         Request::Completion(shell) => {
-            let Some(shell) = shell.as_deref() else {
-                write!(stdout, "{}", render::completion_usage())?;
-                return Ok(());
-            };
             let script = match normalize_completion_shell(shell)? {
                 CompletionShell::Bash => render::bash_completion_script(),
                 CompletionShell::Zsh => render::zsh_completion_script(),
@@ -106,6 +110,8 @@ fn emit_error<O: Write, E: Write>(
 
 fn wants_json_errors(request: &Request) -> bool {
     match request {
+        Request::Describe(_) => true,
+        Request::DryRun(inner) => wants_json_errors(inner),
         Request::Api(_) => true,
         Request::Repo(RepoRequest::List(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::List(req)) => req.output.trim().eq_ignore_ascii_case("json"),
@@ -144,6 +150,409 @@ fn wants_json_errors(request: &Request) -> bool {
     }
 }
 
+fn handle_describe<O: Write>(request: &Request, stdout: &mut O) -> Result<(), CliError> {
+    render::print_json(stdout, &describe_request(request)?)
+}
+
+fn handle_dry_run<O: Write>(request: &Request, stdout: &mut O) -> Result<(), CliError> {
+    let plan = match request {
+        Request::Auth(AuthRequest::Login(request)) => plan_auth_login_dry_run(request)?,
+        Request::Auth(AuthRequest::Logout(request)) => plan_auth_logout_dry_run(request)?,
+        Request::Pr(PrRequest::Create(request)) => plan_pr_create_dry_run(request)?,
+        Request::Pr(PrRequest::Merge(request)) => plan_pr_merge_dry_run(request)?,
+        Request::Pr(PrRequest::Update(request)) => plan_pr_update_dry_run(request)?,
+        Request::Pr(PrRequest::Approve(request)) => plan_pr_approve_dry_run(request)?,
+        Request::Pr(PrRequest::Unapprove(request)) => plan_pr_unapprove_dry_run(request)?,
+        Request::Pr(PrRequest::RequestChanges(request)) => {
+            plan_pr_request_changes_dry_run(request)?
+        }
+        Request::Pr(PrRequest::RemoveRequestChanges(request)) => {
+            plan_pr_remove_request_changes_dry_run(request)?
+        }
+        Request::Pr(PrRequest::Decline(request)) => plan_pr_decline_dry_run(request)?,
+        Request::Pr(PrRequest::Comment(request)) => plan_pr_comment_dry_run(request)?,
+        Request::Pr(PrRequest::Checkout(request)) => plan_pr_checkout_dry_run(request)?,
+        Request::Pipeline(PipelineRequest::Run(request)) => plan_pipeline_run_dry_run(request)?,
+        Request::Issue(IssueRequest::Create(request)) => plan_issue_create_dry_run(request)?,
+        Request::Issue(IssueRequest::Update(request)) => plan_issue_update_dry_run(request)?,
+        Request::Wiki(WikiRequest::Put(request)) => plan_wiki_put_dry_run(request)?,
+        _ => return Err(unsupported_dry_run_error()),
+    };
+    emit_dry_run(stdout, plan)
+}
+
+fn emit_dry_run<O: Write>(stdout: &mut O, plan: DryRunPlan) -> Result<(), CliError> {
+    match plan.output {
+        Some(WriteOutput::Json) => render::print_json(stdout, &plan.json),
+        _ => {
+            for line in plan.text_lines {
+                writeln!(stdout, "{line}")?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn describe_request(request: &Request) -> Result<Value, CliError> {
+    match request {
+        Request::Auth(AuthRequest::Login(_)) => Ok(describe_command(
+            "bb auth login",
+            "Save token/base URL into a named profile and set it active",
+            &["text"],
+            false,
+            &["config"],
+            &["--token <value> | --with-token | BITBUCKET_TOKEN"],
+            &["--profile", "--username", "--base-url"],
+            None,
+            &["auth login dry-run validates token source without reading stdin"],
+        )),
+        Request::Auth(AuthRequest::Logout(_)) => Ok(describe_command(
+            "bb auth logout",
+            "Remove a saved profile credential and clear or switch the active profile",
+            &["text"],
+            false,
+            &["config"],
+            &[],
+            &["--profile"],
+            None,
+            &[],
+        )),
+        Request::Pr(PrRequest::Create(_)) => Ok(describe_command(
+            "bb pr create",
+            "Create a pull request",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--title", "--source", "--destination"],
+            &["--description", "--close-branch", "--profile", "--output"],
+            Some(("POST", "/repositories/{workspace}/{repo}/pullrequests")),
+            &[],
+        )),
+        Request::Pr(PrRequest::Merge(_)) => Ok(describe_command(
+            "bb pr merge",
+            "Merge a pull request",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--id"],
+            &[
+                "--message",
+                "--strategy",
+                "--close-branch",
+                "--profile",
+                "--output",
+            ],
+            Some((
+                "POST",
+                "/repositories/{workspace}/{repo}/pullrequests/{id}/merge",
+            )),
+            &[],
+        )),
+        Request::Pr(PrRequest::Update(_)) => Ok(describe_command(
+            "bb pr update",
+            "Update selected pull request fields",
+            &["text", "json"],
+            true,
+            &["api"],
+            &[
+                "--id",
+                "at least one of --title|--description|--source|--destination",
+            ],
+            &["--profile", "--output"],
+            Some(("PUT", "/repositories/{workspace}/{repo}/pullrequests/{id}")),
+            &[],
+        )),
+        Request::Pr(PrRequest::Approve(_)) => Ok(describe_command(
+            "bb pr approve",
+            "Approve a pull request",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--id"],
+            &["--profile", "--output"],
+            Some((
+                "POST",
+                "/repositories/{workspace}/{repo}/pullrequests/{id}/approve",
+            )),
+            &[],
+        )),
+        Request::Pr(PrRequest::Unapprove(_)) => Ok(describe_command(
+            "bb pr unapprove",
+            "Remove an approval from a pull request",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--id"],
+            &["--profile", "--output"],
+            Some((
+                "DELETE",
+                "/repositories/{workspace}/{repo}/pullrequests/{id}/approve",
+            )),
+            &[],
+        )),
+        Request::Pr(PrRequest::RequestChanges(_)) => Ok(describe_command(
+            "bb pr request-changes",
+            "Request changes on a pull request",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--id"],
+            &["--profile", "--output"],
+            Some((
+                "POST",
+                "/repositories/{workspace}/{repo}/pullrequests/{id}/request-changes",
+            )),
+            &[],
+        )),
+        Request::Pr(PrRequest::RemoveRequestChanges(_)) => Ok(describe_command(
+            "bb pr remove-request-changes",
+            "Remove a change request from a pull request",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--id"],
+            &["--profile", "--output"],
+            Some((
+                "DELETE",
+                "/repositories/{workspace}/{repo}/pullrequests/{id}/request-changes",
+            )),
+            &[],
+        )),
+        Request::Pr(PrRequest::Decline(_)) => Ok(describe_command(
+            "bb pr decline",
+            "Decline a pull request",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--id"],
+            &["--profile", "--output"],
+            Some((
+                "POST",
+                "/repositories/{workspace}/{repo}/pullrequests/{id}/decline",
+            )),
+            &[],
+        )),
+        Request::Pr(PrRequest::Comment(_)) => Ok(describe_command(
+            "bb pr comment",
+            "Create a pull request comment",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--id", "--content"],
+            &["--profile", "--output"],
+            Some((
+                "POST",
+                "/repositories/{workspace}/{repo}/pullrequests/{id}/comments",
+            )),
+            &[],
+        )),
+        Request::Pr(PrRequest::Checkout(_)) => Ok(describe_command(
+            "bb pr checkout",
+            "Fetch and check out a same-repository pull request locally",
+            &["text", "json"],
+            true,
+            &["api", "git"],
+            &["--id"],
+            &["--branch", "--force", "--profile", "--output"],
+            Some(("GET", "/repositories/{workspace}/{repo}/pullrequests/{id}")),
+            &[
+                "uses git fetch origin refs/heads/<source>:refs/bb/pr/<id>",
+                "requires running inside the target repository",
+                "fork pull requests remain unsupported",
+            ],
+        )),
+        Request::Pipeline(PipelineRequest::Run(_)) => Ok(describe_command(
+            "bb pipeline run",
+            "Trigger a pipeline for a branch",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--branch"],
+            &["--profile", "--output"],
+            Some(("POST", "/repositories/{workspace}/{repo}/pipelines")),
+            &[],
+        )),
+        Request::Issue(IssueRequest::Create(_)) => Ok(describe_command(
+            "bb issue create",
+            "Create an issue",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--title"],
+            &[
+                "--content",
+                "--state",
+                "--kind",
+                "--priority",
+                "--profile",
+                "--output",
+            ],
+            Some(("POST", "/repositories/{workspace}/{repo}/issues")),
+            &[],
+        )),
+        Request::Issue(IssueRequest::Update(_)) => Ok(describe_command(
+            "bb issue update",
+            "Update an issue",
+            &["text", "json"],
+            true,
+            &["api"],
+            &["--id", "at least one update field"],
+            &[
+                "--title",
+                "--content",
+                "--state",
+                "--kind",
+                "--priority",
+                "--profile",
+                "--output",
+            ],
+            Some(("PUT", "/repositories/{workspace}/{repo}/issues/{id}")),
+            &[],
+        )),
+        Request::Wiki(WikiRequest::Put(_)) => Ok(describe_command(
+            "bb wiki put",
+            "Create or update a wiki page and push it to the repository wiki remote",
+            &["text", "json"],
+            true,
+            &["git"],
+            &["--page", "exactly one of --content|--file"],
+            &["--message", "--profile", "--output"],
+            None,
+            &["clones the wiki git remote, commits the page change, and pushes HEAD to origin"],
+        )),
+        _ => Err(unsupported_describe_error()),
+    }
+}
+
+fn unsupported_describe_error() -> CliError {
+    CliError::InvalidInput("--describe is only supported for mutating commands".to_string())
+}
+
+fn unsupported_dry_run_error() -> CliError {
+    CliError::InvalidInput("--dry-run is only supported for mutating commands".to_string())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn describe_command(
+    command: &str,
+    summary: &str,
+    output_modes: &[&str],
+    repo_scoped: bool,
+    effects: &[&str],
+    required_flags: &[&str],
+    optional_flags: &[&str],
+    api: Option<(&str, &str)>,
+    notes: &[&str],
+) -> Value {
+    let mut value = json!({
+        "mode": "describe",
+        "command": command,
+        "summary": summary,
+        "mutates": true,
+        "supports_dry_run": true,
+        "effects": effects,
+        "required_flags": required_flags,
+        "optional_flags": optional_flags,
+        "agent_flags": ["--describe", "--dry-run"],
+        "output_modes": output_modes,
+    });
+    if repo_scoped {
+        value["repo_target"] = json!({
+            "supports_git_inference": true,
+        });
+    }
+    if let Some((method, path)) = api {
+        value["api"] = json!({
+            "method": method,
+            "path": path,
+        });
+    }
+    if !notes.is_empty() {
+        value["notes"] = json!(notes);
+    }
+    value
+}
+
+fn api_dry_run_plan(
+    command: &str,
+    output: WriteOutput,
+    method: &str,
+    path: String,
+    body: Option<Value>,
+    details: Vec<String>,
+) -> DryRunPlan {
+    let mut text_lines = vec![format!("Dry run: would {method} {path}")];
+    text_lines.extend(details.clone());
+    let mut json = json!({
+        "mode": "dry-run",
+        "command": command,
+        "ok": true,
+        "effects": ["api"],
+        "request": {
+            "method": method,
+            "path": path,
+        },
+    });
+    if let Some(body) = body {
+        json["request"]["body"] = body;
+    }
+    if !details.is_empty() {
+        json["details"] = json!(details);
+    }
+    DryRunPlan {
+        output: Some(output),
+        text_lines,
+        json,
+    }
+}
+
+fn config_dry_run_plan(command: &str, details: Vec<String>, config: Value) -> DryRunPlan {
+    let mut text_lines = vec![format!("Dry run: would update config for {command}")];
+    text_lines.extend(details.clone());
+    DryRunPlan {
+        output: None,
+        text_lines,
+        json: json!({
+            "mode": "dry-run",
+            "command": command,
+            "ok": true,
+            "effects": ["config"],
+            "config": config,
+            "details": details,
+        }),
+    }
+}
+
+fn git_dry_run_plan(
+    command: &str,
+    output: WriteOutput,
+    effects: &[&str],
+    details: Vec<String>,
+    steps: Vec<Value>,
+    extra: Option<Value>,
+) -> DryRunPlan {
+    let mut text_lines = vec![format!("Dry run: would perform git workflow for {command}")];
+    text_lines.extend(details.clone());
+    let mut json = json!({
+        "mode": "dry-run",
+        "command": command,
+        "ok": true,
+        "effects": effects,
+        "details": details,
+        "git": {
+            "steps": steps,
+        },
+    });
+    if let Some(extra) = extra {
+        json["extra"] = extra;
+    }
+    DryRunPlan {
+        output: Some(output),
+        text_lines,
+        json,
+    }
+}
+
 fn handle_auth<R: BufRead, O: Write>(
     request: &AuthRequest,
     stdin: &mut R,
@@ -163,19 +572,7 @@ fn handle_auth_login<R: BufRead, O: Write>(
     stdout: &mut O,
 ) -> Result<(), CliError> {
     let token = resolve_login_token(request, stdin)?;
-    let username = request
-        .username
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .or_else(|| {
-            std::env::var("BITBUCKET_USERNAME")
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-        })
-        .unwrap_or_default();
+    let username = resolve_login_username(request);
 
     let mut config = config::load()?;
     config.set_profile_with_auth(
@@ -859,9 +1256,14 @@ fn handle_pr_checkout<O: Write>(
         })?;
     let source_repo = render::string_field(&value, &["source", "repository", "full_name"])
         .map(str::trim)
-        .unwrap_or_default();
-    if !source_repo.is_empty() && !source_repo.eq_ignore_ascii_case(&format!("{workspace}/{repo}"))
-    {
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            CliError::InvalidInput(
+                "pull request source repository metadata is required for bb pr checkout"
+                    .to_string(),
+            )
+        })?;
+    if !source_repo.eq_ignore_ascii_case(&format!("{workspace}/{repo}")) {
         return Err(CliError::InvalidInput(
             "fork pull requests are not supported by bb pr checkout yet".to_string(),
         ));
@@ -1121,14 +1523,20 @@ fn handle_issue_create<O: Write>(
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let title = required_string("--title is required", request.title.as_deref())?;
+    let kind = normalize_issue_kind(request.kind.as_deref())?;
+    let priority = normalize_issue_priority(request.priority.as_deref())?;
     let client = client_from_profile(request.profile.as_deref())?;
     let mut body = json!({ "title": title });
     if let Some(content) = optional_trimmed(request.content.as_deref()) {
         body["content"] = json!({ "raw": content });
     }
     set_optional_string(&mut body, "state", request.state.as_deref());
-    set_optional_string(&mut body, "kind", request.kind.as_deref());
-    set_optional_string(&mut body, "priority", request.priority.as_deref());
+    if let Some(kind) = kind {
+        body["kind"] = Value::String(kind);
+    }
+    if let Some(priority) = priority {
+        body["priority"] = Value::String(priority);
+    }
 
     let value = client.request_value(
         Method::POST,
@@ -1168,12 +1576,18 @@ fn handle_issue_update<O: Write>(
         .id
         .filter(|value| *value > 0)
         .ok_or_else(|| CliError::InvalidInput("--id is required".to_string()))?;
+    let kind = normalize_issue_kind(request.kind.as_deref())?;
+    let priority = normalize_issue_priority(request.priority.as_deref())?;
     let client = client_from_profile(request.profile.as_deref())?;
     let mut body = json!({});
     set_optional_string(&mut body, "title", request.title.as_deref());
     set_optional_string(&mut body, "state", request.state.as_deref());
-    set_optional_string(&mut body, "kind", request.kind.as_deref());
-    set_optional_string(&mut body, "priority", request.priority.as_deref());
+    if let Some(kind) = kind {
+        body["kind"] = Value::String(kind);
+    }
+    if let Some(priority) = priority {
+        body["priority"] = Value::String(priority);
+    }
     if let Some(content) = optional_trimmed(request.content.as_deref()) {
         body["content"] = json!({ "raw": content });
     }
@@ -1358,6 +1772,610 @@ fn handle_wiki_put<O: Write>(request: &WikiPutRequest, stdout: &mut O) -> Result
     }
 }
 
+fn plan_auth_login_dry_run(request: &AuthLoginRequest) -> Result<DryRunPlan, CliError> {
+    let profile = if request.profile.trim().is_empty() {
+        "default".to_string()
+    } else {
+        request.profile.trim().to_string()
+    };
+    let username = resolve_login_username(request);
+    let auth_mode = if username.is_empty() {
+        "bearer token"
+    } else {
+        "basic"
+    };
+    let mut details = vec![
+        format!("Profile: {profile}"),
+        format!("Base URL: {}", resolve_login_base_url(request)),
+        format!("Auth mode: {auth_mode}"),
+        format!("Token source: {}", resolve_login_token_source(request)?),
+    ];
+    if !username.is_empty() {
+        details.push(format!("Username: {username}"));
+    }
+    Ok(config_dry_run_plan(
+        "bb auth login",
+        details,
+        json!({
+            "profile": profile,
+            "base_url": resolve_login_base_url(request),
+            "auth_mode": if username.is_empty() { "bearer" } else { "basic" },
+            "username": username,
+            "token_source": resolve_login_token_source(request)?,
+        }),
+    ))
+}
+
+fn plan_auth_logout_dry_run(request: &crate::AuthLogoutRequest) -> Result<DryRunPlan, CliError> {
+    let mut config = config::load()?;
+    if request
+        .profile
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .is_empty()
+        && config.current.trim().is_empty()
+    {
+        return Err(CliError::NotLoggedIn);
+    }
+
+    let (removed, ok) = config.remove_profile(request.profile.as_deref());
+    if !ok {
+        return if removed.trim().is_empty() {
+            Err(CliError::NotLoggedIn)
+        } else {
+            Err(CliError::Config(format!("profile {:?} not found", removed)))
+        };
+    }
+
+    let mut details = vec![format!("Remove profile: {removed}")];
+    if config.current.trim().is_empty() {
+        details.push("Active profile after logout: none".to_string());
+    } else {
+        details.push(format!(
+            "Active profile after logout: {}",
+            config.current.trim()
+        ));
+    }
+    Ok(config_dry_run_plan(
+        "bb auth logout",
+        details,
+        json!({
+            "remove_profile": removed,
+            "next_active_profile": if config.current.trim().is_empty() {
+                Value::Null
+            } else {
+                Value::String(config.current.trim().to_string())
+            },
+        }),
+    ))
+}
+
+fn plan_pr_create_dry_run(request: &PrCreateRequest) -> Result<DryRunPlan, CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    profile_from_config(request.profile.as_deref())?;
+    let title = required_string("--title is required", request.title.as_deref())?;
+    let source = required_string("--source is required", request.source.as_deref())?;
+    let destination = required_string("--destination is required", request.destination.as_deref())?;
+    let mut body = json!({
+        "title": title,
+        "source": { "branch": { "name": source } },
+        "destination": { "branch": { "name": destination } },
+    });
+    if let Some(description) = optional_trimmed(request.description.as_deref()) {
+        body["description"] = Value::String(description.to_string());
+    }
+    if request.close_branch {
+        body["close_source_branch"] = Value::Bool(true);
+    }
+    Ok(api_dry_run_plan(
+        "bb pr create",
+        output,
+        "POST",
+        format!("/repositories/{workspace}/{repo}/pullrequests"),
+        Some(body),
+        vec![
+            format!("Repo: {workspace}/{repo}"),
+            format!("Source: {source}"),
+            format!("Destination: {destination}"),
+        ],
+    ))
+}
+
+fn plan_pr_merge_dry_run(request: &PrMergeRequest) -> Result<DryRunPlan, CliError> {
+    let strategy = normalize_merge_strategy(request.strategy.as_deref())?;
+    let mut body = json!({});
+    let mut details = Vec::new();
+    if let Some(message) = optional_trimmed(request.message.as_deref()) {
+        body["message"] = Value::String(message.to_string());
+        details.push(format!("Message: {message}"));
+    }
+    if let Some(strategy) = strategy.as_deref() {
+        body["merge_strategy"] = Value::String(strategy.to_string());
+        details.push(format!("Strategy: {strategy}"));
+    }
+    if request.close_branch {
+        body["close_source_branch"] = Value::Bool(true);
+        details.push("Close source branch after merge".to_string());
+    }
+    plan_pr_action_dry_run(
+        request.workspace.as_deref(),
+        request.repo.as_deref(),
+        request.id.as_deref(),
+        request.profile.as_deref(),
+        &request.output,
+        "bb pr merge",
+        "POST",
+        Some("merge"),
+        Some(body),
+        details,
+    )
+}
+
+fn plan_pr_update_dry_run(request: &PrUpdateRequest) -> Result<DryRunPlan, CliError> {
+    let mut body = json!({});
+    if let Some(title) = optional_trimmed(request.title.as_deref()) {
+        body["title"] = Value::String(title.to_string());
+    }
+    if let Some(description) = optional_trimmed(request.description.as_deref()) {
+        body["description"] = Value::String(description.to_string());
+    }
+    if let Some(source) = optional_trimmed(request.source.as_deref()) {
+        body["source"] = json!({ "branch": { "name": source } });
+    }
+    if let Some(destination) = optional_trimmed(request.destination.as_deref()) {
+        body["destination"] = json!({ "branch": { "name": destination } });
+    }
+    if body
+        .as_object()
+        .map(|value| value.is_empty())
+        .unwrap_or(false)
+    {
+        return Err(CliError::InvalidInput(
+            "at least one of --title, --description, --source, --destination is required"
+                .to_string(),
+        ));
+    }
+    plan_pr_action_dry_run(
+        request.workspace.as_deref(),
+        request.repo.as_deref(),
+        request.id.as_deref(),
+        request.profile.as_deref(),
+        &request.output,
+        "bb pr update",
+        "PUT",
+        None,
+        Some(body),
+        Vec::new(),
+    )
+}
+
+fn plan_pr_approve_dry_run(request: &PrApproveRequest) -> Result<DryRunPlan, CliError> {
+    plan_pr_action_dry_run(
+        request.workspace.as_deref(),
+        request.repo.as_deref(),
+        request.id.as_deref(),
+        request.profile.as_deref(),
+        &request.output,
+        "bb pr approve",
+        "POST",
+        Some("approve"),
+        None,
+        Vec::new(),
+    )
+}
+
+fn plan_pr_unapprove_dry_run(request: &PrUnapproveRequest) -> Result<DryRunPlan, CliError> {
+    plan_pr_action_dry_run(
+        request.workspace.as_deref(),
+        request.repo.as_deref(),
+        request.id.as_deref(),
+        request.profile.as_deref(),
+        &request.output,
+        "bb pr unapprove",
+        "DELETE",
+        Some("approve"),
+        None,
+        Vec::new(),
+    )
+}
+
+fn plan_pr_request_changes_dry_run(
+    request: &PrRequestChangesRequest,
+) -> Result<DryRunPlan, CliError> {
+    plan_pr_action_dry_run(
+        request.workspace.as_deref(),
+        request.repo.as_deref(),
+        request.id.as_deref(),
+        request.profile.as_deref(),
+        &request.output,
+        "bb pr request-changes",
+        "POST",
+        Some("request-changes"),
+        None,
+        Vec::new(),
+    )
+}
+
+fn plan_pr_remove_request_changes_dry_run(
+    request: &PrRemoveRequestChangesRequest,
+) -> Result<DryRunPlan, CliError> {
+    plan_pr_action_dry_run(
+        request.workspace.as_deref(),
+        request.repo.as_deref(),
+        request.id.as_deref(),
+        request.profile.as_deref(),
+        &request.output,
+        "bb pr remove-request-changes",
+        "DELETE",
+        Some("request-changes"),
+        None,
+        Vec::new(),
+    )
+}
+
+fn plan_pr_decline_dry_run(request: &PrDeclineRequest) -> Result<DryRunPlan, CliError> {
+    plan_pr_action_dry_run(
+        request.workspace.as_deref(),
+        request.repo.as_deref(),
+        request.id.as_deref(),
+        request.profile.as_deref(),
+        &request.output,
+        "bb pr decline",
+        "POST",
+        Some("decline"),
+        None,
+        Vec::new(),
+    )
+}
+
+fn plan_pr_comment_dry_run(request: &PrCommentRequest) -> Result<DryRunPlan, CliError> {
+    let content = required_string("--content is required", request.content.as_deref())?;
+    plan_pr_action_dry_run(
+        request.workspace.as_deref(),
+        request.repo.as_deref(),
+        request.id.as_deref(),
+        request.profile.as_deref(),
+        &request.output,
+        "bb pr comment",
+        "POST",
+        Some("comments"),
+        Some(json!({
+            "content": {
+                "raw": content,
+            }
+        })),
+        vec![format!("Content length: {}", content.len())],
+    )
+}
+
+fn plan_pr_checkout_dry_run(request: &PrCheckoutRequest) -> Result<DryRunPlan, CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    context::ensure_git_worktree(None)?;
+    let (local_workspace, local_repo) = context::infer_bitbucket_repo_from_git(None)?;
+    if !repo_target_matches(&local_workspace, &local_repo, &workspace, &repo) {
+        return Err(CliError::InvalidInput(
+            "bb pr checkout currently requires running inside the target repository".to_string(),
+        ));
+    }
+
+    let id = parse_numeric_id(request.id.as_deref(), "--id is required")?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let value = client.request_value(
+        Method::GET,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{id}"),
+        &[],
+        None,
+    )?;
+    let source_branch = render::string_field(&value, &["source", "branch", "name"])
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            CliError::Internal("pull request is missing source.branch.name".to_string())
+        })?;
+    let source_repo = render::string_field(&value, &["source", "repository", "full_name"])
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            CliError::InvalidInput(
+                "pull request source repository metadata is required for bb pr checkout"
+                    .to_string(),
+            )
+        })?;
+    if !source_repo.eq_ignore_ascii_case(&format!("{workspace}/{repo}")) {
+        return Err(CliError::InvalidInput(
+            "fork pull requests are not supported by bb pr checkout yet".to_string(),
+        ));
+    }
+
+    let branch = optional_trimmed(request.branch.as_deref())
+        .unwrap_or(source_branch)
+        .to_string();
+    context::validate_git_branch_name(None, &branch)?;
+    let hidden_ref = format!("refs/bb/pr/{id}");
+    let refspec = format!("+refs/heads/{source_branch}:{hidden_ref}");
+    let branch_exists =
+        context::resolve_git_revision(None, &format!("refs/heads/{branch}"))?.is_some();
+    let mut details = vec![
+        format!("Repo: {workspace}/{repo}"),
+        format!("Source branch: {source_branch}"),
+        format!("Local branch: {branch}"),
+    ];
+    if branch_exists && !request.force {
+        details.push(
+            "Local branch already exists; the real command may require --force depending on commit state"
+                .to_string(),
+        );
+    }
+    if request.force {
+        details.push("Force branch reset is enabled".to_string());
+    }
+
+    Ok(git_dry_run_plan(
+        "bb pr checkout",
+        output,
+        &["api", "git"],
+        details,
+        vec![
+            json!({ "argv": ["fetch", "origin", refspec] }),
+            json!({
+                "argv": ["checkout", branch.as_str()],
+                "note": "the real command creates, checks out, or resets the branch depending on local state",
+            }),
+        ],
+        Some(json!({
+            "api": {
+                "method": "GET",
+                "path": format!("/repositories/{workspace}/{repo}/pullrequests/{id}"),
+            },
+            "source_branch": source_branch,
+            "branch": branch,
+            "ref": hidden_ref,
+            "local_branch_exists": branch_exists,
+            "force": request.force,
+        })),
+    ))
+}
+
+fn plan_pipeline_run_dry_run(request: &PipelineRunRequest) -> Result<DryRunPlan, CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    profile_from_config(request.profile.as_deref())?;
+    let branch = required_string("--branch is required", request.branch.as_deref())?;
+    Ok(api_dry_run_plan(
+        "bb pipeline run",
+        output,
+        "POST",
+        format!("/repositories/{workspace}/{repo}/pipelines"),
+        Some(json!({
+            "target": {
+                "type": "pipeline_ref_target",
+                "ref_type": "branch",
+                "ref_name": branch,
+            }
+        })),
+        vec![
+            format!("Repo: {workspace}/{repo}"),
+            format!("Ref: {branch}"),
+        ],
+    ))
+}
+
+fn plan_issue_create_dry_run(request: &IssueCreateRequest) -> Result<DryRunPlan, CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    profile_from_config(request.profile.as_deref())?;
+    let title = required_string("--title is required", request.title.as_deref())?;
+    let kind = normalize_issue_kind(request.kind.as_deref())?;
+    let priority = normalize_issue_priority(request.priority.as_deref())?;
+    let mut body = json!({ "title": title });
+    if let Some(content) = optional_trimmed(request.content.as_deref()) {
+        body["content"] = json!({ "raw": content });
+    }
+    set_optional_string(&mut body, "state", request.state.as_deref());
+    if let Some(kind) = kind {
+        body["kind"] = Value::String(kind);
+    }
+    if let Some(priority) = priority {
+        body["priority"] = Value::String(priority);
+    }
+    Ok(api_dry_run_plan(
+        "bb issue create",
+        output,
+        "POST",
+        format!("/repositories/{workspace}/{repo}/issues"),
+        Some(body),
+        vec![format!("Repo: {workspace}/{repo}")],
+    ))
+}
+
+fn plan_issue_update_dry_run(request: &IssueUpdateRequest) -> Result<DryRunPlan, CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    profile_from_config(request.profile.as_deref())?;
+    let id = request
+        .id
+        .filter(|value| *value > 0)
+        .ok_or_else(|| CliError::InvalidInput("--id is required".to_string()))?;
+    let kind = normalize_issue_kind(request.kind.as_deref())?;
+    let priority = normalize_issue_priority(request.priority.as_deref())?;
+    let mut body = json!({});
+    set_optional_string(&mut body, "title", request.title.as_deref());
+    set_optional_string(&mut body, "state", request.state.as_deref());
+    if let Some(kind) = kind {
+        body["kind"] = Value::String(kind);
+    }
+    if let Some(priority) = priority {
+        body["priority"] = Value::String(priority);
+    }
+    if let Some(content) = optional_trimmed(request.content.as_deref()) {
+        body["content"] = json!({ "raw": content });
+    }
+    if body
+        .as_object()
+        .map(|value| value.is_empty())
+        .unwrap_or(true)
+    {
+        return Err(CliError::InvalidInput(
+            "at least one field to update is required".to_string(),
+        ));
+    }
+    Ok(api_dry_run_plan(
+        "bb issue update",
+        output,
+        "PUT",
+        format!("/repositories/{workspace}/{repo}/issues/{id}"),
+        Some(body),
+        vec![format!("Repo: {workspace}/{repo}"), format!("Issue: #{id}")],
+    ))
+}
+
+fn plan_wiki_put_dry_run(request: &WikiPutRequest) -> Result<DryRunPlan, CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let page = context::normalize_wiki_page_path(
+        request
+            .page
+            .as_deref()
+            .ok_or_else(|| CliError::InvalidInput("--page is required".to_string()))?,
+    )?;
+    let (content_source, content_size) = match (
+        optional_trimmed(request.content.as_deref()),
+        optional_trimmed(request.file.as_deref()),
+    ) {
+        (Some(_), Some(_)) => {
+            return Err(CliError::InvalidInput(
+                "use only one of --content or --file".to_string(),
+            ));
+        }
+        (None, None) => {
+            return Err(CliError::InvalidInput(
+                "either --content or --file is required".to_string(),
+            ));
+        }
+        (Some(content), None) => ("--content".to_string(), content.len()),
+        (None, Some(path)) => (
+            format!("--file {path}"),
+            fs::read_to_string(path)
+                .map_err(|error| CliError::Io(format!("read --file: {error}")))?
+                .len(),
+        ),
+    };
+    let profile = profile_from_config(request.profile.as_deref())?;
+    let commit_message = optional_trimmed(request.message.as_deref())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("Update wiki page {page}"));
+    let remote = context::build_wiki_remote_url(&profile, &workspace, &repo)?;
+    Ok(git_dry_run_plan(
+        "bb wiki put",
+        output,
+        &["git"],
+        vec![
+            format!("Repo: {workspace}/{repo}"),
+            format!("Page: {page}"),
+            format!("Content source: {content_source}"),
+            format!("Commit message: {commit_message}"),
+        ],
+        vec![
+            json!({ "argv": ["clone", "--depth", "1", remote.as_str(), "<tempdir>"] }),
+            json!({ "argv": ["add", "--", page.as_str()] }),
+            json!({ "argv": ["commit", "-m", commit_message.as_str()] }),
+            json!({ "argv": ["push", "origin", "HEAD"] }),
+        ],
+        Some(json!({
+            "remote": remote,
+            "page": page,
+            "content_size": content_size,
+        })),
+    ))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn plan_pr_action_dry_run(
+    workspace_value: Option<&str>,
+    repo_value: Option<&str>,
+    id_value: Option<&str>,
+    profile_name: Option<&str>,
+    output_value: &str,
+    command: &str,
+    method: &str,
+    suffix: Option<&str>,
+    body: Option<Value>,
+    mut details: Vec<String>,
+) -> Result<DryRunPlan, CliError> {
+    let output = parse_write_output(output_value)?;
+    let (workspace, repo) = context::resolve_repo_target(workspace_value, repo_value, true)?;
+    profile_from_config(profile_name)?;
+    let id = parse_numeric_id(id_value, "--id is required")?;
+    let mut path = format!("/repositories/{workspace}/{repo}/pullrequests/{id}");
+    if let Some(suffix) = suffix {
+        path.push('/');
+        path.push_str(suffix);
+    }
+    details.insert(0, format!("PR: #{id}"));
+    details.insert(0, format!("Repo: {workspace}/{repo}"));
+    Ok(api_dry_run_plan(
+        command, output, method, path, body, details,
+    ))
+}
+
+fn resolve_login_username(request: &AuthLoginRequest) -> String {
+    request
+        .username
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            std::env::var("BITBUCKET_USERNAME")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or_default()
+}
+
+fn resolve_login_base_url(request: &AuthLoginRequest) -> String {
+    optional_trimmed(request.base_url.as_deref())
+        .unwrap_or("https://api.bitbucket.org/2.0")
+        .to_string()
+}
+
+fn resolve_login_token_source(request: &AuthLoginRequest) -> Result<String, CliError> {
+    let token = request
+        .token
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    if let Some(token) = token {
+        return if token == STDIN_TOKEN_SENTINEL {
+            Ok("stdin".to_string())
+        } else {
+            Ok("cli".to_string())
+        };
+    }
+    if request.with_token {
+        return Ok("stdin".to_string());
+    }
+    if let Ok(token) = std::env::var("BITBUCKET_TOKEN")
+        && !token.trim().is_empty()
+    {
+        return Ok("env".to_string());
+    }
+    Err(CliError::InvalidInput(
+        "token is required: use --token <value>, --with-token, or BITBUCKET_TOKEN".to_string(),
+    ))
+}
+
 fn resolve_login_token<R: BufRead>(
     request: &AuthLoginRequest,
     stdin: &mut R,
@@ -1485,6 +2503,38 @@ fn normalize_merge_strategy(value: Option<&str>) -> Result<Option<String>, CliEr
         _ => Err(CliError::InvalidInput(
             "--strategy must be one of merge_commit, squash, fast_forward".to_string(),
         )),
+    }
+}
+
+fn normalize_issue_kind(value: Option<&str>) -> Result<Option<String>, CliError> {
+    normalize_issue_enum(
+        value,
+        &["bug", "enhancement", "proposal", "task"],
+        "--kind must be one of bug, enhancement, proposal, task",
+    )
+}
+
+fn normalize_issue_priority(value: Option<&str>) -> Result<Option<String>, CliError> {
+    normalize_issue_enum(
+        value,
+        &["trivial", "minor", "major", "critical", "blocker"],
+        "--priority must be one of trivial, minor, major, critical, blocker",
+    )
+}
+
+fn normalize_issue_enum(
+    value: Option<&str>,
+    allowed: &[&str],
+    message: &str,
+) -> Result<Option<String>, CliError> {
+    let Some(value) = optional_trimmed(value) else {
+        return Ok(None);
+    };
+    let normalized = value.to_lowercase();
+    if allowed.iter().any(|allowed| *allowed == normalized) {
+        Ok(Some(normalized))
+    } else {
+        Err(CliError::InvalidInput(message.to_string()))
     }
 }
 

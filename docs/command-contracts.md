@@ -12,6 +12,12 @@ This document is the contract baseline for `bb` command behavior.
 - Output policy:
   - Human output for operator use (`table` or concise text)
   - JSON output for automation where supported
+- Mutating command agent flags:
+  - Supported on `bb auth login|logout`, `bb pr create|merge|update|approve|unapprove|request-changes|remove-request-changes|decline|comment|checkout`, `bb pipeline run`, `bb issue create|update`, and `bb wiki put`
+  - `--describe` prints a JSON command description to stdout and exits 0 without performing config, network, or git operations
+  - `--dry-run` validates inputs and may perform safe config/file/API reads needed for planning, but performs no config saves, POST/PUT/DELETE calls, git fetch/checkout/push, or wiki writes
+  - `--dry-run` reuses the command's normal output mode; `auth login` and `auth logout` remain text-only
+  - Using either flag on a read-only command fails early with non-zero exit
 
 ## `bb auth`
 

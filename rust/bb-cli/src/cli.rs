@@ -24,6 +24,12 @@ pub struct Cli {
     #[arg(short = 'v', long = "version", global = true)]
     pub version: bool,
 
+    #[arg(long, global = true, conflicts_with = "dry_run")]
+    pub describe: bool,
+
+    #[arg(long, global = true, conflicts_with = "describe")]
+    pub dry_run: bool,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -113,7 +119,7 @@ pub enum WikiCommands {
 
 #[derive(Debug, Args)]
 pub struct CompletionArgs {
-    pub shell: Option<String>,
+    pub shell: String,
 }
 
 #[derive(Debug, Args)]
@@ -646,11 +652,23 @@ fn normalize_args(args: Vec<OsString>) -> Vec<OsString> {
 }
 
 fn map_request(cli: Cli) -> Request {
-    if cli.version {
-        return Request::Version;
-    }
+    let request = if cli.version {
+        Request::Version
+    } else {
+        map_command_request(cli.command)
+    };
 
-    match cli.command {
+    if cli.describe {
+        Request::Describe(Box::new(request))
+    } else if cli.dry_run {
+        Request::DryRun(Box::new(request))
+    } else {
+        request
+    }
+}
+
+fn map_command_request(command: Option<Commands>) -> Request {
+    match command {
         None => Request::RootHelp,
         Some(Commands::Version) => Request::Version,
         Some(Commands::Completion(args)) => Request::Completion(args.shell),
@@ -948,6 +966,33 @@ mod tests {
     fn version_flag_maps_to_version_request() {
         let request = parse_from(["bb", "--version"]).expect("parse should succeed");
         assert!(matches!(request, Request::Version));
+    }
+
+    #[test]
+    fn pr_create_describe_wraps_request() {
+        let request =
+            parse_from(["bb", "pr", "create", "--describe"]).expect("parse should succeed");
+        let Request::Describe(inner) = request else {
+            panic!("expected describe request");
+        };
+        assert!(matches!(*inner, Request::Pr(PrRequest::Create(_))));
+    }
+
+    #[test]
+    fn pipeline_run_dry_run_wraps_request() {
+        let request = parse_from(["bb", "pipeline", "run", "--dry-run", "--branch", "main"])
+            .expect("parse should succeed");
+        let Request::DryRun(inner) = request else {
+            panic!("expected dry-run request");
+        };
+        assert!(matches!(*inner, Request::Pipeline(PipelineRequest::Run(_))));
+    }
+
+    #[test]
+    fn describe_and_dry_run_conflict() {
+        let error = parse_from(["bb", "pr", "create", "--describe", "--dry-run"])
+            .expect_err("parse should fail");
+        assert_eq!(error.exit_code(), 2);
     }
 
     #[test]

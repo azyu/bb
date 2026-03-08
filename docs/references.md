@@ -209,11 +209,11 @@ Current agent-oriented alignment:
 - The Rust MVP keeps JSON success/error contracts for automation-facing commands.
 - Command parsing rejects invalid combinations before network or git write operations.
 - Structured passthrough parameters (`q`, `sort`, `fields`) are preserved for precise automation.
-- Schema introspection and dry-run support remain explicit phase 2 candidates rather than implicit scope creep in MVP.
+- Mutating commands now expose `--describe` JSON introspection and `--dry-run` validation-only planning without write side effects.
 
 ## 9) Implementation Direction (Next)
 1. Harden release packaging across additional OS/arch targets if distribution expands beyond local/personal use.
-2. Evaluate agent-first extensions such as schema introspection, dry-run support, or a separate automation surface.
+2. Harden more agent-specific invalid inputs and evaluate larger automation surfaces only if the current `--describe`/`--dry-run` layer proves insufficient.
 3. Evaluate fork-aware `bb pr checkout` and other richer local Git helper flows only if local workflow demand justifies the extra scope.
 
 ## 10) Versioning Strategy

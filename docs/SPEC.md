@@ -18,9 +18,7 @@
 - The CLI should preserve one source of truth for both human and agent surfaces:
   - `bb-cli` owns parsing and process behavior
   - `bb-core` owns validation, execution, and rendering contracts
-- Follow-up work, inspired by Justin Poehnelt's March 4, 2026 article on agent-oriented CLIs:
-  - add `bb schema` or `--describe` style runtime introspection
-  - add `--dry-run` for mutating commands
+- Follow-up work, inspired by Justin Poehnelt's March 4, 2026 article on agent-oriented CLIs, now focuses on:
   - harden more agent-specific invalid inputs such as control characters, path traversal, embedded query fragments, and double-encoded identifiers
   - consider NDJSON/streaming output for very large paginated responses
   - expose future MCP/extension surfaces by reusing `bb-core`, not by forking behavior into a second implementation
@@ -69,6 +67,29 @@
 Still out of scope:
 - fork-aware `bb pr checkout` flows and extra local Git checkout UX such as `--detach`
 - extra PR wrappers not backed by a clear Bitbucket Cloud REST operation title
+
+## Mutating Command Agent Flags
+- Supported on:
+  - `bb auth login`
+  - `bb auth logout`
+  - `bb pr create`
+  - `bb pr merge`
+  - `bb pr update`
+  - `bb pr approve`
+  - `bb pr unapprove`
+  - `bb pr request-changes`
+  - `bb pr remove-request-changes`
+  - `bb pr decline`
+  - `bb pr comment`
+  - `bb pr checkout`
+  - `bb pipeline run`
+  - `bb issue create`
+  - `bb issue update`
+  - `bb wiki put`
+- `--describe` is side-effect free and prints JSON command metadata to stdout.
+- `--dry-run` validates inputs and may perform safe config/file/API reads needed for planning, but performs no config saves, POST/PUT/DELETE calls, git fetch/checkout/push, or wiki writes.
+- `--dry-run` reuses the command's normal output mode. `auth login` and `auth logout` remain text-only because they do not expose `--output`.
+- Using either flag on a read-only command fails early with non-zero exit status.
 
 ## Config and Auth
 - Default config path:
@@ -147,10 +168,10 @@ Still out of scope:
   - human-facing commands keep concise text/table output
   - automation-facing commands use stable `json` output modes and JSON error envelopes
   - parser-level conflicts and invalid combinations must fail before network or git write operations
+  - mutating commands expose `--describe` JSON introspection and `--dry-run` validation-only execution plans
 - Future extensions, motivated by agent-oriented CLI design:
-  - command/schema introspection for discovery (`bb <command> --describe` or equivalent)
-  - `--dry-run` or validation-only modes for write commands
   - optional MCP exposure or a separate automation surface if human CLI ergonomics and agent ergonomics diverge materially
+  - additional input hardening and larger-scale streaming output where automation pressure justifies it
 
 ## Bitbucket Client Rules
 - Follow server-provided pagination using `next`.
