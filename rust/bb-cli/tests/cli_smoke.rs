@@ -231,6 +231,60 @@ fn pipeline_log_text_reads_config_and_calls_server() {
 }
 
 #[test]
+fn pipeline_get_rejects_unbalanced_uuid_braces() {
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "get",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--uuid",
+            "{pipe-123",
+            "--output",
+            "json",
+        ])
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "invalid_input");
+    assert_eq!(body["error"]["message"], "--uuid must be a Bitbucket UUID");
+}
+
+#[test]
+fn pipeline_log_rejects_unbalanced_step_braces() {
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "log",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--uuid",
+            "{pipe-123}",
+            "--step",
+            "step-1}",
+            "--output",
+            "json",
+        ])
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "invalid_input");
+    assert_eq!(body["error"]["message"], "--step must be a Bitbucket UUID");
+}
+
+#[test]
 fn completion_bash_prints_script() {
     let output = bb_command()
         .args(["completion", "bash"])

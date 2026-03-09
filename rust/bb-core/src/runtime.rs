@@ -1502,10 +1502,25 @@ fn normalize_uuid_arg(flag_name: &str, value: Option<&str>) -> Result<(String, S
     let value = required_string(&format!("{flag_name} is required"), value)?;
     let trimmed = value.trim();
     let lowercase = trimmed.to_ascii_lowercase();
-    if lowercase.starts_with("%7b") && lowercase.ends_with("%7d") && trimmed.len() > 6 {
+    let has_encoded_open = lowercase.starts_with("%7b");
+    let has_encoded_close = lowercase.ends_with("%7d");
+    if has_encoded_open ^ has_encoded_close {
+        return Err(CliError::InvalidInput(format!(
+            "{flag_name} must be a Bitbucket UUID"
+        )));
+    }
+    if has_encoded_open && has_encoded_close && trimmed.len() > 6 {
         let inner = &trimmed[3..trimmed.len() - 3];
         validate_uuid_arg(flag_name, inner)?;
         return Ok((format!("{{{inner}}}"), trimmed.to_string()));
+    }
+
+    let has_open_brace = trimmed.starts_with('{');
+    let has_close_brace = trimmed.ends_with('}');
+    if has_open_brace ^ has_close_brace {
+        return Err(CliError::InvalidInput(format!(
+            "{flag_name} must be a Bitbucket UUID"
+        )));
     }
 
     let inner = trimmed.strip_prefix('{').unwrap_or(trimmed);
