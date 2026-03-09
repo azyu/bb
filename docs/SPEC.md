@@ -54,6 +54,9 @@
 - `bb pr statuses`
 - `bb pr activity`
 - `bb pipeline list`
+- `bb pipeline get`
+- `bb pipeline steps`
+- `bb pipeline log`
 - `bb pipeline run`
 - `bb issue list`
 - `bb issue create`
@@ -118,6 +121,10 @@ Still out of scope:
   - `bb pr get`, `bb pr update`, `bb pr approve`, `bb pr unapprove`, `bb pr request-changes`, `bb pr remove-request-changes`, `bb pr decline`, `bb pr comment`: `text|json`
   - `bb pr comments`, `bb pr statuses`, `bb pr activity`: `table|json`
   - `bb pr diff`: `text|json`, where JSON wraps the raw diff payload in an object
+- Pipeline-specific conventions:
+  - `bb pipeline get`, `bb pipeline log`, `bb pipeline run`: `text|json`
+  - `bb pipeline list`, `bb pipeline steps`: `table|json`
+  - `bb pipeline log`: JSON wraps the raw log payload in an object with pipeline and step UUID metadata
 - `bb pr list` text output keeps:
   - summary line
   - columns `ID`, `TITLE`, `BRANCH`, `CREATED AT`

@@ -389,6 +389,58 @@ Naming rule:
   - Missing required flags -> non-zero exit
   - Unsupported output -> non-zero exit
 
+### `bb pipeline get`
+- Purpose: Get a pipeline by UUID.
+- Required flags:
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
+  - `--uuid`
+- Optional flags:
+  - `--profile`
+  - `--fields`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: pipeline summary (`UUID`, state, ref, optional build number and URL)
+  - `json`: raw pipeline object
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Invalid `--uuid` value -> non-zero exit
+  - Unsupported output -> non-zero exit
+
+### `bb pipeline steps`
+- Purpose: List steps for a pipeline.
+- Required flags:
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
+  - `--uuid`
+- Optional flags:
+  - `--output` (`table` default, `json`)
+  - `--all`
+  - `--profile`
+  - `--sort`, `--fields`
+- Output:
+  - `table`: `UUID`, `STATE`, `NAME`
+  - `json`: array of pipeline step objects
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Invalid `--uuid` value -> non-zero exit
+  - Unsupported output -> non-zero exit
+
+### `bb pipeline log`
+- Purpose: Get the raw log for a pipeline step.
+- Required flags:
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
+  - `--uuid`
+  - `--step`
+- Optional flags:
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: raw pipeline step log payload
+  - `json`: object with `pipeline_uuid`, `step_uuid`, and `log`
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Invalid `--uuid` or `--step` value -> non-zero exit
+  - Unsupported output -> non-zero exit
+
 ### `bb pipeline run`
 - Purpose: Trigger a pipeline by branch reference.
 - Required flags:

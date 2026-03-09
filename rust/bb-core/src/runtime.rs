@@ -14,7 +14,8 @@ use crate::version;
 use crate::{
     ApiRequest, AuthLoginRequest, AuthRequest, AuthStatusRequest, CompletionShell,
     IssueCreateRequest, IssueListRequest, IssueRequest, IssueUpdateRequest, ListOutput,
-    PipelineListRequest, PipelineRequest, PipelineRunRequest, PrActivityRequest, PrApproveRequest,
+    PipelineGetRequest, PipelineListRequest, PipelineLogRequest, PipelineRequest,
+    PipelineRunRequest, PipelineStepsRequest, PrActivityRequest, PrApproveRequest,
     PrCommentRequest, PrCommentsRequest, PrCreateRequest, PrDeclineRequest, PrDiffRequest,
     PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest, PrRequest,
     PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
@@ -128,6 +129,15 @@ fn wants_json_errors(request: &Request) -> bool {
         Request::Pr(PrRequest::Statuses(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Activity(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pipeline(PipelineRequest::List(req)) => {
+            req.output.trim().eq_ignore_ascii_case("json")
+        }
+        Request::Pipeline(PipelineRequest::Get(req)) => {
+            req.output.trim().eq_ignore_ascii_case("json")
+        }
+        Request::Pipeline(PipelineRequest::Steps(req)) => {
+            req.output.trim().eq_ignore_ascii_case("json")
+        }
+        Request::Pipeline(PipelineRequest::Log(req)) => {
             req.output.trim().eq_ignore_ascii_case("json")
         }
         Request::Pipeline(PipelineRequest::Run(req)) => {
@@ -898,6 +908,9 @@ fn handle_pipeline<O: Write>(request: &PipelineRequest, stdout: &mut O) -> Resul
             write!(stdout, "{}", render::pipeline_usage()).map_err(CliError::from)
         }
         PipelineRequest::List(request) => handle_pipeline_list(request, stdout),
+        PipelineRequest::Get(request) => handle_pipeline_get(request, stdout),
+        PipelineRequest::Steps(request) => handle_pipeline_steps(request, stdout),
+        PipelineRequest::Log(request) => handle_pipeline_log(request, stdout),
         PipelineRequest::Run(request) => handle_pipeline_run(request, stdout),
     }
 }
@@ -929,6 +942,88 @@ fn handle_pipeline_list<O: Write>(
     }
 }
 
+fn handle_pipeline_get<O: Write>(
+    request: &PipelineGetRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let (_, pipeline_uuid) = normalize_uuid_arg("--uuid", request.uuid.as_deref())?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let query = collect_query([("fields", request.fields.as_deref())]);
+    let value = client.request_value(
+        Method::GET,
+        &format!("/repositories/{workspace}/{repo}/pipelines/{pipeline_uuid}"),
+        &query,
+        None,
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Text => write_pipeline_summary(stdout, "Pipeline", &value),
+    }
+}
+
+fn handle_pipeline_steps<O: Write>(
+    request: &PipelineStepsRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_list_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let (_, pipeline_uuid) = normalize_uuid_arg("--uuid", request.uuid.as_deref())?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let query = collect_query([
+        ("sort", request.sort.as_deref()),
+        ("fields", request.fields.as_deref()),
+    ]);
+    let path = format!("/repositories/{workspace}/{repo}/pipelines/{pipeline_uuid}/steps");
+    let values = if request.all {
+        client.get_all_values(&path, &query)?
+    } else {
+        client.get_page(&path, &query)?.0
+    };
+
+    match output {
+        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Table => write!(stdout, "{}", render::render_pipeline_steps_table(&values))
+            .map_err(CliError::from),
+    }
+}
+
+fn handle_pipeline_log<O: Write>(
+    request: &PipelineLogRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let (pipeline_display_uuid, pipeline_uuid) =
+        normalize_uuid_arg("--uuid", request.uuid.as_deref())?;
+    let (step_display_uuid, step_uuid) = normalize_uuid_arg("--step", request.step.as_deref())?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let log = client.request_text(
+        Method::GET,
+        &format!(
+            "/repositories/{workspace}/{repo}/pipelines/{pipeline_uuid}/steps/{step_uuid}/log"
+        ),
+        &[],
+    )?;
+
+    match output {
+        WriteOutput::Text => write!(stdout, "{log}").map_err(CliError::from),
+        WriteOutput::Json => render::print_json(
+            stdout,
+            &json!({
+                "pipeline_uuid": pipeline_display_uuid,
+                "step_uuid": step_display_uuid,
+                "log": log,
+            }),
+        ),
+    }
+}
+
 fn handle_pipeline_run<O: Write>(
     request: &PipelineRunRequest,
     stdout: &mut O,
@@ -953,21 +1048,37 @@ fn handle_pipeline_run<O: Write>(
     )?;
     match output {
         WriteOutput::Json => render::print_json(stdout, &value),
-        WriteOutput::Text => {
-            writeln!(
-                stdout,
-                "Triggered pipeline {}",
-                render::string_field(&value, &["uuid"]).unwrap_or("-")
-            )?;
-            writeln!(stdout, "State: {}", render::pipeline_state_label(&value))?;
-            if let Some(reference) = render::string_field(&value, &["target", "ref_name"]) {
-                if !reference.trim().is_empty() {
-                    writeln!(stdout, "Ref: {reference}")?;
-                }
-            }
-            Ok(())
+        WriteOutput::Text => write_pipeline_summary(stdout, "Triggered pipeline", &value),
+    }
+}
+
+fn write_pipeline_summary<O: Write>(
+    stdout: &mut O,
+    heading: &str,
+    value: &Value,
+) -> Result<(), CliError> {
+    writeln!(
+        stdout,
+        "{heading} {}",
+        render::string_field(value, &["uuid"]).unwrap_or("-")
+    )?;
+    writeln!(stdout, "State: {}", render::pipeline_state_label(value))?;
+    if let Some(reference) = render::string_field(value, &["target", "ref_name"]) {
+        if !reference.trim().is_empty() {
+            writeln!(stdout, "Ref: {reference}")?;
         }
     }
+    if let Some(build_number) = render::int_field(value, &["build_number"]) {
+        if build_number > 0 {
+            writeln!(stdout, "Build: {build_number}")?;
+        }
+    }
+    if let Some(url) = render::string_field(value, &["links", "html", "href"]) {
+        if !url.trim().is_empty() {
+            writeln!(stdout, "URL: {url}")?;
+        }
+    }
+    Ok(())
 }
 
 fn handle_issue<O: Write>(request: &IssueRequest, stdout: &mut O) -> Result<(), CliError> {
@@ -1385,6 +1496,51 @@ fn parse_numeric_id(value: Option<&str>, missing_message: &str) -> Result<String
         .parse::<u64>()
         .map(|_| value.to_string())
         .map_err(|_| CliError::InvalidInput(format!("--id must be a number: {value}")))
+}
+
+fn normalize_uuid_arg(flag_name: &str, value: Option<&str>) -> Result<(String, String), CliError> {
+    let value = required_string(&format!("{flag_name} is required"), value)?;
+    let trimmed = value.trim();
+    let lowercase = trimmed.to_ascii_lowercase();
+    let has_encoded_open = lowercase.starts_with("%7b");
+    let has_encoded_close = lowercase.ends_with("%7d");
+    if has_encoded_open ^ has_encoded_close {
+        return Err(CliError::InvalidInput(format!(
+            "{flag_name} must be a Bitbucket UUID"
+        )));
+    }
+    if has_encoded_open && has_encoded_close && trimmed.len() > 6 {
+        let inner = &trimmed[3..trimmed.len() - 3];
+        validate_uuid_arg(flag_name, inner)?;
+        return Ok((format!("{{{inner}}}"), trimmed.to_string()));
+    }
+
+    let has_open_brace = trimmed.starts_with('{');
+    let has_close_brace = trimmed.ends_with('}');
+    if has_open_brace ^ has_close_brace {
+        return Err(CliError::InvalidInput(format!(
+            "{flag_name} must be a Bitbucket UUID"
+        )));
+    }
+
+    let inner = trimmed.strip_prefix('{').unwrap_or(trimmed);
+    let inner = inner.strip_suffix('}').unwrap_or(inner);
+    validate_uuid_arg(flag_name, inner)?;
+    Ok((format!("{{{inner}}}"), format!("%7B{inner}%7D")))
+}
+
+fn validate_uuid_arg(flag_name: &str, value: &str) -> Result<(), CliError> {
+    let value = value.trim();
+    if value.is_empty()
+        || value
+            .chars()
+            .any(|ch| ch.is_whitespace() || matches!(ch, '/' | '?' | '#' | '{' | '}'))
+    {
+        return Err(CliError::InvalidInput(format!(
+            "{flag_name} must be a Bitbucket UUID"
+        )));
+    }
+    Ok(())
 }
 
 fn collect_query<const N: usize>(pairs: [(&str, Option<&str>); N]) -> Vec<(String, String)> {

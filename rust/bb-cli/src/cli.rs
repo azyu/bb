@@ -2,13 +2,13 @@ use std::ffi::OsString;
 
 use bb_core::{
     ApiRequest, AuthLoginRequest, AuthLogoutRequest, AuthRequest, AuthStatusRequest,
-    IssueCreateRequest, IssueListRequest, IssueRequest, IssueUpdateRequest, PipelineListRequest,
-    PipelineRequest, PipelineRunRequest, PrActivityRequest, PrApproveRequest, PrCommentRequest,
-    PrCommentsRequest, PrCreateRequest, PrDeclineRequest, PrDiffRequest, PrGetRequest,
-    PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest, PrRequest,
-    PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
-    RepoListRequest, RepoRequest, Request, WikiGetRequest, WikiListRequest, WikiPutRequest,
-    WikiRequest,
+    IssueCreateRequest, IssueListRequest, IssueRequest, IssueUpdateRequest, PipelineGetRequest,
+    PipelineListRequest, PipelineLogRequest, PipelineRequest, PipelineRunRequest,
+    PipelineStepsRequest, PrActivityRequest, PrApproveRequest, PrCommentRequest, PrCommentsRequest,
+    PrCreateRequest, PrDeclineRequest, PrDiffRequest, PrGetRequest, PrListRequest, PrMergeRequest,
+    PrRemoveRequestChangesRequest, PrRequest, PrRequestChangesRequest, PrStatusesRequest,
+    PrUnapproveRequest, PrUpdateRequest, RepoListRequest, RepoRequest, Request, WikiGetRequest,
+    WikiListRequest, WikiPutRequest, WikiRequest,
 };
 use clap::{Args, Parser, Subcommand};
 
@@ -93,6 +93,9 @@ pub enum PrCommands {
 #[derive(Debug, Subcommand)]
 pub enum PipelineCommands {
     List(PipelineListArgs),
+    Get(PipelineGetArgs),
+    Steps(PipelineStepsArgs),
+    Log(PipelineLogArgs),
     Run(PipelineRunArgs),
 }
 
@@ -463,6 +466,58 @@ pub struct PipelineListArgs {
 }
 
 #[derive(Debug, Args)]
+pub struct PipelineGetArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub uuid: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+    #[arg(long)]
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct PipelineStepsArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub uuid: Option<String>,
+    #[arg(long, default_value = "table")]
+    pub output: String,
+    #[arg(long)]
+    pub all: bool,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long)]
+    pub sort: Option<String>,
+    #[arg(long)]
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct PipelineLogArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long)]
+    pub uuid: Option<String>,
+    #[arg(long)]
+    pub step: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
 pub struct PipelineRunArgs {
     #[arg(long)]
     pub workspace: Option<String>,
@@ -824,6 +879,32 @@ fn map_request(cli: Cli) -> Request {
                 sort: args.sort,
                 fields: args.fields,
             }),
+            Some(PipelineCommands::Get(args)) => PipelineRequest::Get(PipelineGetRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                uuid: args.uuid,
+                profile: args.profile,
+                output: args.output,
+                fields: args.fields,
+            }),
+            Some(PipelineCommands::Steps(args)) => PipelineRequest::Steps(PipelineStepsRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                uuid: args.uuid,
+                output: args.output,
+                all: args.all,
+                profile: args.profile,
+                sort: args.sort,
+                fields: args.fields,
+            }),
+            Some(PipelineCommands::Log(args)) => PipelineRequest::Log(PipelineLogRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                uuid: args.uuid,
+                step: args.step,
+                profile: args.profile,
+                output: args.output,
+            }),
             Some(PipelineCommands::Run(args)) => PipelineRequest::Run(PipelineRunRequest {
                 workspace: args.workspace,
                 repo: args.repo,
@@ -965,5 +1046,32 @@ mod tests {
         assert_eq!(request.id.as_deref(), Some("42"));
         assert_eq!(request.content.as_deref(), Some("needs changes"));
         assert_eq!(request.output, "json");
+    }
+
+    #[test]
+    fn pipeline_get_maps_uuid_and_output() {
+        let request = parse_from([
+            "bb", "pipeline", "get", "--uuid", "{1234}", "--output", "json",
+        ])
+        .expect("parse should succeed");
+        let Request::Pipeline(PipelineRequest::Get(request)) = request else {
+            panic!("expected pipeline get");
+        };
+        assert_eq!(request.uuid.as_deref(), Some("{1234}"));
+        assert_eq!(request.output, "json");
+    }
+
+    #[test]
+    fn pipeline_log_maps_step_and_output() {
+        let request = parse_from([
+            "bb", "pipeline", "log", "--uuid", "{pipe}", "--step", "{step}",
+        ])
+        .expect("parse should succeed");
+        let Request::Pipeline(PipelineRequest::Log(request)) = request else {
+            panic!("expected pipeline log");
+        };
+        assert_eq!(request.uuid.as_deref(), Some("{pipe}"));
+        assert_eq!(request.step.as_deref(), Some("{step}"));
+        assert_eq!(request.output, "text");
     }
 }
