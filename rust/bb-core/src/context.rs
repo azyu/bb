@@ -17,14 +17,14 @@ pub fn resolve_repo_target(
     let mut workspace = workspace_value.unwrap_or_default().trim().to_string();
     let mut repo = repo_value.unwrap_or_default().trim().to_string();
 
-    if workspace.is_empty() || (require_repo && repo.is_empty()) {
-        if let Ok((inferred_workspace, inferred_repo)) = infer_bitbucket_repo_from_git(None) {
-            if workspace.is_empty() {
-                workspace = inferred_workspace;
-            }
-            if repo.is_empty() {
-                repo = inferred_repo;
-            }
+    if (workspace.is_empty() || (require_repo && repo.is_empty()))
+        && let Ok((inferred_workspace, inferred_repo)) = infer_bitbucket_repo_from_git(None)
+    {
+        if workspace.is_empty() {
+            workspace = inferred_workspace;
+        }
+        if repo.is_empty() {
+            repo = inferred_repo;
         }
     }
 
@@ -186,13 +186,13 @@ pub fn build_wiki_remote_url(
     }
 
     let mut host = "bitbucket.org".to_string();
-    if let Ok(url) = reqwest::Url::parse(profile.base_url.trim()) {
-        if let Some(parsed_host) = url.host_str() {
-            if parsed_host.eq_ignore_ascii_case("api.bitbucket.org") {
-                host = "bitbucket.org".to_string();
-            } else {
-                host = parsed_host.to_string();
-            }
+    if let Ok(url) = reqwest::Url::parse(profile.base_url.trim())
+        && let Some(parsed_host) = url.host_str()
+    {
+        if parsed_host.eq_ignore_ascii_case("api.bitbucket.org") {
+            host = "bitbucket.org".to_string();
+        } else {
+            host = parsed_host.to_string();
         }
     }
 

@@ -441,10 +441,10 @@ fn handle_pr_create<O: Write>(request: &PrCreateRequest, stdout: &mut O) -> Resu
                 render::string_field(&value, &["state"]).unwrap_or("-"),
                 render::string_field(&value, &["title"]).unwrap_or("-")
             )?;
-            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
-                if !url.trim().is_empty() {
-                    writeln!(stdout, "URL: {url}")?;
-                }
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"])
+                && !url.trim().is_empty()
+            {
+                writeln!(stdout, "URL: {url}")?;
             }
             Ok(())
         }
@@ -486,10 +486,10 @@ fn handle_pr_merge<O: Write>(request: &PrMergeRequest, stdout: &mut O) -> Result
                 render::string_field(&value, &["state"]).unwrap_or("-"),
                 render::string_field(&value, &["title"]).unwrap_or("-")
             )?;
-            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
-                if !url.trim().is_empty() {
-                    writeln!(stdout, "URL: {url}")?;
-                }
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"])
+                && !url.trim().is_empty()
+            {
+                writeln!(stdout, "URL: {url}")?;
             }
             Ok(())
         }
@@ -533,20 +533,20 @@ fn handle_pr_get<O: Write>(request: &PrGetRequest, stdout: &mut O) -> Result<(),
                 "Destination: {}",
                 render::string_field(&value, &["destination", "branch", "name"]).unwrap_or("-")
             )?;
-            if let Some(author) = render::string_field(&value, &["author", "display_name"]) {
-                if !author.trim().is_empty() {
-                    writeln!(stdout, "Author: {author}")?;
-                }
+            if let Some(author) = render::string_field(&value, &["author", "display_name"])
+                && !author.trim().is_empty()
+            {
+                writeln!(stdout, "Author: {author}")?;
             }
-            if let Some(description) = render::string_field(&value, &["description"]) {
-                if !description.trim().is_empty() {
-                    writeln!(stdout, "Description: {description}")?;
-                }
+            if let Some(description) = render::string_field(&value, &["description"])
+                && !description.trim().is_empty()
+            {
+                writeln!(stdout, "Description: {description}")?;
             }
-            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
-                if !url.trim().is_empty() {
-                    writeln!(stdout, "URL: {url}")?;
-                }
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"])
+                && !url.trim().is_empty()
+            {
+                writeln!(stdout, "URL: {url}")?;
             }
             Ok(())
         }
@@ -719,10 +719,10 @@ fn handle_pr_comment<O: Write>(request: &PrCommentRequest, stdout: &mut O) -> Re
                 render::int_field(&value, &["id"]).unwrap_or_default(),
                 id
             )?;
-            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
-                if !url.trim().is_empty() {
-                    writeln!(stdout, "URL: {url}")?;
-                }
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"])
+                && !url.trim().is_empty()
+            {
+                writeln!(stdout, "URL: {url}")?;
             }
             Ok(())
         }
@@ -951,10 +951,10 @@ fn write_pr_response_text<O: Write>(
         render::string_field(value, &["state"]).unwrap_or("-"),
         render::string_field(value, &["title"]).unwrap_or("-")
     )?;
-    if let Some(url) = render::string_field(value, &["links", "html", "href"]) {
-        if !url.trim().is_empty() {
-            writeln!(stdout, "URL: {url}")?;
-        }
+    if let Some(url) = render::string_field(value, &["links", "html", "href"])
+        && !url.trim().is_empty()
+    {
+        writeln!(stdout, "URL: {url}")?;
     }
     Ok(())
 }
@@ -1069,10 +1069,10 @@ fn handle_pipeline_run<O: Write>(
                 render::string_field(&value, &["uuid"]).unwrap_or("-")
             )?;
             writeln!(stdout, "State: {}", render::pipeline_state_label(&value))?;
-            if let Some(reference) = render::string_field(&value, &["target", "ref_name"]) {
-                if !reference.trim().is_empty() {
-                    writeln!(stdout, "Ref: {reference}")?;
-                }
+            if let Some(reference) = render::string_field(&value, &["target", "ref_name"])
+                && !reference.trim().is_empty()
+            {
+                writeln!(stdout, "Ref: {reference}")?;
             }
             Ok(())
         }
@@ -1147,10 +1147,10 @@ fn handle_issue_create<O: Write>(
                 render::string_field(&value, &["state"]).unwrap_or("-"),
                 render::string_field(&value, &["title"]).unwrap_or("-")
             )?;
-            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
-                if !url.trim().is_empty() {
-                    writeln!(stdout, "URL: {url}")?;
-                }
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"])
+                && !url.trim().is_empty()
+            {
+                writeln!(stdout, "URL: {url}")?;
             }
             Ok(())
         }
@@ -1204,10 +1204,10 @@ fn handle_issue_update<O: Write>(
                 render::string_field(&value, &["state"]).unwrap_or("-"),
                 render::string_field(&value, &["title"]).unwrap_or("-")
             )?;
-            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
-                if !url.trim().is_empty() {
-                    writeln!(stdout, "URL: {url}")?;
-                }
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"])
+                && !url.trim().is_empty()
+            {
+                writeln!(stdout, "URL: {url}")?;
             }
             Ok(())
         }
@@ -1559,10 +1559,10 @@ fn walk_wiki(root: &Path, dir: &Path, rows: &mut Vec<WikiPage>) -> Result<(), Cl
 
 fn commit_identity(profile: &Profile) -> (String, String) {
     let username = profile.username.trim();
-    if let Some((name, _)) = username.split_once('@') {
-        if !name.trim().is_empty() {
-            return (name.trim().to_string(), username.to_string());
-        }
+    if let Some((name, _)) = username.split_once('@')
+        && !name.trim().is_empty()
+    {
+        return (name.trim().to_string(), username.to_string());
     }
     ("bb-cli".to_string(), "bb-cli@local".to_string())
 }

@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   ci:
-    name: Fmt, Test, Build (ubuntu-latest)
+    name: Fmt, Clippy, Test, Build (ubuntu-latest)
     runs-on: ubuntu-latest
 
     steps:
@@ -19,6 +19,9 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.93.0
+          components: rustfmt, clippy
 
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
@@ -26,10 +29,13 @@ jobs:
           workspaces: rust
 
       - name: Format
-        run: cargo fmt --manifest-path rust/Cargo.toml --all --check
+        run: make fmt-check
+
+      - name: Lint
+        run: make lint
 
       - name: Test
-        run: cargo test --manifest-path rust/Cargo.toml
+        run: make test
 
       - name: Build
         env:
