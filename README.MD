@@ -162,5 +162,5 @@ Add `write:*` scopes only for mutating commands.
 
 ## Developer Docs
 
-- [Technical spec](docs/SPEC.md)
+- [Technical spec](docs/spec.md)
 - [Command contracts](docs/command-contracts.md)

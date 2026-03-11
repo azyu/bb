@@ -6,7 +6,7 @@
 - Keep the runtime predictable for both humans and automation.
 
 ## Documentation Boundaries
-- `docs/SPEC.md` is the source of truth for implementation invariants and shared technical rules.
+- `docs/spec.md` is the source of truth for implementation invariants and shared technical rules.
 - `docs/command-contracts.md` is the single source of truth for command surface, flags, output modes, help text, and failure behavior.
 - `.context/STEERING.md` and `.context/TASKS.md` hold roadmap, backlog, and follow-up work. Do not record speculative or future command ideas in this file.
 

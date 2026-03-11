@@ -10,7 +10,7 @@ Current repository state:
 - `rust/bb-cli`: CLI parsing, process behavior, and binary entrypoint.
 - `rust/bb-core`: runtime, config, Bitbucket client, rendering, and command handlers.
 - `docs/references.md`: baseline research for Bitbucket CLI scope, API references, and MVP direction.
-- `docs/SPEC.md`: canonical technical specification for the active implementation target, including agent-oriented CLI rules.
+- `docs/spec.md`: canonical technical specification for the active implementation target, including agent-oriented CLI rules.
 - `docs/command-contracts.md`: command-by-command behavior contract for the Cloud CLI surface.
 - `.context/TASKS.md`: work item tracker for agent-level execution status.
 - `.context/STEERING.md`: high-level plan tracker (phases, success criteria, current focus).
@@ -34,15 +34,15 @@ When multiple agents split work, use these files as the single source of executi
 Mandatory startup rule for every agent task:
 1. Read `.context/STEERING.md` first.
 2. Read `.context/TASKS.md` second.
-3. Read `docs/SPEC.md` for the current technical spec and agent-facing behavior constraints.
+3. Read `docs/spec.md` for the current technical spec and agent-facing behavior constraints.
 4. Only then start implementation.
 
-If there is any ambiguity about command behavior, output contracts, or agent-facing constraints, resolve it against `docs/SPEC.md` before changing code.
+If there is any ambiguity about command behavior, output contracts, or agent-facing constraints, resolve it against `docs/spec.md` before changing code.
 
 Document roles:
 - `README.MD` and `README.ko-kr.MD` are for end users.
 - `AGENTS.md` is for coding agents and contributors working in this repository.
-- `docs/SPEC.md` is the implementation source of truth.
+- `docs/spec.md` is the implementation source of truth.
 - `docs/command-contracts.md` is the command behavior reference.
 
 Update rules during work:
@@ -63,7 +63,7 @@ Useful current commands:
   ```bash
   sed -n '1,240p' .context/STEERING.md
   sed -n '1,240p' .context/TASKS.md
-  sed -n '1,260p' docs/SPEC.md
+  sed -n '1,260p' docs/spec.md
   ```
 - Review project reference:
   ```bash
@@ -90,10 +90,10 @@ Useful current commands:
 
 ### Do
 - Read `.context/STEERING.md` and `.context/TASKS.md` before any implementation task.
-- Read `docs/SPEC.md` for the current implementation contract before coding.
+- Read `docs/spec.md` for the current implementation contract before coding.
 - Keep changes directly tied to the current task; avoid opportunistic refactors.
 - Prefer the smallest implementation that satisfies requirements.
-- When technical behavior changes, update `docs/SPEC.md` in the same change.
+- When technical behavior changes, update `docs/spec.md` in the same change.
 - When technical choices, API scopes, endpoint usage, or architecture assumptions change, update `docs/references.md` if the change affects project direction.
 - Keep the first release Cloud-only unless explicitly asked otherwise.
 - Mirror proven CLI shape from references (`auth`, `repo`, `pr`, `pipeline`, `issue`, `wiki`, `api`, `completion`).
