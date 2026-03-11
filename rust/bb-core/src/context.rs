@@ -9,6 +9,12 @@ use tempfile::TempDir;
 use crate::config::Profile;
 use crate::error::CliError;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AskPassPlatform {
+    Unix,
+    Windows,
+}
+
 pub fn resolve_repo_target(
     workspace_value: Option<&str>,
     repo_value: Option<&str>,
@@ -154,9 +160,21 @@ pub fn normalize_wiki_page_path(page: &str) -> Result<String, CliError> {
         return Err(CliError::InvalidInput("invalid --page value".to_string()));
     }
 
-    let normalized = clean.components().collect::<PathBuf>();
+    let mut normalized = PathBuf::new();
+    for component in clean.components() {
+        match component {
+            std::path::Component::Normal(part) => normalized.push(part),
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir
+            | std::path::Component::RootDir
+            | std::path::Component::Prefix(_) => {
+                return Err(CliError::InvalidInput("invalid --page value".to_string()));
+            }
+        }
+    }
+
     let normalized = normalized.to_string_lossy().replace('\\', "/");
-    if normalized == "." || normalized == ".." || normalized.starts_with("../") {
+    if normalized.is_empty() {
         return Err(CliError::InvalidInput("invalid --page value".to_string()));
     }
 
@@ -227,16 +245,31 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    let mut script = tempfile::NamedTempFile::new()
+    let platform = current_askpass_platform();
+    let mut script = tempfile::Builder::new()
+        .suffix(askpass_script_suffix(platform))
+        .tempfile()
         .map_err(|error| CliError::Io(format!("create askpass script: {error}")))?;
+    let mut token_file = tempfile::NamedTempFile::new()
+        .map_err(|error| CliError::Io(format!("create askpass token file: {error}")))?;
+    token_file
+        .write_all(format!("{token}\n").as_bytes())
+        .map_err(|error| CliError::Io(format!("write askpass token file: {error}")))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut token_permissions = token_file
+            .as_file()
+            .metadata()
+            .map_err(|error| CliError::Io(error.to_string()))?
+            .permissions();
+        token_permissions.set_mode(0o600);
+        fs::set_permissions(token_file.path(), token_permissions)
+            .map_err(|error| CliError::Io(error.to_string()))?;
+    }
     script
-        .write_all(
-            format!(
-                "#!/bin/sh\nprintf '%s\\n' '{}'\n",
-                shell_escape_single_quote(token)
-            )
-            .as_bytes(),
-        )
+        .write_all(askpass_script_body(platform).as_bytes())
         .map_err(|error| CliError::Io(format!("write askpass script: {error}")))?;
     let mut permissions = script
         .as_file()
@@ -251,14 +284,38 @@ where
     fs::set_permissions(script.path(), permissions)
         .map_err(|error| CliError::Io(error.to_string()))?;
     let path = script.path().to_string_lossy().to_string();
-    let envs = [("GIT_ASKPASS", path.as_str()), ("GIT_TERMINAL_PROMPT", "0")];
+    let token_path = token_file.path().to_string_lossy().to_string();
+    let envs = [
+        ("GIT_ASKPASS", path.as_str()),
+        ("GIT_TERMINAL_PROMPT", "0"),
+        ("BB_ASKPASS_FILE", token_path.as_str()),
+    ];
     let result = run_git_with_env(dir, &envs, args);
+    drop(token_file);
     drop(script);
     result
 }
 
-fn shell_escape_single_quote(value: &str) -> String {
-    value.replace('\'', "'\\''")
+fn current_askpass_platform() -> AskPassPlatform {
+    if cfg!(windows) {
+        AskPassPlatform::Windows
+    } else {
+        AskPassPlatform::Unix
+    }
+}
+
+fn askpass_script_suffix(platform: AskPassPlatform) -> &'static str {
+    match platform {
+        AskPassPlatform::Unix => ".sh",
+        AskPassPlatform::Windows => ".bat",
+    }
+}
+
+fn askpass_script_body(platform: AskPassPlatform) -> &'static str {
+    match platform {
+        AskPassPlatform::Unix => "#!/bin/sh\ncat \"$BB_ASKPASS_FILE\"\n",
+        AskPassPlatform::Windows => "@echo off\r\ntype \"%BB_ASKPASS_FILE%\"\r\n",
+    }
 }
 
 #[cfg(test)]
@@ -289,5 +346,25 @@ mod tests {
         );
         assert_eq!(resolve_wiki_auth_user(""), "x-token-auth");
         assert_eq!(resolve_wiki_auth_user("workspace-bot"), "workspace-bot");
+    }
+
+    #[test]
+    fn wiki_page_path_rejects_nested_parent_traversal() {
+        let error = normalize_wiki_page_path("docs/../../secrets.md").expect_err("should fail");
+        assert_eq!(error.message(), "invalid --page value");
+    }
+
+    #[test]
+    fn askpass_script_templates_match_platform_contracts() {
+        assert_eq!(askpass_script_suffix(AskPassPlatform::Unix), ".sh");
+        assert_eq!(askpass_script_suffix(AskPassPlatform::Windows), ".bat");
+        assert_eq!(
+            askpass_script_body(AskPassPlatform::Unix),
+            "#!/bin/sh\ncat \"$BB_ASKPASS_FILE\"\n"
+        );
+        assert_eq!(
+            askpass_script_body(AskPassPlatform::Windows),
+            "@echo off\r\ntype \"%BB_ASKPASS_FILE%\"\r\n"
+        );
     }
 }
