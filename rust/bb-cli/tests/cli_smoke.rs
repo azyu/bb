@@ -112,6 +112,51 @@ fn repo_list_json_reads_config_and_calls_server() {
 }
 
 #[test]
+fn repo_list_json_fields_projects_requested_keys() {
+    let server = MockServer::start();
+    let repos = server.mock(|when, then| {
+        when.method(GET).path("/2.0/repositories/acme");
+        then.json_body(json!({
+            "values": [
+                {
+                    "slug": "one",
+                    "full_name": "acme/one",
+                    "name": "one",
+                    "uuid": "{repo-1}"
+                }
+            ]
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "repo",
+            "list",
+            "--workspace",
+            "acme",
+            "--output",
+            "json",
+            "--json-fields",
+            "slug,full_name",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body[0]["slug"], "one");
+    assert_eq!(body[0]["full_name"], "acme/one");
+    assert!(body[0].get("name").is_none());
+    repos.assert();
+}
+
+#[test]
 fn pipeline_help_lists_debugging_commands() {
     let output = bb_command()
         .args(["pipeline", "--help"])
@@ -165,6 +210,52 @@ fn pipeline_get_json_reads_config_and_calls_server() {
     let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
     assert_eq!(body["uuid"], "{pipe-123}");
     assert_eq!(body["build_number"], 17);
+    pipeline.assert();
+}
+
+#[test]
+fn pipeline_get_json_fields_projects_requested_keys() {
+    let server = MockServer::start();
+    let pipeline = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines/%7Bpipe-123%7D");
+        then.json_body(json!({
+            "uuid": "{pipe-123}",
+            "build_number": 17,
+            "state": { "name": "COMPLETED" },
+            "target": { "ref_name": "feature/widgets" }
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "get",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--uuid",
+            "{pipe-123}",
+            "--output",
+            "json",
+            "--json-fields",
+            "uuid,state",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["uuid"], "{pipe-123}");
+    assert_eq!(body["state"]["name"], "COMPLETED");
+    assert!(body.get("build_number").is_none());
     pipeline.assert();
 }
 
@@ -394,6 +485,53 @@ fn pr_get_json_reads_config_and_calls_server() {
 }
 
 #[test]
+fn pr_get_json_fields_projects_requested_keys() {
+    let server = MockServer::start();
+    let pr = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42");
+        then.json_body(json!({
+            "id": 42,
+            "state": "OPEN",
+            "title": "Add widget support",
+            "source": { "branch": { "name": "feature/widgets" } },
+            "destination": { "branch": { "name": "main" } }
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "get",
+            "42",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--output",
+            "json",
+            "--json-fields",
+            "id,title,state",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["id"], 42);
+    assert_eq!(body["title"], "Add widget support");
+    assert_eq!(body["state"], "OPEN");
+    assert!(body.get("source").is_none());
+    pr.assert();
+}
+
+#[test]
 fn pr_comments_positional_id_reads_config_and_calls_server() {
     let server = MockServer::start();
     let comments = server.mock(|when, then| {
@@ -557,6 +695,56 @@ fn pr_statuses_json_reads_config_and_calls_server() {
 }
 
 #[test]
+fn pr_statuses_json_fields_include_timestamps() {
+    let server = MockServer::start();
+    let statuses = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42/statuses");
+        then.json_body(json!({
+            "values": [
+                {
+                    "key": "build",
+                    "state": "SUCCESSFUL",
+                    "created_on": "2026-03-10T00:00:00Z",
+                    "updated_on": "2026-03-10T01:00:00Z"
+                }
+            ]
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "statuses",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--id",
+            "42",
+            "--output",
+            "json",
+            "--json-fields",
+            "key,created_on,updated_on",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body[0]["key"], "build");
+    assert_eq!(body[0]["created_on"], "2026-03-10T00:00:00Z");
+    assert_eq!(body[0]["updated_on"], "2026-03-10T01:00:00Z");
+    statuses.assert();
+}
+
+#[test]
 fn pr_comment_missing_content_emits_json_error() {
     let output = bb_command()
         .args([
@@ -607,5 +795,58 @@ fn pr_comments_invalid_positional_id_emits_json_error() {
     assert_eq!(
         body["error"]["message"],
         "pull request id must be a number: abc"
+    );
+}
+
+#[test]
+fn pr_get_json_fields_requires_json_output() {
+    let output = bb_command()
+        .args([
+            "pr",
+            "get",
+            "42",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--json-fields",
+            "id,title",
+        ])
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8(output.stderr).expect("stderr should be utf-8");
+    assert!(stderr.contains("--json-fields requires --output json"));
+}
+
+#[test]
+fn pr_get_invalid_json_field_emits_json_error() {
+    let output = bb_command()
+        .args([
+            "pr",
+            "get",
+            "42",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--output",
+            "json",
+            "--json-fields",
+            "nope",
+        ])
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "invalid_input");
+    assert_eq!(
+        body["error"]["message"],
+        "unknown --json-fields value for bb pr get: nope (allowed: author, close_source_branch, comment_count, created_on, description, destination, draft, id, links, participants, reason, reviewers, source, state, summary, task_count, title, updated_on)"
     );
 }

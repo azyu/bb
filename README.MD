@@ -101,6 +101,8 @@ bb completion zsh
 > Existing-PR commands accept the pull request ID as positional `<id>` or `--id`.
 >
 > Example: `bb pr comments 123` and `bb pr comments --id 123` are both valid.
+>
+> When an agent only needs part of a JSON payload, combine `--output json` with `--json-fields`.
 
 ## Configuration and Auth
 

@@ -112,6 +112,7 @@ Still out of scope:
 - Text-mode errors go to stderr with non-zero exit status.
 - Commands that support machine-readable output emit JSON to stdout.
 - Commands with `--output json` must emit JSON error envelopes to stdout on failure.
+- Selected read commands may accept `--json-fields <comma-separated-fields>` to project full JSON output down to a smaller object/array shape; this is client-side output shaping and requires `--output json`.
 - Running `bb` with no arguments or top-level `--help` prints the same root help plus a short quick-start block for common agent-first flows.
 - Supported output modes:
   - list commands: `table|json`
@@ -132,6 +133,7 @@ Still out of scope:
   - relative timestamps
   - color controls via `BB_COLOR`, `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE`
 - PR commands that operate on an existing pull request accept the pull request ID as positional `<id>` or `--id`.
+- `--fields` remains the Bitbucket API query passthrough, while `--json-fields` is a local output projection feature.
 
 ## Agent-Oriented CLI Rules
 - Prefer predictable structured output over prose for automation-facing commands.

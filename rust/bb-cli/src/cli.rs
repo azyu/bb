@@ -177,6 +177,8 @@ pub struct RepoListArgs {
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -199,6 +201,8 @@ pub struct PrListArgs {
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -261,6 +265,8 @@ pub struct PrGetArgs {
     pub output: String,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -407,6 +413,8 @@ pub struct PrCommentsArgs {
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -447,6 +455,8 @@ pub struct PrStatusesArgs {
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -471,6 +481,8 @@ pub struct PrActivityArgs {
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -489,6 +501,8 @@ pub struct PipelineListArgs {
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -505,6 +519,8 @@ pub struct PipelineGetArgs {
     pub output: String,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -525,6 +541,8 @@ pub struct PipelineStepsArgs {
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -754,6 +772,7 @@ fn map_request(cli: Cli) -> Request {
                 q: args.q,
                 sort: args.sort,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
         }),
         Some(Commands::Pr { command }) => Request::Pr(match command {
@@ -768,6 +787,7 @@ fn map_request(cli: Cli) -> Request {
                 q: args.q,
                 sort: args.sort,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
             Some(PrCommands::Create(args)) => PrRequest::Create(PrCreateRequest {
                 workspace: args.workspace,
@@ -797,6 +817,7 @@ fn map_request(cli: Cli) -> Request {
                 profile: args.profile,
                 output: args.output,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
             Some(PrCommands::Update(args)) => PrRequest::Update(PrUpdateRequest {
                 workspace: args.workspace,
@@ -866,6 +887,7 @@ fn map_request(cli: Cli) -> Request {
                 q: args.q,
                 sort: args.sort,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
             Some(PrCommands::Diff(args)) => PrRequest::Diff(PrDiffRequest {
                 workspace: args.workspace,
@@ -884,6 +906,7 @@ fn map_request(cli: Cli) -> Request {
                 q: args.q,
                 sort: args.sort,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
             Some(PrCommands::Activity(args)) => PrRequest::Activity(PrActivityRequest {
                 workspace: args.workspace,
@@ -895,6 +918,7 @@ fn map_request(cli: Cli) -> Request {
                 q: args.q,
                 sort: args.sort,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
         }),
         Some(Commands::Pipeline { command }) => Request::Pipeline(match command {
@@ -907,6 +931,7 @@ fn map_request(cli: Cli) -> Request {
                 profile: args.profile,
                 sort: args.sort,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
             Some(PipelineCommands::Get(args)) => PipelineRequest::Get(PipelineGetRequest {
                 workspace: args.workspace,
@@ -915,6 +940,7 @@ fn map_request(cli: Cli) -> Request {
                 profile: args.profile,
                 output: args.output,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
             Some(PipelineCommands::Steps(args)) => PipelineRequest::Steps(PipelineStepsRequest {
                 workspace: args.workspace,
@@ -925,6 +951,7 @@ fn map_request(cli: Cli) -> Request {
                 profile: args.profile,
                 sort: args.sort,
                 fields: args.fields,
+                json_fields: args.json_fields,
             }),
             Some(PipelineCommands::Log(args)) => PipelineRequest::Log(PipelineLogRequest {
                 workspace: args.workspace,
@@ -1062,6 +1089,25 @@ mod tests {
     }
 
     #[test]
+    fn pr_get_maps_json_fields() {
+        let request = parse_from([
+            "bb",
+            "pr",
+            "get",
+            "42",
+            "--output",
+            "json",
+            "--json-fields",
+            "id,title",
+        ])
+        .expect("parse should succeed");
+        let Request::Pr(PrRequest::Get(request)) = request else {
+            panic!("expected pr get");
+        };
+        assert_eq!(request.json_fields.as_deref(), Some("id,title"));
+    }
+
+    #[test]
     fn pr_request_changes_maps_to_request_changes_request() {
         let request = parse_from(["bb", "pr", "request-changes", "--id", "42"])
             .expect("parse should succeed");
@@ -1106,7 +1152,15 @@ mod tests {
     #[test]
     fn pipeline_get_maps_uuid_and_output() {
         let request = parse_from([
-            "bb", "pipeline", "get", "--uuid", "{1234}", "--output", "json",
+            "bb",
+            "pipeline",
+            "get",
+            "--uuid",
+            "{1234}",
+            "--output",
+            "json",
+            "--json-fields",
+            "uuid,state",
         ])
         .expect("parse should succeed");
         let Request::Pipeline(PipelineRequest::Get(request)) = request else {
@@ -1114,6 +1168,7 @@ mod tests {
         };
         assert_eq!(request.uuid.as_deref(), Some("{1234}"));
         assert_eq!(request.output, "json");
+        assert_eq!(request.json_fields.as_deref(), Some("uuid,state"));
     }
 
     #[test]

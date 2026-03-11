@@ -83,6 +83,7 @@ pub struct RepoListRequest {
     pub q: Option<String>,
     pub sort: Option<String>,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +97,7 @@ pub struct PrListRequest {
     pub q: Option<String>,
     pub sort: Option<String>,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -131,6 +133,7 @@ pub struct PrGetRequest {
     pub profile: Option<String>,
     pub output: String,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -212,6 +215,7 @@ pub struct PrCommentsRequest {
     pub q: Option<String>,
     pub sort: Option<String>,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -234,6 +238,7 @@ pub struct PrStatusesRequest {
     pub q: Option<String>,
     pub sort: Option<String>,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -247,6 +252,7 @@ pub struct PrActivityRequest {
     pub q: Option<String>,
     pub sort: Option<String>,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -258,6 +264,7 @@ pub struct PipelineListRequest {
     pub profile: Option<String>,
     pub sort: Option<String>,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -268,6 +275,7 @@ pub struct PipelineGetRequest {
     pub profile: Option<String>,
     pub output: String,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -280,6 +288,7 @@ pub struct PipelineStepsRequest {
     pub profile: Option<String>,
     pub sort: Option<String>,
     pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]

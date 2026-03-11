@@ -101,6 +101,8 @@ bb completion zsh
 > 기존 PR을 대상으로 하는 명령은 PR ID를 positional `<id>` 또는 `--id`로 받을 수 있습니다.
 >
 > 예: `bb pr comments 123`, `bb pr comments --id 123`
+>
+> 에이전트가 JSON 전체가 아니라 일부 필드만 필요하면 `--output json`과 `--json-fields`를 함께 사용하세요.
 
 ## 설정과 인증
 

@@ -25,6 +25,109 @@ use crate::{
 
 pub const STDIN_TOKEN_SENTINEL: &str = "__bb_stdin_token__";
 
+const REPO_LIST_JSON_FIELDS: &[&str] = &[
+    "description",
+    "full_name",
+    "is_private",
+    "links",
+    "mainbranch",
+    "name",
+    "project",
+    "scm",
+    "slug",
+    "updated_on",
+    "uuid",
+];
+
+const PR_JSON_FIELDS: &[&str] = &[
+    "author",
+    "close_source_branch",
+    "comment_count",
+    "created_on",
+    "description",
+    "destination",
+    "draft",
+    "id",
+    "links",
+    "participants",
+    "reason",
+    "reviewers",
+    "source",
+    "state",
+    "summary",
+    "task_count",
+    "title",
+    "updated_on",
+];
+
+const PR_COMMENTS_JSON_FIELDS: &[&str] = &[
+    "content",
+    "created_on",
+    "deleted",
+    "id",
+    "inline",
+    "links",
+    "parent",
+    "pullrequest",
+    "updated_on",
+    "user",
+];
+
+const PR_STATUSES_JSON_FIELDS: &[&str] = &[
+    "created_on",
+    "description",
+    "key",
+    "links",
+    "name",
+    "refname",
+    "state",
+    "type",
+    "updated_on",
+    "url",
+    "uuid",
+];
+
+const PR_ACTIVITY_JSON_FIELDS: &[&str] = &[
+    "approval",
+    "changes_request",
+    "comment",
+    "created_on",
+    "decline",
+    "merge",
+    "request_changes",
+    "task",
+    "type",
+    "update",
+    "user",
+];
+
+const PIPELINE_JSON_FIELDS: &[&str] = &[
+    "build_number",
+    "completed_on",
+    "created_on",
+    "creator",
+    "links",
+    "state",
+    "target",
+    "trigger",
+    "uuid",
+];
+
+const PIPELINE_STEPS_JSON_FIELDS: &[&str] = &[
+    "completed_on",
+    "image",
+    "links",
+    "name",
+    "run_number",
+    "script_commands",
+    "setup_commands",
+    "started_on",
+    "state",
+    "step",
+    "trigger",
+    "uuid",
+];
+
 pub fn run<R: BufRead, O: Write, E: Write>(
     request: Request,
     stdin: &mut R,
@@ -298,6 +401,12 @@ fn handle_repo<O: Write>(request: &RepoRequest, stdout: &mut O) -> Result<(), Cl
 
 fn handle_repo_list<O: Write>(request: &RepoListRequest, stdout: &mut O) -> Result<(), CliError> {
     let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb repo list",
+        REPO_LIST_JSON_FIELDS,
+    )?;
     let (workspace, _) = context::resolve_repo_target(request.workspace.as_deref(), None, false)?;
     let client = client_from_profile(request.profile.as_deref())?;
     let query = collect_query([
@@ -314,7 +423,7 @@ fn handle_repo_list<O: Write>(request: &RepoListRequest, stdout: &mut O) -> Resu
     };
 
     match output {
-        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
         ListOutput::Table => {
             write!(stdout, "{}", render::render_repo_table(&values)).map_err(CliError::from)
         }
@@ -354,6 +463,12 @@ fn handle_pr_list<O: Write>(
     stdout_is_tty: bool,
 ) -> Result<(), CliError> {
     let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb pr list",
+        PR_JSON_FIELDS,
+    )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let state = normalize_pr_state(request.state.as_deref())?;
@@ -372,7 +487,7 @@ fn handle_pr_list<O: Write>(
         } else {
             client.get_page(&path, &query)?.0
         };
-        return render::print_json(stdout, &values);
+        return print_json_list(stdout, &values, json_fields.as_deref());
     }
 
     let (values, total_count) = if request.all {
@@ -506,6 +621,12 @@ fn handle_pr_merge<O: Write>(request: &PrMergeRequest, stdout: &mut O) -> Result
 
 fn handle_pr_get<O: Write>(request: &PrGetRequest, stdout: &mut O) -> Result<(), CliError> {
     let output = parse_write_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == WriteOutput::Json,
+        "bb pr get",
+        PR_JSON_FIELDS,
+    )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let id = parse_pr_numeric_id(request.id.as_deref())?;
@@ -518,7 +639,7 @@ fn handle_pr_get<O: Write>(request: &PrGetRequest, stdout: &mut O) -> Result<(),
     )?;
 
     match output {
-        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Json => print_json_object(stdout, &value, json_fields.as_deref()),
         WriteOutput::Text => {
             writeln!(
                 stdout,
@@ -742,6 +863,12 @@ fn handle_pr_comments<O: Write>(
     stdout: &mut O,
 ) -> Result<(), CliError> {
     let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb pr comments",
+        PR_COMMENTS_JSON_FIELDS,
+    )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let id = parse_pr_numeric_id(request.id.as_deref())?;
@@ -755,7 +882,7 @@ fn handle_pr_comments<O: Write>(
     let values = fetch_values(&client, &path, &query, request.all)?;
 
     match output {
-        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
         ListOutput::Table => {
             write!(stdout, "{}", render::render_pr_comments_table(&values)).map_err(CliError::from)
         }
@@ -791,6 +918,12 @@ fn handle_pr_statuses<O: Write>(
     stdout: &mut O,
 ) -> Result<(), CliError> {
     let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb pr statuses",
+        PR_STATUSES_JSON_FIELDS,
+    )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let id = parse_pr_numeric_id(request.id.as_deref())?;
@@ -804,7 +937,7 @@ fn handle_pr_statuses<O: Write>(
     let values = fetch_values(&client, &path, &query, request.all)?;
 
     match output {
-        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
         ListOutput::Table => {
             write!(stdout, "{}", render::render_pr_statuses_table(&values)).map_err(CliError::from)
         }
@@ -816,6 +949,12 @@ fn handle_pr_activity<O: Write>(
     stdout: &mut O,
 ) -> Result<(), CliError> {
     let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb pr activity",
+        PR_ACTIVITY_JSON_FIELDS,
+    )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let id = parse_pr_numeric_id(request.id.as_deref())?;
@@ -829,7 +968,7 @@ fn handle_pr_activity<O: Write>(
     let values = fetch_values(&client, &path, &query, request.all)?;
 
     match output {
-        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
         ListOutput::Table => {
             write!(stdout, "{}", render::render_pr_activity_table(&values)).map_err(CliError::from)
         }
@@ -920,6 +1059,12 @@ fn handle_pipeline_list<O: Write>(
     stdout: &mut O,
 ) -> Result<(), CliError> {
     let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb pipeline list",
+        PIPELINE_JSON_FIELDS,
+    )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let client = client_from_profile(request.profile.as_deref())?;
@@ -935,7 +1080,7 @@ fn handle_pipeline_list<O: Write>(
     };
 
     match output {
-        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
         ListOutput::Table => {
             write!(stdout, "{}", render::render_pipeline_table(&values)).map_err(CliError::from)
         }
@@ -947,6 +1092,12 @@ fn handle_pipeline_get<O: Write>(
     stdout: &mut O,
 ) -> Result<(), CliError> {
     let output = parse_write_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == WriteOutput::Json,
+        "bb pipeline get",
+        PIPELINE_JSON_FIELDS,
+    )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let (_, pipeline_uuid) = normalize_uuid_arg("--uuid", request.uuid.as_deref())?;
@@ -960,7 +1111,7 @@ fn handle_pipeline_get<O: Write>(
     )?;
 
     match output {
-        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Json => print_json_object(stdout, &value, json_fields.as_deref()),
         WriteOutput::Text => write_pipeline_summary(stdout, "Pipeline", &value),
     }
 }
@@ -970,6 +1121,12 @@ fn handle_pipeline_steps<O: Write>(
     stdout: &mut O,
 ) -> Result<(), CliError> {
     let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb pipeline steps",
+        PIPELINE_STEPS_JSON_FIELDS,
+    )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let (_, pipeline_uuid) = normalize_uuid_arg("--uuid", request.uuid.as_deref())?;
@@ -986,7 +1143,7 @@ fn handle_pipeline_steps<O: Write>(
     };
 
     match output {
-        ListOutput::Json => render::print_json(stdout, &values),
+        ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
         ListOutput::Table => write!(stdout, "{}", render::render_pipeline_steps_table(&values))
             .map_err(CliError::from),
     }
@@ -1441,6 +1598,70 @@ fn parse_write_output(value: &str) -> Result<WriteOutput, CliError> {
             "unsupported output format: {other}"
         ))),
     }
+}
+
+fn parse_json_fields(
+    value: Option<&str>,
+    output_is_json: bool,
+    command: &str,
+    allowed: &[&str],
+) -> Result<Option<Vec<String>>, CliError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if !output_is_json {
+        return Err(CliError::InvalidInput(
+            "--json-fields requires --output json".to_string(),
+        ));
+    }
+
+    let mut parsed = Vec::new();
+    for field in value.split(',').map(str::trim) {
+        if field.is_empty() {
+            return Err(CliError::InvalidInput(
+                "--json-fields requires a comma-separated field list".to_string(),
+            ));
+        }
+        if !allowed.contains(&field) {
+            return Err(CliError::InvalidInput(format!(
+                "unknown --json-fields value for {command}: {field} (allowed: {})",
+                allowed.join(", ")
+            )));
+        }
+        if !parsed.iter().any(|existing| existing == field) {
+            parsed.push(field.to_string());
+        }
+    }
+
+    if parsed.is_empty() {
+        return Err(CliError::InvalidInput(
+            "--json-fields requires a comma-separated field list".to_string(),
+        ));
+    }
+
+    Ok(Some(parsed))
+}
+
+fn print_json_object<O: Write>(
+    stdout: &mut O,
+    value: &Value,
+    fields: Option<&[String]>,
+) -> Result<(), CliError> {
+    if let Some(fields) = fields {
+        return render::print_json(stdout, &render::project_json_object(value, fields));
+    }
+    render::print_json(stdout, value)
+}
+
+fn print_json_list<O: Write>(
+    stdout: &mut O,
+    values: &[Value],
+    fields: Option<&[String]>,
+) -> Result<(), CliError> {
+    if let Some(fields) = fields {
+        return render::print_json(stdout, &render::project_json_list(values, fields));
+    }
+    render::print_json(stdout, values)
 }
 
 fn normalize_completion_shell(value: &str) -> Result<CompletionShell, CliError> {

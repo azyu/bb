@@ -29,5 +29,6 @@
 - [x] Resolve PR #8 merge conflict after stacked PR merges - owner: agent
 - [x] Enable release automation on version tag push - owner: agent
 - [x] Refresh README and AGENTS docs for current Rust CLI surface - owner: agent
+- [x] Add gh-style JSON field projection for read commands (`--json-fields`) - owner: agent
 - [ ] Evaluate `bb pr checkout` local Git workflow for a future follow-up - owner: agent
 - [ ] Evaluate phase 2 agent-first extensions (`--describe` or schema introspection, `--dry-run`, separate automation surface if needed) - owner: agent

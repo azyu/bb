@@ -2,7 +2,7 @@ use std::env;
 use std::io::Write;
 
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use unicode_width::UnicodeWidthStr;
 
@@ -40,12 +40,33 @@ pub struct WikiPage {
     pub size: u64,
 }
 
-pub fn print_json<W: Write, T: Serialize>(writer: &mut W, value: &T) -> Result<(), CliError> {
+pub fn print_json<W: Write, T: Serialize + ?Sized>(
+    writer: &mut W,
+    value: &T,
+) -> Result<(), CliError> {
     let payload = serde_json::to_string_pretty(value)
         .map_err(|error| CliError::Internal(error.to_string()))?;
     writer.write_all(payload.as_bytes())?;
     writer.write_all(b"\n")?;
     Ok(())
+}
+
+pub fn project_json_object(value: &Value, fields: &[String]) -> Value {
+    let object = value.as_object().cloned().unwrap_or_default();
+    let mut projected = Map::new();
+    for field in fields {
+        if let Some(value) = object.get(field) {
+            projected.insert(field.clone(), value.clone());
+        }
+    }
+    Value::Object(projected)
+}
+
+pub fn project_json_list(values: &[Value], fields: &[String]) -> Vec<Value> {
+    values
+        .iter()
+        .map(|value| project_json_object(value, fields))
+        .collect()
 }
 
 pub fn root_usage() -> String {

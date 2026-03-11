@@ -11,6 +11,7 @@ This document is the contract baseline for `bb` command behavior.
 - Repo context inference: for repo-scoped commands, `--workspace`/`--repo` can be inferred from local Bitbucket `remote.origin.url` (`https://bitbucket.org/<workspace>/<repo>.git` or `git@bitbucket.org:<workspace>/<repo>.git`) when omitted
 - Root help behavior: `bb` and top-level `bb --help` print the same top-level help with a short quick-start block for auth and common PR flows (`pr create`, `pr comments`) plus a note about `--output json`
 - Existing-PR commands under `bb pr` accept the pull request ID as positional `<id>` or `--id`; passing both in one invocation is an error
+- Selected read commands support `--json-fields <comma-separated-fields>` as a client-side JSON projection helper; it only works with `--output json`
 - Output policy:
   - Human output for operator use (`table` or concise text)
   - JSON output for automation where supported
@@ -86,6 +87,7 @@ This document is the contract baseline for `bb` command behavior.
   - `--all` (follow pagination)
   - `--profile`
   - `--q`, `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `table`: `SLUG`, `FULL_NAME`
   - `json`: array of repository objects
@@ -119,6 +121,7 @@ Naming rule:
   - `--profile`
   - `--state` (`OPEN|MERGED|DECLINED`)
   - `--q`, `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `table`: summary line (`Showing <n> [of <total>] <state> pull requests in <workspace>/<repo>`) and columns `ID`, `TITLE`, `BRANCH`, `CREATED AT` (relative time)
     - ANSI color is enabled for terminal output; control with `BB_COLOR=always|never` or `NO_COLOR=1`
@@ -177,6 +180,7 @@ Naming rule:
   - `--profile`
   - `--fields`
   - `--output` (`text` default, `json`)
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `text`: PR summary (`ID`, `STATE`, `TITLE`, source/destination branch, optional author/description/URL)
   - `json`: raw pull request object
@@ -322,6 +326,7 @@ Naming rule:
   - `--all`
   - `--profile`
   - `--q`, `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `table`: `ID`, `AUTHOR`, `CREATED AT`, `CONTENT`
   - `json`: array of pull request comment objects
@@ -358,6 +363,7 @@ Naming rule:
   - `--all`
   - `--profile`
   - `--q`, `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `table`: `KEY`, `STATE`, `NAME`, `UPDATED AT`
   - `json`: array of status objects
@@ -377,6 +383,7 @@ Naming rule:
   - `--all`
   - `--profile`
   - `--q`, `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `table`: `TYPE`, `USER`, `CREATED AT`, `DETAIL`
   - `json`: array of activity objects
@@ -397,6 +404,7 @@ Naming rule:
   - `--all` (follow pagination)
   - `--profile`
   - `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `table`: `UUID`, `STATE`, `REF`
   - `json`: array of pipeline objects
@@ -413,6 +421,7 @@ Naming rule:
   - `--profile`
   - `--fields`
   - `--output` (`text` default, `json`)
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `text`: pipeline summary (`UUID`, state, ref, optional build number and URL)
   - `json`: raw pipeline object
@@ -431,6 +440,7 @@ Naming rule:
   - `--all`
   - `--profile`
   - `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
 - Output:
   - `table`: `UUID`, `STATE`, `NAME`
   - `json`: array of pipeline step objects
