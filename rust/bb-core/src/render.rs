@@ -68,7 +68,7 @@ pub fn pr_usage() -> &'static str {
 }
 
 pub fn pipeline_usage() -> &'static str {
-    "Pipeline operations\n\nUsage:\n  bb pipeline <command>\n\nCommands:\n  list   List pipelines\n  run    Trigger a pipeline\n"
+    "Pipeline operations\n\nUsage:\n  bb pipeline <command>\n\nCommands:\n  list   List pipelines\n  get    Get a pipeline\n  steps  List pipeline steps\n  log    Get a pipeline step log\n  run    Trigger a pipeline\n"
 }
 
 pub fn issue_usage() -> &'static str {
@@ -91,7 +91,7 @@ pub fn bash_completion_script() -> &'static str {
     auth)       COMPREPLY=($(compgen -W "login status logout" -- "${cur}")); return;;
     repo)       COMPREPLY=($(compgen -W "list" -- "${cur}")); return;;
     pr)         COMPREPLY=($(compgen -W "list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity" -- "${cur}")); return;;
-    pipeline)   COMPREPLY=($(compgen -W "list run" -- "${cur}")); return;;
+    pipeline)   COMPREPLY=($(compgen -W "list get steps log run" -- "${cur}")); return;;
     issue)      COMPREPLY=($(compgen -W "list create update" -- "${cur}")); return;;
     wiki)       COMPREPLY=($(compgen -W "list get put" -- "${cur}")); return;;
     completion) COMPREPLY=($(compgen -W "bash zsh fish powershell" -- "${cur}")); return;;
@@ -112,7 +112,7 @@ _bb() {
     auth)       subcmds=(login status logout);;
     repo)       subcmds=(list);;
     pr)         subcmds=(list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity);;
-    pipeline)   subcmds=(list run);;
+    pipeline)   subcmds=(list get steps log run);;
     issue)      subcmds=(list create update);;
     wiki)       subcmds=(list get put);;
     completion) subcmds=(bash zsh fish powershell);;
@@ -127,7 +127,7 @@ pub fn fish_completion_script() -> &'static str {
 complete -c bb -f -n '__fish_seen_subcommand_from auth' -a "login status logout"
 complete -c bb -f -n '__fish_seen_subcommand_from repo' -a "list"
 complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity"
-complete -c bb -f -n '__fish_seen_subcommand_from pipeline' -a "list run"
+complete -c bb -f -n '__fish_seen_subcommand_from pipeline' -a "list get steps log run"
 complete -c bb -f -n '__fish_seen_subcommand_from issue' -a "list create update"
 complete -c bb -f -n '__fish_seen_subcommand_from wiki' -a "list get put"
 complete -c bb -f -n '__fish_seen_subcommand_from completion' -a "bash zsh fish powershell""#
@@ -141,7 +141,7 @@ pub fn powershell_completion_script() -> &'static str {
     'auth'       = @('login','status','logout')
     'repo'       = @('list')
     'pr'         = @('list','create','merge','get','update','approve','unapprove','request-changes','remove-request-changes','decline','comment','comments','diff','statuses','activity')
-    'pipeline'   = @('list','run')
+    'pipeline'   = @('list','get','steps','log','run')
     'issue'      = @('list','create','update')
     'wiki'       = @('list','get','put')
     'completion' = @('bash','zsh','fish','powershell')
@@ -367,6 +367,23 @@ pub fn render_pipeline_table(values: &[Value]) -> String {
     format!("{}\n", render_table(&["UUID", "STATE", "REF"], &rows))
 }
 
+pub fn render_pipeline_steps_table(values: &[Value]) -> String {
+    let rows = values
+        .iter()
+        .map(|value| {
+            vec![
+                string_field(value, &["uuid"]).unwrap_or("-").to_string(),
+                pipeline_step_state_label(value),
+                string_field(value, &["name"])
+                    .or_else(|| string_field(value, &["step", "name"]))
+                    .unwrap_or("-")
+                    .to_string(),
+            ]
+        })
+        .collect::<Vec<_>>();
+    format!("{}\n", render_table(&["UUID", "STATE", "NAME"], &rows))
+}
+
 pub fn render_issue_table(values: &[Value]) -> String {
     let rows = values
         .iter()
@@ -413,6 +430,13 @@ pub fn int_field(value: &Value, path: &[&str]) -> Option<i64> {
 }
 
 pub fn pipeline_state_label(value: &Value) -> String {
+    string_field(value, &["state", "result", "name"])
+        .or_else(|| string_field(value, &["state", "name"]))
+        .unwrap_or("-")
+        .to_string()
+}
+
+pub fn pipeline_step_state_label(value: &Value) -> String {
     string_field(value, &["state", "result", "name"])
         .or_else(|| string_field(value, &["state", "name"]))
         .unwrap_or("-")

@@ -112,6 +112,199 @@ fn repo_list_json_reads_config_and_calls_server() {
 }
 
 #[test]
+fn pipeline_help_lists_debugging_commands() {
+    let output = bb_command()
+        .args(["pipeline", "--help"])
+        .output()
+        .expect("command should run");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert!(stdout.contains("get"));
+    assert!(stdout.contains("steps"));
+    assert!(stdout.contains("log"));
+}
+
+#[test]
+fn pipeline_get_json_reads_config_and_calls_server() {
+    let server = MockServer::start();
+    let pipeline = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines/%7Bpipe-123%7D");
+        then.json_body(json!({
+            "uuid": "{pipe-123}",
+            "build_number": 17,
+            "state": { "name": "COMPLETED", "result": { "name": "FAILED" } },
+            "target": { "ref_name": "feature/widgets" }
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "get",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--uuid",
+            "{pipe-123}",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["uuid"], "{pipe-123}");
+    assert_eq!(body["build_number"], 17);
+    pipeline.assert();
+}
+
+#[test]
+fn pipeline_steps_json_reads_config_and_calls_server() {
+    let server = MockServer::start();
+    let steps = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines/%7Bpipe-123%7D/steps");
+        then.json_body(json!({
+            "values": [
+                {
+                    "uuid": "{step-1}",
+                    "name": "build",
+                    "state": { "name": "COMPLETED", "result": { "name": "FAILED" } }
+                }
+            ]
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "steps",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--uuid",
+            "{pipe-123}",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body[0]["uuid"], "{step-1}");
+    assert_eq!(body[0]["name"], "build");
+    steps.assert();
+}
+
+#[test]
+fn pipeline_log_text_reads_config_and_calls_server() {
+    let server = MockServer::start();
+    let log = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines/%7Bpipe-123%7D/steps/%7Bstep-1%7D/log");
+        then.body("build failed\n");
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "log",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--uuid",
+            "{pipe-123}",
+            "--step",
+            "{step-1}",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert_eq!(stdout, "build failed\n");
+    log.assert();
+}
+
+#[test]
+fn pipeline_get_rejects_unbalanced_uuid_braces() {
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "get",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--uuid",
+            "{pipe-123",
+            "--output",
+            "json",
+        ])
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "invalid_input");
+    assert_eq!(body["error"]["message"], "--uuid must be a Bitbucket UUID");
+}
+
+#[test]
+fn pipeline_log_rejects_unbalanced_step_braces() {
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "log",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--uuid",
+            "{pipe-123}",
+            "--step",
+            "step-1}",
+            "--output",
+            "json",
+        ])
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "invalid_input");
+    assert_eq!(body["error"]["message"], "--step must be a Bitbucket UUID");
+}
+
+#[test]
 fn completion_bash_prints_script() {
     let output = bb_command()
         .args(["completion", "bash"])
@@ -123,6 +316,8 @@ fn completion_bash_prints_script() {
     assert!(stdout.contains("complete -F _bb_complete bb"));
     assert!(stdout.contains("request-changes"));
     assert!(stdout.contains("remove-request-changes"));
+    assert!(stdout.contains("steps"));
+    assert!(stdout.contains("log"));
 }
 
 #[test]

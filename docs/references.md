@@ -134,6 +134,9 @@ Operational UX:
 - `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/statuses`
 - `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/activity`
 - `GET /repositories/{workspace}/{repo_slug}/pipelines`
+- `GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}`
+- `GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}/steps`
+- `GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}/steps/{step_uuid}/log`
 - `POST /repositories/{workspace}/{repo_slug}/pipelines`
 - `GET /repositories/{workspace}/{repo_slug}/issues`
 - Wiki operations via Git remote:
@@ -188,7 +191,7 @@ Rust migration decisions:
   - `bb api`
   - `bb repo list`
   - `bb pr list|create|merge|get|update|approve|unapprove|request-changes|remove-request-changes|decline|comment|comments|diff|statuses|activity`
-  - `bb pipeline list|run`
+  - `bb pipeline list|get|steps|log|run`
   - `bb issue list|create|update`
   - `bb wiki list|get|put`
   - `bb completion`

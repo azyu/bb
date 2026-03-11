@@ -261,6 +261,38 @@ pub struct PipelineListRequest {
 }
 
 #[derive(Debug, Clone)]
+pub struct PipelineGetRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub uuid: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PipelineStepsRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub uuid: Option<String>,
+    pub output: String,
+    pub all: bool,
+    pub profile: Option<String>,
+    pub sort: Option<String>,
+    pub fields: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PipelineLogRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub uuid: Option<String>,
+    pub step: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct PipelineRunRequest {
     pub workspace: Option<String>,
     pub repo: Option<String>,
@@ -375,6 +407,9 @@ pub enum PrRequest {
 pub enum PipelineRequest {
     Help,
     List(PipelineListRequest),
+    Get(PipelineGetRequest),
+    Steps(PipelineStepsRequest),
+    Log(PipelineLogRequest),
     Run(PipelineRunRequest),
 }
 
