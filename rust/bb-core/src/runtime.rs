@@ -74,6 +74,7 @@ const PR_COMMENTS_JSON_FIELDS: &[&str] = &[
 ];
 
 const PR_STATUSES_JSON_FIELDS: &[&str] = &[
+    "created_on",
     "description",
     "key",
     "links",
@@ -81,6 +82,7 @@ const PR_STATUSES_JSON_FIELDS: &[&str] = &[
     "refname",
     "state",
     "type",
+    "updated_on",
     "url",
     "uuid",
 ];

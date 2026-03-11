@@ -695,6 +695,56 @@ fn pr_statuses_json_reads_config_and_calls_server() {
 }
 
 #[test]
+fn pr_statuses_json_fields_include_timestamps() {
+    let server = MockServer::start();
+    let statuses = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42/statuses");
+        then.json_body(json!({
+            "values": [
+                {
+                    "key": "build",
+                    "state": "SUCCESSFUL",
+                    "created_on": "2026-03-10T00:00:00Z",
+                    "updated_on": "2026-03-10T01:00:00Z"
+                }
+            ]
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "statuses",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--id",
+            "42",
+            "--output",
+            "json",
+            "--json-fields",
+            "key,created_on,updated_on",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body[0]["key"], "build");
+    assert_eq!(body[0]["created_on"], "2026-03-10T00:00:00Z");
+    assert_eq!(body[0]["updated_on"], "2026-03-10T01:00:00Z");
+    statuses.assert();
+}
+
+#[test]
 fn pr_comment_missing_content_emits_json_error() {
     let output = bb_command()
         .args([
