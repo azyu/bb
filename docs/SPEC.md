@@ -109,6 +109,7 @@ Still out of scope:
 - Text-mode errors go to stderr with non-zero exit status.
 - Commands that support machine-readable output emit JSON to stdout.
 - Commands with `--output json` must emit JSON error envelopes to stdout on failure.
+- Running `bb` with no arguments prints root help plus a short quick-start block for common agent-first flows.
 - Supported output modes:
   - list commands: `table|json`
   - write/detail commands: `text|json`
@@ -139,6 +140,7 @@ Still out of scope:
   - human-facing commands keep concise text/table output
   - automation-facing commands use stable `json` output modes and JSON error envelopes
   - parser-level conflicts and invalid combinations must fail before network or git write operations
+- Root help should surface a minimal "copy and adapt" onboarding path for agents with no prior repo knowledge, centered on auth plus common PR flows such as `pr create` and `pr comments`.
 - Future extensions, motivated by agent-oriented CLI design:
   - command/schema introspection for discovery (`bb <command> --describe` or equivalent)
   - `--dry-run` or validation-only modes for write commands

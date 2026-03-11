@@ -50,7 +50,7 @@ pub fn print_json<W: Write, T: Serialize>(writer: &mut W, value: &T) -> Result<(
 
 pub fn root_usage() -> String {
     format!(
-        "bb - Bitbucket CLI (Cloud MVP)\nVersion: {}\n\nUsage:\n  bb <command> [subcommand] [flags]\n\nCommands:\n  auth       Authenticate and inspect auth status\n  api        Call Bitbucket Cloud REST endpoints\n  repo       Repository operations\n  version    Show CLI version metadata\n  pr         Pull request operations\n  pipeline   Pipeline operations\n  wiki       Wiki operations\n  issue      Issue operations\n  completion Shell completion\n",
+        "bb - Bitbucket CLI (Cloud MVP)\nVersion: {}\n\nUsage:\n  bb <command> [subcommand] [flags]\n\nCommands:\n  auth       Authenticate and inspect auth status\n  api        Call Bitbucket Cloud REST endpoints\n  repo       Repository operations\n  version    Show CLI version metadata\n  pr         Pull request operations\n  pipeline   Pipeline operations\n  wiki       Wiki operations\n  issue      Issue operations\n  completion Shell completion\n\nQuick start:\n  bb auth login --token \"$BITBUCKET_TOKEN\" --username you@example.com\n  bb pr create --workspace acme --repo widgets --title \"Add widget support\" --source feature/widgets --destination main\n  bb pr comments --workspace acme --repo widgets --id 123\n\nNotes:\n  - Add --output json when an agent needs machine-readable output.\n  - In a cloned Bitbucket repo, repo-scoped commands can infer --workspace and --repo.\n",
         version::display_version()
     )
 }

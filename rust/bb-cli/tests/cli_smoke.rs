@@ -30,6 +30,10 @@ fn root_help_prints_commands() {
     assert!(stdout.contains("Commands:"));
     assert!(stdout.contains("auth"));
     assert!(stdout.contains("completion"));
+    assert!(stdout.contains("Quick start:"));
+    assert!(stdout.contains("bb pr create --workspace acme --repo widgets"));
+    assert!(stdout.contains("bb pr comments --workspace acme --repo widgets --id 123"));
+    assert!(stdout.contains("Add --output json"));
 }
 
 #[test]
