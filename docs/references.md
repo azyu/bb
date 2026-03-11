@@ -211,6 +211,7 @@ Behavior preserved by the Rust rewrite:
 Current agent-oriented alignment:
 - The Rust MVP keeps JSON success/error contracts for automation-facing commands.
 - Command parsing rejects invalid combinations before network or git write operations.
+- PR commands that target an existing pull request accept the ID as positional `<id>` or `--id`, with both forms rejected together.
 - Structured passthrough parameters (`q`, `sort`, `fields`) are preserved for precise automation.
 - Schema introspection and dry-run support remain explicit phase 2 candidates rather than implicit scope creep in MVP.
 

@@ -9,7 +9,8 @@ This document is the contract baseline for `bb` command behavior.
 - Auth: per-profile token with optional Basic auth username (`--username` / `BITBUCKET_USERNAME`) and Bearer fallback
 - Versioning: SemVer + short git hash build metadata (e.g. `0.0.1+abc1234`)
 - Repo context inference: for repo-scoped commands, `--workspace`/`--repo` can be inferred from local Bitbucket `remote.origin.url` (`https://bitbucket.org/<workspace>/<repo>.git` or `git@bitbucket.org:<workspace>/<repo>.git`) when omitted
-- Root no-arg behavior: `bb` prints top-level help with a short quick-start block for auth and common PR flows (`pr create`, `pr comments`) plus a note about `--output json`
+- Root help behavior: `bb` and top-level `bb --help` print the same top-level help with a short quick-start block for auth and common PR flows (`pr create`, `pr comments`) plus a note about `--output json`
+- Existing-PR commands under `bb pr` accept the pull request ID as positional `<id>` or `--id`; passing both in one invocation is an error
 - Output policy:
   - Human output for operator use (`table` or concise text)
   - JSON output for automation where supported
@@ -150,7 +151,7 @@ Naming rule:
 - Purpose: Merge a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id` (pull request ID)
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--message` (merge commit message)
   - `--strategy` (`merge_commit|squash|fast_forward`)
@@ -162,7 +163,8 @@ Naming rule:
   - `json`: merged pull request object
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Invalid `--strategy` value -> non-zero exit
   - Unsupported output -> non-zero exit
 
@@ -170,7 +172,7 @@ Naming rule:
 - Purpose: Get a pull request by ID.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--profile`
   - `--fields`
@@ -180,14 +182,15 @@ Naming rule:
   - `json`: raw pull request object
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr update`
 - Purpose: Update selected pull request fields.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags (at least one required):
   - `--title`
   - `--description`
@@ -201,14 +204,15 @@ Naming rule:
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - No update field provided -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr approve`
 - Purpose: Approve a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -217,14 +221,15 @@ Naming rule:
   - `json`: participant object returned by Bitbucket
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr unapprove`
 - Purpose: Remove an approval from a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -233,14 +238,15 @@ Naming rule:
   - `json`: synthetic success envelope (`id`, `action`, `ok`)
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr request-changes`
 - Purpose: Request changes on a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -249,14 +255,15 @@ Naming rule:
   - `json`: participant object returned by Bitbucket
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr remove-request-changes`
 - Purpose: Remove a change request from a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -265,14 +272,15 @@ Naming rule:
   - `json`: synthetic success envelope (`id`, `action`, `ok`)
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr decline`
 - Purpose: Decline a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -281,14 +289,15 @@ Naming rule:
   - `json`: declined pull request object
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr comment`
 - Purpose: Create a comment on a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
   - `--content`
 - Optional flags:
   - `--profile`
@@ -299,14 +308,15 @@ Naming rule:
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - Missing `--content` -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr comments`
 - Purpose: List pull request comments.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all`
@@ -317,14 +327,15 @@ Naming rule:
   - `json`: array of pull request comment objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr diff`
 - Purpose: Get the diff for a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -333,14 +344,15 @@ Naming rule:
   - `json`: object with a single `diff` string field
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr statuses`
 - Purpose: List commit statuses for a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all`
@@ -351,14 +363,15 @@ Naming rule:
   - `json`: array of status objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr activity`
 - Purpose: List pull request activity.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--id`
+  - pull request ID via positional `<id>` or `--id`
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all`
@@ -369,7 +382,8 @@ Naming rule:
   - `json`: array of activity objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Non-numeric `--id` value -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ## `bb pipeline`

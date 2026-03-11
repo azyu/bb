@@ -231,6 +231,8 @@ pub struct PrMergeArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub message: Option<String>,
     #[arg(long)]
@@ -251,6 +253,8 @@ pub struct PrGetArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -267,6 +271,8 @@ pub struct PrUpdateArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub title: Option<String>,
     #[arg(long)]
@@ -289,6 +295,8 @@ pub struct PrApproveArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -303,6 +311,8 @@ pub struct PrUnapproveArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -317,6 +327,8 @@ pub struct PrRequestChangesArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -331,6 +343,8 @@ pub struct PrRemoveRequestChangesArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -345,6 +359,8 @@ pub struct PrDeclineArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -359,6 +375,8 @@ pub struct PrCommentArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub content: Option<String>,
     #[arg(long)]
@@ -375,6 +393,8 @@ pub struct PrCommentsArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long, default_value = "table")]
     pub output: String,
     #[arg(long)]
@@ -397,6 +417,8 @@ pub struct PrDiffArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -411,6 +433,8 @@ pub struct PrStatusesArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long, default_value = "table")]
     pub output: String,
     #[arg(long)]
@@ -433,6 +457,8 @@ pub struct PrActivityArgs {
     pub repo: Option<String>,
     #[arg(long)]
     pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
     #[arg(long, default_value = "table")]
     pub output: String,
     #[arg(long)]
@@ -649,8 +675,11 @@ where
     T: Into<OsString>,
 {
     let normalized = normalize_args(args.into_iter().map(Into::into).collect());
-    if normalized.len() == 2 && normalized[1].to_string_lossy() == "help" {
-        return Ok(Request::RootHelp);
+    if normalized.len() == 2 {
+        let arg = normalized[1].to_string_lossy();
+        if arg == "help" || arg == "--help" || arg == "-h" {
+            return Ok(Request::RootHelp);
+        }
     }
 
     let cli = Cli::try_parse_from(normalized)?;
@@ -754,7 +783,7 @@ fn map_request(cli: Cli) -> Request {
             Some(PrCommands::Merge(args)) => PrRequest::Merge(PrMergeRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 message: args.message,
                 strategy: args.strategy,
                 close_branch: args.close_branch,
@@ -764,7 +793,7 @@ fn map_request(cli: Cli) -> Request {
             Some(PrCommands::Get(args)) => PrRequest::Get(PrGetRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 profile: args.profile,
                 output: args.output,
                 fields: args.fields,
@@ -772,7 +801,7 @@ fn map_request(cli: Cli) -> Request {
             Some(PrCommands::Update(args)) => PrRequest::Update(PrUpdateRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 title: args.title,
                 description: args.description,
                 source: args.source,
@@ -783,14 +812,14 @@ fn map_request(cli: Cli) -> Request {
             Some(PrCommands::Approve(args)) => PrRequest::Approve(PrApproveRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 profile: args.profile,
                 output: args.output,
             }),
             Some(PrCommands::Unapprove(args)) => PrRequest::Unapprove(PrUnapproveRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 profile: args.profile,
                 output: args.output,
             }),
@@ -798,7 +827,7 @@ fn map_request(cli: Cli) -> Request {
                 PrRequest::RequestChanges(PrRequestChangesRequest {
                     workspace: args.workspace,
                     repo: args.repo,
-                    id: args.id,
+                    id: resolve_pr_id(args.id, args.pr_id),
                     profile: args.profile,
                     output: args.output,
                 })
@@ -807,7 +836,7 @@ fn map_request(cli: Cli) -> Request {
                 PrRequest::RemoveRequestChanges(PrRemoveRequestChangesRequest {
                     workspace: args.workspace,
                     repo: args.repo,
-                    id: args.id,
+                    id: resolve_pr_id(args.id, args.pr_id),
                     profile: args.profile,
                     output: args.output,
                 })
@@ -815,14 +844,14 @@ fn map_request(cli: Cli) -> Request {
             Some(PrCommands::Decline(args)) => PrRequest::Decline(PrDeclineRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 profile: args.profile,
                 output: args.output,
             }),
             Some(PrCommands::Comment(args)) => PrRequest::Comment(PrCommentRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 content: args.content,
                 profile: args.profile,
                 output: args.output,
@@ -830,7 +859,7 @@ fn map_request(cli: Cli) -> Request {
             Some(PrCommands::Comments(args)) => PrRequest::Comments(PrCommentsRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 output: args.output,
                 all: args.all,
                 profile: args.profile,
@@ -841,14 +870,14 @@ fn map_request(cli: Cli) -> Request {
             Some(PrCommands::Diff(args)) => PrRequest::Diff(PrDiffRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 profile: args.profile,
                 output: args.output,
             }),
             Some(PrCommands::Statuses(args)) => PrRequest::Statuses(PrStatusesRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 output: args.output,
                 all: args.all,
                 profile: args.profile,
@@ -859,7 +888,7 @@ fn map_request(cli: Cli) -> Request {
             Some(PrCommands::Activity(args)) => PrRequest::Activity(PrActivityRequest {
                 workspace: args.workspace,
                 repo: args.repo,
-                id: args.id,
+                id: resolve_pr_id(args.id, args.pr_id),
                 output: args.output,
                 all: args.all,
                 profile: args.profile,
@@ -978,6 +1007,10 @@ fn map_request(cli: Cli) -> Request {
     }
 }
 
+fn resolve_pr_id(id: Option<String>, pr_id: Option<String>) -> Option<String> {
+    id.or(pr_id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -998,6 +1031,12 @@ mod tests {
     }
 
     #[test]
+    fn root_help_flag_maps_to_root_help() {
+        let request = parse_from(["bb", "--help"]).expect("parse should succeed");
+        assert!(matches!(request, Request::RootHelp));
+    }
+
+    #[test]
     fn version_flag_maps_to_version_request() {
         let request = parse_from(["bb", "--version"]).expect("parse should succeed");
         assert!(matches!(request, Request::Version));
@@ -1011,6 +1050,15 @@ mod tests {
         };
         assert_eq!(request.id.as_deref(), Some("42"));
         assert_eq!(request.output, "text");
+    }
+
+    #[test]
+    fn pr_get_maps_positional_id_to_get_request() {
+        let request = parse_from(["bb", "pr", "get", "42"]).expect("parse should succeed");
+        let Request::Pr(PrRequest::Get(request)) = request else {
+            panic!("expected pr get");
+        };
+        assert_eq!(request.id.as_deref(), Some("42"));
     }
 
     #[test]
@@ -1046,6 +1094,13 @@ mod tests {
         assert_eq!(request.id.as_deref(), Some("42"));
         assert_eq!(request.content.as_deref(), Some("needs changes"));
         assert_eq!(request.output, "json");
+    }
+
+    #[test]
+    fn pr_comments_rejects_positional_and_flag_id_together() {
+        let error = parse_from(["bb", "pr", "comments", "42", "--id", "43"])
+            .expect_err("parse should fail");
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
     #[test]

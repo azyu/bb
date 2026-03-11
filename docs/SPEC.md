@@ -112,7 +112,7 @@ Still out of scope:
 - Text-mode errors go to stderr with non-zero exit status.
 - Commands that support machine-readable output emit JSON to stdout.
 - Commands with `--output json` must emit JSON error envelopes to stdout on failure.
-- Running `bb` with no arguments prints root help plus a short quick-start block for common agent-first flows.
+- Running `bb` with no arguments or top-level `--help` prints the same root help plus a short quick-start block for common agent-first flows.
 - Supported output modes:
   - list commands: `table|json`
   - write/detail commands: `text|json`
@@ -131,6 +131,7 @@ Still out of scope:
   - columns `ID`, `TITLE`, `BRANCH`, `CREATED AT`
   - relative timestamps
   - color controls via `BB_COLOR`, `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE`
+- PR commands that operate on an existing pull request accept the pull request ID as positional `<id>` or `--id`.
 
 ## Agent-Oriented CLI Rules
 - Prefer predictable structured output over prose for automation-facing commands.
