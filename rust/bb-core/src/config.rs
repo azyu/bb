@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -158,13 +159,37 @@ pub fn load() -> Result<Config, CliError> {
 
 pub fn save(config: &Config) -> Result<(), CliError> {
     let paths = config_paths()?;
-    fs::create_dir_all(&paths.dir)
+    save_to_path(&paths.dir, &paths.file, config)
+}
+
+fn save_to_path(dir: &Path, file: &Path, config: &Config) -> Result<(), CliError> {
+    fs::create_dir_all(dir)
         .map_err(|error| CliError::Config(format!("create config directory: {error}")))?;
 
     let body = serde_json::to_string_pretty(config)
         .map_err(|error| CliError::Config(format!("encode config: {error}")))?;
-    fs::write(&paths.file, format!("{body}\n"))
-        .map_err(|error| CliError::Config(format!("write config: {error}")))?;
+    let mut temp = tempfile::Builder::new()
+        .prefix(".config.")
+        .tempfile_in(dir)
+        .map_err(|error| CliError::Config(format!("create temp config: {error}")))?;
+    temp.as_file_mut()
+        .write_all(format!("{body}\n").as_bytes())
+        .map_err(|error| CliError::Config(format!("write temp config: {error}")))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = temp
+            .as_file()
+            .metadata()
+            .map_err(|error| CliError::Config(format!("stat temp config: {error}")))?
+            .permissions();
+        permissions.set_mode(0o600);
+        fs::set_permissions(temp.path(), permissions)
+            .map_err(|error| CliError::Config(format!("chmod temp config: {error}")))?;
+    }
+    temp.persist(file)
+        .map_err(|error| CliError::Config(format!("persist config: {}", error.error)))?;
     Ok(())
 }
 
@@ -200,6 +225,10 @@ fn detect_home_dir() -> Result<PathBuf, CliError> {
 mod tests {
     use super::*;
 
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
+    use tempfile::tempdir;
+
     #[test]
     fn config_path_uses_home_dot_config() {
         let paths = config_paths_from_home(Path::new("/tmp/bb-home"), None);
@@ -219,5 +248,73 @@ mod tests {
         assert!(ok);
         assert_eq!(removed, "alpha");
         assert_eq!(config.current, "zeta");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn saved_config_is_not_group_or_world_readable() {
+        let temp = tempdir().expect("temp dir");
+        let file = temp.path().join("config.json");
+        let dir = file.parent().expect("config dir");
+
+        let config = Config {
+            current: "default".to_string(),
+            profiles: BTreeMap::from([(
+                "default".to_string(),
+                Profile {
+                    base_url: DEFAULT_BASE_URL.to_string(),
+                    token: "secret".to_string(),
+                    username: String::new(),
+                },
+            )]),
+        };
+
+        save_to_path(dir, &file, &config).expect("config saves");
+
+        let mode = fs::metadata(&file).expect("metadata").permissions().mode() & 0o777;
+        assert_eq!(
+            mode & 0o077,
+            0,
+            "config mode should not expose token to group/world"
+        );
+    }
+
+    #[test]
+    fn save_replaces_existing_config_contents() {
+        let temp = tempdir().expect("temp dir");
+        let file = temp.path().join("config.json");
+        let dir = file.parent().expect("config dir");
+
+        let first = Config {
+            current: "default".to_string(),
+            profiles: BTreeMap::from([(
+                "default".to_string(),
+                Profile {
+                    base_url: DEFAULT_BASE_URL.to_string(),
+                    token: "first-token".to_string(),
+                    username: String::new(),
+                },
+            )]),
+        };
+        save_to_path(dir, &file, &first).expect("first save");
+
+        let second = Config {
+            current: "work".to_string(),
+            profiles: BTreeMap::from([(
+                "work".to_string(),
+                Profile {
+                    base_url: "https://example.test".to_string(),
+                    token: "second-token".to_string(),
+                    username: "bot".to_string(),
+                },
+            )]),
+        };
+        save_to_path(dir, &file, &second).expect("second save");
+
+        let saved: Config =
+            serde_json::from_str(&fs::read_to_string(&file).expect("saved config")).expect("json");
+        assert_eq!(saved.current, "work");
+        assert_eq!(saved.profiles.len(), 1);
+        assert_eq!(saved.profiles["work"].token, "second-token");
     }
 }
