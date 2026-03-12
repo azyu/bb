@@ -34,5 +34,6 @@
 - [x] Align repo-local `.agents` skills with current workspace docs and command surface - owner: agent
 - [x] Rename `docs/SPEC.md` to `docs/spec.md` and update references - owner: agent
 - [x] Add an agent-facing `skills/bb-cli` execution skill for other assistants - owner: agent
+- [x] Harden `skills/bb-cli` write-operation guidance to prevent invalid `bb pr create` flag usage - owner: agent
 - [ ] Evaluate `bb pr checkout` local Git workflow for a future follow-up - owner: agent
 - [ ] Evaluate phase 2 agent-first extensions (`--describe` or schema introspection, `--dry-run`, separate automation surface if needed) - owner: agent

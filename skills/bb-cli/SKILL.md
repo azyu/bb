@@ -21,8 +21,10 @@ bb <command> <subcommand> [flags]
 - Prefer `--output json` for automation.
 - Use `--json-fields` only on commands that explicitly support it.
 - Outside a cloned Bitbucket repo, pass `--workspace` and `--repo` explicitly.
+- Before any write operation, inspect the exact subcommand help in the current session and use only documented flags.
 - Existing-PR commands accept positional `ID` or `--id`; passing both is an error.
 - For write operations, do not guess IDs, branch names, or target repos. Resolve them first.
+- `bb pr create` uses `--description` and `--destination`; do not substitute `--body` or `--dest`.
 - Use `bb api` when the wrapped command surface does not cover the operation you need.
 - `bb api` is JSON-only.
 - Wiki commands use the repo's wiki Git remote, not a REST endpoint.
@@ -75,6 +77,7 @@ bb pr --help
 bb pipeline --help
 
 # Exact flags and positional arguments
+bb pr create --help
 bb pr get --help
 bb pr comments --help
 bb pipeline log --help
@@ -101,12 +104,19 @@ bb wiki get --workspace acme --repo widgets --page Home.md
 
 # Write operations
 bb pr create --workspace acme --repo widgets --title "Add widget support" --source feature/widgets --destination main
+bb pr create --workspace acme --repo widgets --title "Add widget support" --source feature/widgets --destination main --description "$(cat ./pr-body.md)"
 bb issue create --workspace acme --repo widgets --title "Broken widget" --kind bug --priority major --output json
 bb wiki put --workspace acme --repo widgets --page Home.md --file ./docs/home.md
 
 # Escape hatch
 bb api repositories/acme/widgets/pullrequests --paginate
 ```
+
+## Common Traps
+
+- Do not assume GitHub CLI flag names map to `bb`. For PR creation, `bb` does not support `--body` or `--dest`.
+- When you need a long PR description, pass it through `--description`, typically from a file or shell variable.
+- If the exact flag is unclear, stop and re-run `<command> --help` instead of guessing.
 
 ## References
 
