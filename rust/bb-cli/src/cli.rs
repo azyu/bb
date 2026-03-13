@@ -1122,8 +1122,7 @@ mod tests {
 
     #[test]
     fn pr_edit_alias_maps_to_update_request() {
-        let request =
-            parse_from(["bb", "pr", "edit", "--id", "42"]).expect("parse should succeed");
+        let request = parse_from(["bb", "pr", "edit", "--id", "42"]).expect("parse should succeed");
         assert!(matches!(
             request,
             Request::Pr(PrRequest::Update(PrUpdateRequest {
