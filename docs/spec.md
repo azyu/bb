@@ -63,7 +63,7 @@
 - Reject invalid or ambiguous inputs before network or Git write operations when possible.
 - Reuse raw API objects for JSON output instead of re-parsing formatted text.
 - Preserve `q`, `sort`, and `fields` passthrough where the Bitbucket API supports them.
-- When a command is a thin wrapper over a Bitbucket Cloud REST operation, prefer Bitbucket API-aligned naming such as `get`, `update`, `request-changes`, and `remove-request-changes`.
+- Prefer Bitbucket API-aligned naming (`get`, `update`, `request-changes`, `remove-request-changes`). GitHub CLI aliases accepted: `view`→`get`, `edit`→`update`, `close`→`decline`, `checks`→`statuses`.
 
 ## Bitbucket Client Rules
 - Follow server-provided pagination via `next`.

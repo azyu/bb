@@ -143,8 +143,7 @@ Operational UX:
 - Wiki operations via Git remote:
   - `https://bitbucket.org/{workspace}/{repo_slug}.git/wiki`
 
-Command naming rule for wrapper commands:
-- When a CLI subcommand is a thin wrapper over a Bitbucket Cloud REST operation, prefer the Bitbucket API operation/resource name in the CLI (`get`, `update`, `request-changes`, `remove-request-changes`) instead of local synonyms like `view` or `edit`.
+Command naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-changes`, `remove-request-changes`). GitHub CLI aliases accepted: `view`→`get`, `edit`→`update`, `close`→`decline`, `checks`→`statuses`.
 
 ## 6) Risks and Boundaries
 - Bitbucket Cloud and Bitbucket Data Center APIs differ significantly.
@@ -197,7 +196,7 @@ Rust migration decisions:
   - `bb wiki list|get|put`
   - `bb completion`
   - `bb version`
-- Command naming for direct PR wrappers follows Bitbucket Cloud API titles (`get`, `update`, `request-changes`, `remove-request-changes`) instead of older wrapper synonyms (`view`, `edit`).
+- PR command naming follows Bitbucket API titles. GitHub CLI aliases accepted (see §5 naming rule).
 - `bb pr checkout` remains out of scope because it requires local Git workflow design beyond a direct REST wrapper.
 - Go config/runtime compatibility is intentionally dropped for the Rust rewrite.
 

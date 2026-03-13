@@ -76,16 +76,20 @@ pub enum PrCommands {
     List(PrListArgs),
     Create(PrCreateArgs),
     Merge(PrMergeArgs),
+    #[command(alias = "view")]
     Get(PrGetArgs),
+    #[command(alias = "edit")]
     Update(PrUpdateArgs),
     Approve(PrApproveArgs),
     Unapprove(PrUnapproveArgs),
     RequestChanges(PrRequestChangesArgs),
     RemoveRequestChanges(PrRemoveRequestChangesArgs),
+    #[command(alias = "close")]
     Decline(PrDeclineArgs),
     Comment(PrCommentArgs),
     Comments(PrCommentsArgs),
     Diff(PrDiffArgs),
+    #[command(alias = "checks")]
     Statuses(PrStatusesArgs),
     Activity(PrActivityArgs),
 }
@@ -1089,6 +1093,15 @@ mod tests {
     }
 
     #[test]
+    fn pr_view_alias_maps_to_get_request() {
+        let request = parse_from(["bb", "pr", "view", "42"]).expect("parse should succeed");
+        let Request::Pr(PrRequest::Get(request)) = request else {
+            panic!("expected pr get");
+        };
+        assert_eq!(request.id.as_deref(), Some("42"));
+    }
+
+    #[test]
     fn pr_get_maps_json_fields() {
         let request = parse_from([
             "bb",
@@ -1108,12 +1121,50 @@ mod tests {
     }
 
     #[test]
+    fn pr_edit_alias_maps_to_update_request() {
+        let request = parse_from(["bb", "pr", "edit", "--id", "42"]).expect("parse should succeed");
+        assert!(matches!(
+            request,
+            Request::Pr(PrRequest::Update(PrUpdateRequest {
+                id: Some(id),
+                ..
+            })) if id == "42"
+        ));
+    }
+
+    #[test]
     fn pr_request_changes_maps_to_request_changes_request() {
         let request = parse_from(["bb", "pr", "request-changes", "--id", "42"])
             .expect("parse should succeed");
         assert!(matches!(
             request,
             Request::Pr(PrRequest::RequestChanges(PrRequestChangesRequest {
+                id: Some(id),
+                ..
+            })) if id == "42"
+        ));
+    }
+
+    #[test]
+    fn pr_close_alias_maps_to_decline_request() {
+        let request =
+            parse_from(["bb", "pr", "close", "--id", "42"]).expect("parse should succeed");
+        assert!(matches!(
+            request,
+            Request::Pr(PrRequest::Decline(PrDeclineRequest {
+                id: Some(id),
+                ..
+            })) if id == "42"
+        ));
+    }
+
+    #[test]
+    fn pr_checks_alias_maps_to_statuses_request() {
+        let request =
+            parse_from(["bb", "pr", "checks", "--id", "42"]).expect("parse should succeed");
+        assert!(matches!(
+            request,
+            Request::Pr(PrRequest::Statuses(PrStatusesRequest {
                 id: Some(id),
                 ..
             })) if id == "42"

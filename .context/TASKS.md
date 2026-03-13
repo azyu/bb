@@ -31,6 +31,7 @@
 - [x] Refresh README and AGENTS docs for current Rust CLI surface - owner: agent
 - [x] Deduplicate `docs/SPEC.md` and `docs/command-contracts.md`; keep command contracts in one place - owner: agent
 - [x] Add gh-style JSON field projection for read commands (`--json-fields`) - owner: agent
+- [x] Add GitHub CLI-compatible aliases for direct `bb pr` wrapper commands - owner: agent
 - [x] Align repo-local `.agents` skills with current workspace docs and command surface - owner: agent
 - [x] Rename `docs/SPEC.md` to `docs/spec.md` and update references - owner: agent
 - [x] Add an agent-facing `skills/bb-cli` execution skill for other assistants - owner: agent

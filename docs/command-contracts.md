@@ -112,8 +112,7 @@ This document is the contract baseline for `bb` command behavior.
 
 ## `bb pr`
 
-Naming rule:
-- When a command is a thin wrapper over a Bitbucket Cloud PR REST operation, use the Bitbucket API-aligned name (`get`, `update`, `request-changes`, `remove-request-changes`) instead of local synonyms such as `view` or `edit`.
+Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-changes`, `remove-request-changes`). GitHub CLI aliases accepted: `view`→`get`, `edit`→`update`, `close`→`decline`, `checks`→`statuses`.
 
 ### `bb pr list`
 - Purpose: List pull requests for a repository.
@@ -176,6 +175,7 @@ Naming rule:
   - Unsupported output -> non-zero exit
 
 ### `bb pr get`
+- Alias: `bb pr view`
 - Purpose: Get a pull request by ID.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
@@ -195,6 +195,7 @@ Naming rule:
   - Unsupported output -> non-zero exit
 
 ### `bb pr update`
+- Alias: `bb pr edit`
 - Purpose: Update selected pull request fields.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
@@ -285,6 +286,7 @@ Naming rule:
   - Unsupported output -> non-zero exit
 
 ### `bb pr decline`
+- Alias: `bb pr close`
 - Purpose: Decline a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
@@ -358,6 +360,7 @@ Naming rule:
   - Unsupported output -> non-zero exit
 
 ### `bb pr statuses`
+- Alias: `bb pr checks`
 - Purpose: List commit statuses for a pull request.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`

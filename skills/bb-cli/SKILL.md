@@ -112,11 +112,11 @@ bb wiki put --workspace acme --repo widgets --page Home.md --file ./docs/home.md
 bb api repositories/acme/widgets/pullrequests --paginate
 ```
 
-## Common Traps
+## GitHub CLI Compatibility
 
-- Do not assume GitHub CLI flag names map to `bb`. For PR creation, `bb` does not support `--body` or `--dest`.
-- When you need a long PR description, pass it through `--description`, typically from a file or shell variable.
-- If the exact flag is unclear, stop and re-run `<command> --help` instead of guessing.
+Subcommand aliases accepted: `view`→`get`, `edit`→`update`, `close`→`decline`, `checks`→`statuses`.
+
+Flag names differ — `bb pr create` uses `--description` (not `--body`) and `--destination` (not `--base`/`--dest`). When unsure, run `<command> --help`.
 
 ## References
 
