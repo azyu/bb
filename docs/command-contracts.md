@@ -323,23 +323,30 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - Unsupported output -> non-zero exit
 
 ### `bb pr comments`
-- Purpose: List pull request comments.
+- Purpose: List pull request comments, or get a single pull request comment when `--comment-id` is provided.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - pull request ID via positional `<id>` or `--id`
 - Optional flags:
+  - `--comment-id` (single comment lookup within the selected pull request)
   - `--output` (`table` default, `json`)
   - `--all`
   - `--profile`
   - `--q`, `--sort`, `--fields`
   - `--json-fields` (requires `--output json`)
 - Output:
-  - `table`: `ID`, `AUTHOR`, `CREATED AT`, `CONTENT`
-  - `json`: array of pull request comment objects
+  - Without `--comment-id`:
+    - `table`: `ID`, `AUTHOR`, `CREATED AT`, `CONTENT`
+    - `json`: array of pull request comment objects
+  - With `--comment-id`:
+    - `table`: single-row `ID`, `AUTHOR`, `CREATED AT`, `CONTENT`
+    - `json`: single pull request comment object
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - Non-numeric pull request ID value -> non-zero exit
+  - Non-numeric `--comment-id` value -> non-zero exit
   - Passing both `<id>` and `--id` -> non-zero exit
+  - Passing `--comment-id` with `--all`, `--q`, or `--sort` -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pr diff`

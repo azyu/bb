@@ -440,6 +440,7 @@ fn pr_comments_help_includes_positional_id() {
     assert!(stdout.contains("Usage: bb pr comments"));
     assert!(stdout.contains("[ID]"));
     assert!(stdout.contains("--id <ID>"));
+    assert!(stdout.contains("--comment-id <COMMENT_ID>"));
 }
 
 #[test]
@@ -607,6 +608,76 @@ fn pr_diff_text_reads_config_and_calls_server() {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
     assert_eq!(stdout, "diff --git a/src/lib.rs b/src/lib.rs\n");
     diff.assert();
+}
+
+#[test]
+fn pr_comment_get_json_reads_config_and_calls_server() {
+    let server = MockServer::start();
+    let comment = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42/comments/7");
+        then.json_body(json!({
+            "id": 7,
+            "content": {
+                "raw": "needs changes"
+            },
+            "user": {
+                "display_name": "codex"
+            }
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "comments",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "42",
+            "--comment-id",
+            "7",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["id"], 7);
+    assert_eq!(body["content"]["raw"], "needs changes");
+    comment.assert();
+}
+
+#[test]
+fn pr_comment_get_rejects_list_flags() {
+    let output = bb_command()
+        .args([
+            "pr",
+            "comments",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "42",
+            "--comment-id",
+            "7",
+            "--all",
+        ])
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("stderr should be utf-8");
+    assert!(stderr.contains("--comment-id cannot be combined with --all, --q, or --sort"));
 }
 
 #[test]

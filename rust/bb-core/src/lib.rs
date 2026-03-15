@@ -209,6 +209,7 @@ pub struct PrCommentsRequest {
     pub workspace: Option<String>,
     pub repo: Option<String>,
     pub id: Option<String>,
+    pub comment_id: Option<String>,
     pub output: String,
     pub all: bool,
     pub profile: Option<String>,

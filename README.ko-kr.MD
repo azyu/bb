@@ -72,6 +72,7 @@ Bitbucket 저장소 안에서는 `remote.origin.url`에서 `--workspace`와 `--r
 ```bash
 bb pr list
 bb pr comments 123
+bb pr comments 123 --comment-id 456 --output json
 bb pr create --title "My PR" --source feature --destination main
 bb pipeline list
 bb pipeline get --uuid "{pipeline-uuid}"
@@ -101,6 +102,8 @@ bb completion zsh
 > 기존 PR을 대상으로 하는 명령은 PR ID를 positional `<id>` 또는 `--id`로 받을 수 있습니다.
 >
 > 예: `bb pr comments 123`, `bb pr comments --id 123`
+>
+> `bb pr comments`에서 `--comment-id`는 해당 PR 안의 단일 댓글을 선택합니다. 댓글 ID를 `--id`로 넘기면 안 됩니다.
 >
 > 에이전트가 JSON 전체가 아니라 일부 필드만 필요하면 `--output json`과 `--json-fields`를 함께 사용하세요.
 

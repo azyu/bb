@@ -862,6 +862,7 @@ fn handle_pr_comments<O: Write>(
     request: &PrCommentsRequest,
     stdout: &mut O,
 ) -> Result<(), CliError> {
+    validate_pr_comment_lookup_options(request)?;
     let output = parse_list_output(&request.output)?;
     let json_fields = parse_json_fields(
         request.json_fields.as_deref(),
@@ -871,15 +872,37 @@ fn handle_pr_comments<O: Write>(
     )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
-    let id = parse_pr_numeric_id(request.id.as_deref())?;
+    let pr_id = parse_pr_numeric_id(request.id.as_deref())?;
     let client = client_from_profile(request.profile.as_deref())?;
-    let path = format!("/repositories/{workspace}/{repo}/pullrequests/{id}/comments");
-    let query = collect_query([
+    let query = collect_query([("fields", request.fields.as_deref())]);
+
+    if let Some(comment_id) = request.comment_id.as_deref() {
+        let comment_id = parse_comment_numeric_id(Some(comment_id))?;
+        let value = client.request_value(
+            Method::GET,
+            &format!("/repositories/{workspace}/{repo}/pullrequests/{pr_id}/comments/{comment_id}"),
+            &query,
+            None,
+        )?;
+
+        return match output {
+            ListOutput::Json => print_json_object(stdout, &value, json_fields.as_deref()),
+            ListOutput::Table => write!(
+                stdout,
+                "{}",
+                render::render_pr_comments_table(std::slice::from_ref(&value))
+            )
+            .map_err(CliError::from),
+        };
+    }
+
+    let path = format!("/repositories/{workspace}/{repo}/pullrequests/{pr_id}/comments");
+    let list_query = collect_query([
         ("q", request.q.as_deref()),
         ("sort", request.sort.as_deref()),
         ("fields", request.fields.as_deref()),
     ]);
-    let values = fetch_values(&client, &path, &query, request.all)?;
+    let values = fetch_values(&client, &path, &list_query, request.all)?;
 
     match output {
         ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
@@ -1717,6 +1740,24 @@ fn parse_pr_numeric_id(value: Option<&str>) -> Result<String, CliError> {
         .parse::<u64>()
         .map(|_| value.to_string())
         .map_err(|_| CliError::InvalidInput(format!("pull request id must be a number: {value}")))
+}
+
+fn parse_comment_numeric_id(value: Option<&str>) -> Result<String, CliError> {
+    let value = required_string("comment id is required: pass --comment-id", value)?;
+    value
+        .parse::<u64>()
+        .map(|_| value.to_string())
+        .map_err(|_| CliError::InvalidInput(format!("comment id must be a number: {value}")))
+}
+
+fn validate_pr_comment_lookup_options(request: &PrCommentsRequest) -> Result<(), CliError> {
+    if request.comment_id.is_some() && (request.all || request.q.is_some() || request.sort.is_some())
+    {
+        return Err(CliError::InvalidInput(
+            "--comment-id cannot be combined with --all, --q, or --sort".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn normalize_uuid_arg(flag_name: &str, value: Option<&str>) -> Result<(String, String), CliError> {

@@ -405,6 +405,8 @@ pub struct PrCommentsArgs {
     pub id: Option<String>,
     #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
     pub pr_id: Option<String>,
+    #[arg(long, value_name = "COMMENT_ID")]
+    pub comment_id: Option<String>,
     #[arg(long, default_value = "table")]
     pub output: String,
     #[arg(long)]
@@ -885,6 +887,7 @@ fn map_request(cli: Cli) -> Request {
                 workspace: args.workspace,
                 repo: args.repo,
                 id: resolve_pr_id(args.id, args.pr_id),
+                comment_id: args.comment_id,
                 output: args.output,
                 all: args.all,
                 profile: args.profile,
@@ -1198,6 +1201,27 @@ mod tests {
         let error = parse_from(["bb", "pr", "comments", "42", "--id", "43"])
             .expect_err("parse should fail");
         assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[test]
+    fn pr_comments_maps_comment_id() {
+        let request = parse_from([
+            "bb",
+            "pr",
+            "comments",
+            "42",
+            "--comment-id",
+            "7",
+            "--output",
+            "json",
+        ])
+        .expect("parse should succeed");
+        let Request::Pr(PrRequest::Comments(request)) = request else {
+            panic!("expected pr comments");
+        };
+        assert_eq!(request.id.as_deref(), Some("42"));
+        assert_eq!(request.comment_id.as_deref(), Some("7"));
+        assert_eq!(request.output, "json");
     }
 
     #[test]

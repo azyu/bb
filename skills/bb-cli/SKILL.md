@@ -23,6 +23,7 @@ bb <command> <subcommand> [flags]
 - Outside a cloned Bitbucket repo, pass `--workspace` and `--repo` explicitly.
 - Before any write operation, inspect the exact subcommand help in the current session and use only documented flags.
 - Existing-PR commands accept positional `ID` or `--id`; passing both is an error.
+- For `bb pr comments`, `ID`/`--id` always mean the pull request ID. Use `--comment-id` to target a single comment; never pass a comment ID via `--id`.
 - For write operations, do not guess IDs, branch names, or target repos. Resolve them first.
 - `bb pr create` uses `--description` and `--destination`; do not substitute `--body` or `--dest`.
 - Use `bb api` when the wrapped command surface does not cover the operation you need.
@@ -96,6 +97,7 @@ bb repo list --workspace acme --output json
 bb pr list --workspace acme --repo widgets --state OPEN --output json
 bb pr get 123 --workspace acme --repo widgets --output json
 bb pr comments 123 --workspace acme --repo widgets --output json
+bb pr comments 123 --comment-id 456 --workspace acme --repo widgets --output json
 bb pipeline list --workspace acme --repo widgets --output json
 bb pipeline get --workspace acme --repo widgets --uuid "{pipeline-uuid}" --output json
 bb pipeline log --workspace acme --repo widgets --uuid "{pipeline-uuid}"

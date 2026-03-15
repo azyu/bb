@@ -72,6 +72,7 @@ Inside a Bitbucket repository, `bb` can infer `--workspace` and `--repo` from `r
 ```bash
 bb pr list
 bb pr comments 123
+bb pr comments 123 --comment-id 456 --output json
 bb pr create --title "My PR" --source feature --destination main
 bb pipeline list
 bb pipeline get --uuid "{pipeline-uuid}"
@@ -101,6 +102,8 @@ bb completion zsh
 > Existing-PR commands accept the pull request ID as positional `<id>` or `--id`.
 >
 > Example: `bb pr comments 123` and `bb pr comments --id 123` are both valid.
+>
+> For `bb pr comments`, `--comment-id` selects a single comment within that pull request. Do not pass a comment ID via `--id`.
 >
 > When an agent only needs part of a JSON payload, combine `--output json` with `--json-fields`.
 

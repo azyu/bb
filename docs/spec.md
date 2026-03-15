@@ -56,6 +56,7 @@
 - `bb api` is JSON-only.
 - `--fields` is Bitbucket API query passthrough.
 - `--json-fields` is local client-side JSON projection, requires `--output json`, and uses command-specific allowlists defined by the implementation and described in `docs/command-contracts.md`.
+- Nested-resource selectors must use dedicated flags instead of overloading an existing primary `--id` meaning; document them in `docs/command-contracts.md`.
 - `bb`, top-level `bb --help`, and bare `bb help` print the same root help with the quick-start block.
 
 ## Agent-Oriented CLI Rules
