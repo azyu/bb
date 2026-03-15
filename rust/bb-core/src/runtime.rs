@@ -1751,7 +1751,8 @@ fn parse_comment_numeric_id(value: Option<&str>) -> Result<String, CliError> {
 }
 
 fn validate_pr_comment_lookup_options(request: &PrCommentsRequest) -> Result<(), CliError> {
-    if request.comment_id.is_some() && (request.all || request.q.is_some() || request.sort.is_some())
+    if request.comment_id.is_some()
+        && (request.all || request.q.is_some() || request.sort.is_some())
     {
         return Err(CliError::InvalidInput(
             "--comment-id cannot be combined with --all, --q, or --sort".to_string(),
