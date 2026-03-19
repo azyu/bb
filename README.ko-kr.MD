@@ -76,6 +76,8 @@ bb pr comments 123 --comment-id 456 --output json
 bb pr create --title "My PR" --source feature --destination main
 bb pipeline list
 bb pipeline get --uuid "{pipeline-uuid}"
+bb pipeline get --build 123
+bb pipeline log --build 123 --step "{step-uuid}"
 ```
 
 ### 4. 셸 자동완성 활성화
@@ -102,6 +104,8 @@ bb completion zsh
 > 기존 PR을 대상으로 하는 명령은 PR ID를 positional `<id>` 또는 `--id`로 받을 수 있습니다.
 >
 > 예: `bb pr comments 123`, `bb pr comments --id 123`
+>
+> Pipeline 조회 명령은 `--uuid` 또는 `--build` 중 하나를 받을 수 있습니다.
 >
 > `bb pr comments`에서 `--comment-id`는 해당 PR 안의 단일 댓글을 선택합니다. 댓글 ID를 `--id`로 넘기면 안 됩니다.
 >

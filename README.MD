@@ -76,6 +76,8 @@ bb pr comments 123 --comment-id 456 --output json
 bb pr create --title "My PR" --source feature --destination main
 bb pipeline list
 bb pipeline get --uuid "{pipeline-uuid}"
+bb pipeline get --build 123
+bb pipeline log --build 123 --step "{step-uuid}"
 ```
 
 ### 4. Enable shell completion
@@ -102,6 +104,8 @@ bb completion zsh
 > Existing-PR commands accept the pull request ID as positional `<id>` or `--id`.
 >
 > Example: `bb pr comments 123` and `bb pr comments --id 123` are both valid.
+>
+> Pipeline read commands accept either `--uuid` or `--build`.
 >
 > For `bb pr comments`, `--comment-id` selects a single comment within that pull request. Do not pass a comment ID via `--id`.
 >
