@@ -420,17 +420,17 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `--sort`, `--fields`
   - `--json-fields` (requires `--output json`)
 - Output:
-  - `table`: `UUID`, `STATE`, `REF`
+  - `table`: `BUILD`, `UUID`, `STATE`, `REF`
   - `json`: array of pipeline objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pipeline get`
-- Purpose: Get a pipeline by UUID.
+- Purpose: Get a pipeline by UUID or build number.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--uuid`
+  - exactly one of `--uuid` or `--build`
 - Optional flags:
   - `--profile`
   - `--fields`
@@ -441,14 +441,14 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `json`: raw pipeline object
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Invalid `--uuid` value -> non-zero exit
+  - Invalid `--uuid` or `--build` value -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pipeline steps`
-- Purpose: List steps for a pipeline.
+- Purpose: List steps for a pipeline selected by UUID or build number.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--uuid`
+  - exactly one of `--uuid` or `--build`
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all`
@@ -460,14 +460,14 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `json`: array of pipeline step objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Invalid `--uuid` value -> non-zero exit
+  - Invalid `--uuid` or `--build` value -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pipeline log`
-- Purpose: Get the raw log for a pipeline step.
+- Purpose: Get the raw log for a pipeline step on a pipeline selected by UUID or build number.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
-  - `--uuid`
+  - exactly one of `--uuid` or `--build`
   - `--step`
 - Optional flags:
   - `--profile`
@@ -477,7 +477,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `json`: object with `pipeline_uuid`, `step_uuid`, and `log`
 - Failure behavior:
   - Missing required flags -> non-zero exit
-  - Invalid `--uuid` or `--step` value -> non-zero exit
+  - Invalid `--uuid`, `--build`, or `--step` value -> non-zero exit
   - Unsupported output -> non-zero exit
 
 ### `bb pipeline run`

@@ -517,8 +517,10 @@ pub struct PipelineGetArgs {
     pub workspace: Option<String>,
     #[arg(long)]
     pub repo: Option<String>,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "build")]
     pub uuid: Option<String>,
+    #[arg(long, conflicts_with = "uuid")]
+    pub build: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -535,8 +537,10 @@ pub struct PipelineStepsArgs {
     pub workspace: Option<String>,
     #[arg(long)]
     pub repo: Option<String>,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "build")]
     pub uuid: Option<String>,
+    #[arg(long, conflicts_with = "uuid")]
+    pub build: Option<String>,
     #[arg(long, default_value = "table")]
     pub output: String,
     #[arg(long)]
@@ -557,8 +561,10 @@ pub struct PipelineLogArgs {
     pub workspace: Option<String>,
     #[arg(long)]
     pub repo: Option<String>,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "build")]
     pub uuid: Option<String>,
+    #[arg(long, conflicts_with = "uuid")]
+    pub build: Option<String>,
     #[arg(long)]
     pub step: Option<String>,
     #[arg(long)]
@@ -944,6 +950,7 @@ fn map_request(cli: Cli) -> Request {
                 workspace: args.workspace,
                 repo: args.repo,
                 uuid: args.uuid,
+                build: args.build,
                 profile: args.profile,
                 output: args.output,
                 fields: args.fields,
@@ -953,6 +960,7 @@ fn map_request(cli: Cli) -> Request {
                 workspace: args.workspace,
                 repo: args.repo,
                 uuid: args.uuid,
+                build: args.build,
                 output: args.output,
                 all: args.all,
                 profile: args.profile,
@@ -964,6 +972,7 @@ fn map_request(cli: Cli) -> Request {
                 workspace: args.workspace,
                 repo: args.repo,
                 uuid: args.uuid,
+                build: args.build,
                 step: args.step,
                 profile: args.profile,
                 output: args.output,
@@ -1247,6 +1256,17 @@ mod tests {
     }
 
     #[test]
+    fn pipeline_get_maps_build_and_output() {
+        let request = parse_from(["bb", "pipeline", "get", "--build", "17", "--output", "json"])
+            .expect("parse should succeed");
+        let Request::Pipeline(PipelineRequest::Get(request)) = request else {
+            panic!("expected pipeline get");
+        };
+        assert_eq!(request.build.as_deref(), Some("17"));
+        assert_eq!(request.output, "json");
+    }
+
+    #[test]
     fn pipeline_log_maps_step_and_output() {
         let request = parse_from([
             "bb", "pipeline", "log", "--uuid", "{pipe}", "--step", "{step}",
@@ -1258,5 +1278,12 @@ mod tests {
         assert_eq!(request.uuid.as_deref(), Some("{pipe}"));
         assert_eq!(request.step.as_deref(), Some("{step}"));
         assert_eq!(request.output, "text");
+    }
+
+    #[test]
+    fn pipeline_get_rejects_uuid_and_build_together() {
+        let error = parse_from(["bb", "pipeline", "get", "--uuid", "{1234}", "--build", "17"])
+            .expect_err("parse should fail");
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 }
