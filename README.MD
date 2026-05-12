@@ -74,6 +74,7 @@ bb pr list
 bb pr comments 123
 bb pr comments 123 --comment-id 456 --output json
 bb pr comment 123 --content "Reply text" --parent 456
+bb pr comment-update 123 --comment-id 456 --content "Updated reply text"
 bb pr create --title "My PR" --source feature --destination main
 bb api --method POST --input ./body.json repositories/acme/widgets/pullrequests/123/comments
 bb pipeline list
@@ -94,7 +95,7 @@ bb completion zsh
 |-------|-------------|
 | `bb auth` | `login`, `status`, `logout` |
 | `bb repo` | `list` |
-| `bb pr` | `list`, `get`, `create`, `update`, `merge`, `approve`, `unapprove`, `request-changes`, `remove-request-changes`, `decline`, `comment`, `comments`, `diff`, `statuses`, `activity` |
+| `bb pr` | `list`, `get`, `create`, `update`, `merge`, `approve`, `unapprove`, `request-changes`, `remove-request-changes`, `decline`, `comment`, `comment-update`, `comments`, `diff`, `statuses`, `activity` |
 | `bb pipeline` | `list`, `get`, `steps`, `log`, `run` |
 | `bb issue` | `list`, `create`, `update` |
 | `bb wiki` | `list`, `get`, `put` |
@@ -109,7 +110,7 @@ bb completion zsh
 >
 > Pipeline read commands accept either `--uuid` or `--build`.
 >
-> For `bb pr comments`, `--comment-id` selects a single comment within that pull request. Do not pass a comment ID via `--id`.
+> For `bb pr comments` and `bb pr comment-update`, `--comment-id` selects a single comment within that pull request. Do not pass a comment ID via `--id`.
 >
 > When an agent only needs part of a JSON payload, combine `--output json` with `--json-fields`.
 
@@ -157,7 +158,7 @@ Add `write:*` scopes only for mutating commands.
 |---------|-----------------|
 | `bb repo list` | `read:repository` |
 | `bb pr list/get/comments/diff/statuses/activity` | `read:repository`, `read:pullrequest` |
-| `bb pr create/update/merge/approve/unapprove/request-changes/remove-request-changes/decline/comment` | `read:repository`, `read:pullrequest`, `write:pullrequest` |
+| `bb pr create/update/merge/approve/unapprove/request-changes/remove-request-changes/decline/comment/comment-update` | `read:repository`, `read:pullrequest`, `write:pullrequest` |
 | `bb pipeline list/get/steps/log` | `read:repository`, `read:pipeline` |
 | `bb pipeline run` | `read:repository`, `read:pipeline`, `write:pipeline` |
 | `bb wiki list/get` | `read:repository`, `read:wiki` |

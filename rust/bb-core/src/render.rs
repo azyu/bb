@@ -85,7 +85,7 @@ pub fn repo_usage() -> &'static str {
 }
 
 pub fn pr_usage() -> &'static str {
-    "Pull request operations\n\nUsage:\n  bb pr <command>\n\nCommands:\n  list                    List pull requests\n  create                  Create a pull request\n  merge                   Merge a pull request\n  get                     Get a pull request\n  update                  Update a pull request\n  approve                 Approve a pull request\n  unapprove               Unapprove a pull request\n  request-changes         Request changes on a pull request\n  remove-request-changes  Remove change request for a pull request\n  decline                 Decline a pull request\n  comment                 Create a pull request comment\n  comments                List pull request comments\n  diff                    Get the diff for a pull request\n  statuses                List commit statuses for a pull request\n  activity                List pull request activity\n"
+    "Pull request operations\n\nUsage:\n  bb pr <command>\n\nCommands:\n  list                    List pull requests\n  create                  Create a pull request\n  merge                   Merge a pull request\n  get                     Get a pull request\n  update                  Update a pull request\n  approve                 Approve a pull request\n  unapprove               Unapprove a pull request\n  request-changes         Request changes on a pull request\n  remove-request-changes  Remove change request for a pull request\n  decline                 Decline a pull request\n  comment                 Create a new pull request comment\n  comment-update          Update an existing pull request comment\n  comments                List pull request comments\n  diff                    Get the diff for a pull request\n  statuses                List commit statuses for a pull request\n  activity                List pull request activity\n"
 }
 
 pub fn pipeline_usage() -> &'static str {
@@ -111,7 +111,7 @@ pub fn bash_completion_script() -> &'static str {
   case "${prev}" in
     auth)       COMPREPLY=($(compgen -W "login status logout" -- "${cur}")); return;;
     repo)       COMPREPLY=($(compgen -W "list" -- "${cur}")); return;;
-    pr)         COMPREPLY=($(compgen -W "list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity" -- "${cur}")); return;;
+    pr)         COMPREPLY=($(compgen -W "list create merge get update approve unapprove request-changes remove-request-changes decline comment comment-update comments diff statuses activity" -- "${cur}")); return;;
     pipeline)   COMPREPLY=($(compgen -W "list get steps log run" -- "${cur}")); return;;
     issue)      COMPREPLY=($(compgen -W "list create update" -- "${cur}")); return;;
     wiki)       COMPREPLY=($(compgen -W "list get put" -- "${cur}")); return;;
@@ -132,7 +132,7 @@ _bb() {
   case $words[1] in
     auth)       subcmds=(login status logout);;
     repo)       subcmds=(list);;
-    pr)         subcmds=(list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity);;
+    pr)         subcmds=(list create merge get update approve unapprove request-changes remove-request-changes decline comment comment-update comments diff statuses activity);;
     pipeline)   subcmds=(list get steps log run);;
     issue)      subcmds=(list create update);;
     wiki)       subcmds=(list get put);;
@@ -147,7 +147,7 @@ pub fn fish_completion_script() -> &'static str {
     r#"complete -c bb -f -n '__fish_use_subcommand' -a "auth api repo pr pipeline wiki issue completion version help"
 complete -c bb -f -n '__fish_seen_subcommand_from auth' -a "login status logout"
 complete -c bb -f -n '__fish_seen_subcommand_from repo' -a "list"
-complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create merge get update approve unapprove request-changes remove-request-changes decline comment comments diff statuses activity"
+complete -c bb -f -n '__fish_seen_subcommand_from pr' -a "list create merge get update approve unapprove request-changes remove-request-changes decline comment comment-update comments diff statuses activity"
 complete -c bb -f -n '__fish_seen_subcommand_from pipeline' -a "list get steps log run"
 complete -c bb -f -n '__fish_seen_subcommand_from issue' -a "list create update"
 complete -c bb -f -n '__fish_seen_subcommand_from wiki' -a "list get put"
@@ -161,7 +161,7 @@ pub fn powershell_completion_script() -> &'static str {
   $subcmds = @{
     'auth'       = @('login','status','logout')
     'repo'       = @('list')
-    'pr'         = @('list','create','merge','get','update','approve','unapprove','request-changes','remove-request-changes','decline','comment','comments','diff','statuses','activity')
+    'pr'         = @('list','create','merge','get','update','approve','unapprove','request-changes','remove-request-changes','decline','comment','comment-update','comments','diff','statuses','activity')
     'pipeline'   = @('list','get','steps','log','run')
     'issue'      = @('list','create','update')
     'wiki'       = @('list','get','put')

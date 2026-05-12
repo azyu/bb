@@ -4,11 +4,12 @@ use bb_core::{
     ApiRequest, AuthLoginRequest, AuthLogoutRequest, AuthRequest, AuthStatusRequest,
     IssueCreateRequest, IssueListRequest, IssueRequest, IssueUpdateRequest, PipelineGetRequest,
     PipelineListRequest, PipelineLogRequest, PipelineRequest, PipelineRunRequest,
-    PipelineStepsRequest, PrActivityRequest, PrApproveRequest, PrCommentRequest, PrCommentsRequest,
-    PrCreateRequest, PrDeclineRequest, PrDiffRequest, PrGetRequest, PrListRequest, PrMergeRequest,
-    PrRemoveRequestChangesRequest, PrRequest, PrRequestChangesRequest, PrStatusesRequest,
-    PrUnapproveRequest, PrUpdateRequest, RepoListRequest, RepoRequest, Request, WikiGetRequest,
-    WikiListRequest, WikiPutRequest, WikiRequest,
+    PipelineStepsRequest, PrActivityRequest, PrApproveRequest, PrCommentRequest,
+    PrCommentUpdateRequest, PrCommentsRequest, PrCreateRequest, PrDeclineRequest, PrDiffRequest,
+    PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest, PrRequest,
+    PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
+    RepoListRequest, RepoRequest, Request, WikiGetRequest, WikiListRequest, WikiPutRequest,
+    WikiRequest,
 };
 use clap::{Args, Parser, Subcommand};
 
@@ -86,7 +87,13 @@ pub enum PrCommands {
     RemoveRequestChanges(PrRemoveRequestChangesArgs),
     #[command(alias = "close")]
     Decline(PrDeclineArgs),
+    #[command(
+        about = "Create a new pull request comment",
+        long_about = "Create a new pull request comment. This command does not edit existing comments; use comment-update for that."
+    )]
     Comment(PrCommentArgs),
+    #[command(about = "Update an existing pull request comment")]
+    CommentUpdate(PrCommentUpdateArgs),
     Comments(PrCommentsArgs),
     Diff(PrDiffArgs),
     #[command(alias = "checks")]
@@ -386,9 +393,9 @@ pub struct PrCommentArgs {
     pub workspace: Option<String>,
     #[arg(long)]
     pub repo: Option<String>,
-    #[arg(long)]
+    #[arg(long, value_name = "PR_ID", help = "Pull request ID")]
     pub id: Option<String>,
-    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    #[arg(index = 1, value_name = "PR_ID", conflicts_with = "id")]
     pub pr_id: Option<String>,
     #[arg(long)]
     pub content: Option<String>,
@@ -402,14 +409,34 @@ pub struct PrCommentArgs {
 }
 
 #[derive(Debug, Args)]
+pub struct PrCommentUpdateArgs {
+    #[arg(long)]
+    pub workspace: Option<String>,
+    #[arg(long)]
+    pub repo: Option<String>,
+    #[arg(long, value_name = "PR_ID", help = "Pull request ID")]
+    pub id: Option<String>,
+    #[arg(index = 1, value_name = "PR_ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
+    #[arg(long, value_name = "COMMENT_ID")]
+    pub comment_id: Option<String>,
+    #[arg(long)]
+    pub content: Option<String>,
+    #[arg(long)]
+    pub profile: Option<String>,
+    #[arg(long, default_value = "text")]
+    pub output: String,
+}
+
+#[derive(Debug, Args)]
 pub struct PrCommentsArgs {
     #[arg(long)]
     pub workspace: Option<String>,
     #[arg(long)]
     pub repo: Option<String>,
-    #[arg(long)]
+    #[arg(long, value_name = "PR_ID", help = "Pull request ID")]
     pub id: Option<String>,
-    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    #[arg(index = 1, value_name = "PR_ID", conflicts_with = "id")]
     pub pr_id: Option<String>,
     #[arg(long, value_name = "COMMENT_ID")]
     pub comment_id: Option<String>,
@@ -897,6 +924,17 @@ fn map_request(cli: Cli) -> Request {
                 profile: args.profile,
                 output: args.output,
             }),
+            Some(PrCommands::CommentUpdate(args)) => {
+                PrRequest::CommentUpdate(PrCommentUpdateRequest {
+                    workspace: args.workspace,
+                    repo: args.repo,
+                    id: resolve_pr_id(args.id, args.pr_id),
+                    comment_id: args.comment_id,
+                    content: args.content,
+                    profile: args.profile,
+                    output: args.output,
+                })
+            }
             Some(PrCommands::Comments(args)) => PrRequest::Comments(PrCommentsRequest {
                 workspace: args.workspace,
                 repo: args.repo,
@@ -1233,6 +1271,30 @@ mod tests {
         };
         assert_eq!(request.id.as_deref(), Some("42"));
         assert_eq!(request.content.as_deref(), Some("needs changes"));
+        assert_eq!(request.output, "json");
+    }
+
+    #[test]
+    fn pr_comment_update_maps_comment_id_content_and_output() {
+        let request = parse_from([
+            "bb",
+            "pr",
+            "comment-update",
+            "42",
+            "--comment-id",
+            "7",
+            "--content",
+            "updated body",
+            "--output",
+            "json",
+        ])
+        .expect("parse should succeed");
+        let Request::Pr(PrRequest::CommentUpdate(request)) = request else {
+            panic!("expected pr comment update");
+        };
+        assert_eq!(request.id.as_deref(), Some("42"));
+        assert_eq!(request.comment_id.as_deref(), Some("7"));
+        assert_eq!(request.content.as_deref(), Some("updated body"));
         assert_eq!(request.output, "json");
     }
 
