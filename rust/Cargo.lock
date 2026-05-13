@@ -319,7 +319,7 @@ dependencies = [
 
 [[package]]
 name = "bb-cli"
-version = "0.2.1"
+version = "0.2.4"
 dependencies = [
  "assert_cmd",
  "bb-core",
@@ -331,7 +331,7 @@ dependencies = [
 
 [[package]]
 name = "bb-core"
-version = "0.2.1"
+version = "0.2.4"
 dependencies = [
  "httpmock",
  "reqwest",

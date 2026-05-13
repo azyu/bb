@@ -306,7 +306,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - Unsupported output -> non-zero exit
 
 ### `bb pr comment`
-- Purpose: Create a comment on a pull request.
+- Purpose: Create a new comment on a pull request. This command does not edit existing comments; use `bb pr comment-update` for that.
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - pull request ID via positional `<id>` or `--id`
@@ -323,6 +323,28 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - Missing `--content` -> non-zero exit
   - Non-numeric `--parent` value -> non-zero exit
   - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
+  - Unsupported output -> non-zero exit
+
+### `bb pr comment-update`
+- Purpose: Update an existing pull request comment.
+- Required flags:
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
+  - pull request ID via positional `<id>` or `--id`
+  - `--comment-id` (existing pull request comment ID)
+  - `--content`
+- Optional flags:
+  - `--profile`
+  - `--output` (`text` default, `json`)
+- Output:
+  - `text`: updated comment summary and URL when provided by API
+  - `json`: updated comment object
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Missing `--comment-id` -> non-zero exit
+  - Missing `--content` -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Non-numeric `--comment-id` value -> non-zero exit
   - Passing both `<id>` and `--id` -> non-zero exit
   - Unsupported output -> non-zero exit
 

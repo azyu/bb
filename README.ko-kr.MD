@@ -73,6 +73,7 @@ Bitbucket 저장소 안에서는 `remote.origin.url`에서 `--workspace`와 `--r
 bb pr list
 bb pr comments 123
 bb pr comments 123 --comment-id 456 --output json
+bb pr comment-update 123 --comment-id 456 --content "수정된 댓글"
 bb pr create --title "My PR" --source feature --destination main
 bb pipeline list
 bb pipeline get --uuid "{pipeline-uuid}"
@@ -92,7 +93,7 @@ bb completion zsh
 |------|-----------|
 | `bb auth` | `login`, `status`, `logout` |
 | `bb repo` | `list` |
-| `bb pr` | `list`, `get`, `create`, `update`, `merge`, `approve`, `unapprove`, `request-changes`, `remove-request-changes`, `decline`, `comment`, `comments`, `diff`, `statuses`, `activity` |
+| `bb pr` | `list`, `get`, `create`, `update`, `merge`, `approve`, `unapprove`, `request-changes`, `remove-request-changes`, `decline`, `comment`, `comment-update`, `comments`, `diff`, `statuses`, `activity` |
 | `bb pipeline` | `list`, `get`, `steps`, `log`, `run` |
 | `bb issue` | `list`, `create`, `update` |
 | `bb wiki` | `list`, `get`, `put` |
@@ -107,7 +108,7 @@ bb completion zsh
 >
 > Pipeline 조회 명령은 `--uuid` 또는 `--build` 중 하나를 받을 수 있습니다.
 >
-> `bb pr comments`에서 `--comment-id`는 해당 PR 안의 단일 댓글을 선택합니다. 댓글 ID를 `--id`로 넘기면 안 됩니다.
+> `bb pr comments`와 `bb pr comment-update`에서 `--comment-id`는 해당 PR 안의 단일 댓글을 선택합니다. 댓글 ID를 `--id`로 넘기면 안 됩니다.
 >
 > 에이전트가 JSON 전체가 아니라 일부 필드만 필요하면 `--output json`과 `--json-fields`를 함께 사용하세요.
 
@@ -155,7 +156,7 @@ bb completion zsh
 |------|-----------|
 | `bb repo list` | `read:repository` |
 | `bb pr list/get/comments/diff/statuses/activity` | `read:repository`, `read:pullrequest` |
-| `bb pr create/update/merge/approve/unapprove/request-changes/remove-request-changes/decline/comment` | `read:repository`, `read:pullrequest`, `write:pullrequest` |
+| `bb pr create/update/merge/approve/unapprove/request-changes/remove-request-changes/decline/comment/comment-update` | `read:repository`, `read:pullrequest`, `write:pullrequest` |
 | `bb pipeline list/get/steps/log` | `read:repository`, `read:pipeline` |
 | `bb pipeline run` | `read:repository`, `read:pipeline`, `write:pipeline` |
 | `bb wiki list/get` | `read:repository`, `read:wiki` |

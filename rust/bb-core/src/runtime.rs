@@ -16,9 +16,9 @@ use crate::{
     IssueCreateRequest, IssueListRequest, IssueRequest, IssueUpdateRequest, ListOutput,
     PipelineGetRequest, PipelineListRequest, PipelineLogRequest, PipelineRequest,
     PipelineRunRequest, PipelineStepsRequest, PrActivityRequest, PrApproveRequest,
-    PrCommentRequest, PrCommentsRequest, PrCreateRequest, PrDeclineRequest, PrDiffRequest,
-    PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest, PrRequest,
-    PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
+    PrCommentRequest, PrCommentUpdateRequest, PrCommentsRequest, PrCreateRequest, PrDeclineRequest,
+    PrDiffRequest, PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest,
+    PrRequest, PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
     RepoListRequest, RepoRequest, Request, WikiGetRequest, WikiListRequest, WikiPutRequest,
     WikiRequest, WriteOutput,
 };
@@ -232,6 +232,9 @@ fn wants_json_errors(request: &Request) -> bool {
         }
         Request::Pr(PrRequest::Decline(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Comment(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::CommentUpdate(req)) => {
+            req.output.trim().eq_ignore_ascii_case("json")
+        }
         Request::Pr(PrRequest::Comments(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Diff(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Statuses(req)) => req.output.trim().eq_ignore_ascii_case("json"),
@@ -457,6 +460,7 @@ fn handle_pr<O: Write>(
         }
         PrRequest::Decline(request) => handle_pr_decline(request, stdout),
         PrRequest::Comment(request) => handle_pr_comment(request, stdout),
+        PrRequest::CommentUpdate(request) => handle_pr_comment_update(request, stdout),
         PrRequest::Comments(request) => handle_pr_comments(request, stdout),
         PrRequest::Diff(request) => handle_pr_diff(request, stdout),
         PrRequest::Statuses(request) => handle_pr_statuses(request, stdout),
@@ -860,6 +864,43 @@ fn handle_pr_comment<O: Write>(request: &PrCommentRequest, stdout: &mut O) -> Re
                 render::int_field(&value, &["id"]).unwrap_or_default(),
                 id
             )?;
+            if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
+                if !url.trim().is_empty() {
+                    writeln!(stdout, "URL: {url}")?;
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+fn handle_pr_comment_update<O: Write>(
+    request: &PrCommentUpdateRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_write_output(&request.output)?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let pr_id = parse_pr_numeric_id(request.id.as_deref())?;
+    let comment_id = parse_comment_numeric_id(request.comment_id.as_deref())?;
+    let content = required_string("--content is required", request.content.as_deref())?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let body = json!({
+        "content": {
+            "raw": content,
+        }
+    });
+    let value = client.request_value(
+        Method::PUT,
+        &format!("/repositories/{workspace}/{repo}/pullrequests/{pr_id}/comments/{comment_id}"),
+        &[],
+        Some(body),
+    )?;
+
+    match output {
+        WriteOutput::Json => render::print_json(stdout, &value),
+        WriteOutput::Text => {
+            writeln!(stdout, "Updated comment #{comment_id} on PR #{pr_id}")?;
             if let Some(url) = render::string_field(&value, &["links", "html", "href"]) {
                 if !url.trim().is_empty() {
                     writeln!(stdout, "URL: {url}")?;
@@ -1804,7 +1845,9 @@ fn parse_comment_numeric_id(value: Option<&str>) -> Result<String, CliError> {
     value
         .parse::<u64>()
         .map(|_| value.to_string())
-        .map_err(|_| CliError::InvalidInput(format!("comment id must be a number: {value}")))
+        .map_err(|_| {
+            CliError::InvalidInput("--comment-id must be a numeric comment ID".to_string())
+        })
 }
 
 fn validate_pr_comment_lookup_options(request: &PrCommentsRequest) -> Result<(), CliError> {

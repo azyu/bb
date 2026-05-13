@@ -130,6 +130,7 @@ Operational UX:
 - `DELETE /repositories/{workspace}/{repo_slug}/pullrequests/{id}/request-changes`
 - `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/decline`
 - `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/comments`
+- `PUT /repositories/{workspace}/{repo_slug}/pullrequests/{id}/comments/{comment_id}`
 - `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/comments`
 - `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/diff`
 - `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/statuses`
@@ -190,7 +191,7 @@ Rust migration decisions:
   - `bb auth login|status|logout`
   - `bb api`
   - `bb repo list`
-  - `bb pr list|create|merge|get|update|approve|unapprove|request-changes|remove-request-changes|decline|comment|comments|diff|statuses|activity`
+  - `bb pr list|create|merge|get|update|approve|unapprove|request-changes|remove-request-changes|decline|comment|comment-update|comments|diff|statuses|activity`
   - `bb pipeline list|get|steps|log|run`
   - `bb issue list|create|update`
   - `bb wiki list|get|put`

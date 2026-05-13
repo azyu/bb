@@ -13,6 +13,7 @@
 - Pull request remove request changes: `DELETE /repositories/{workspace}/{repo_slug}/pullrequests/{id}/request-changes`
 - Pull request decline: `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/decline`
 - Pull request comment create: `POST /repositories/{workspace}/{repo_slug}/pullrequests/{id}/comments`
+- Pull request comment update: `PUT /repositories/{workspace}/{repo_slug}/pullrequests/{id}/comments/{comment_id}`
 - Pull request comments list: `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/comments`
 - Pull request diff: `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/diff`
 - Pull request statuses: `GET /repositories/{workspace}/{repo_slug}/pullrequests/{id}/statuses`

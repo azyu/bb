@@ -207,6 +207,17 @@ pub struct PrCommentRequest {
 }
 
 #[derive(Debug, Clone)]
+pub struct PrCommentUpdateRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub comment_id: Option<String>,
+    pub content: Option<String>,
+    pub profile: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct PrCommentsRequest {
     pub workspace: Option<String>,
     pub repo: Option<String>,
@@ -412,6 +423,7 @@ pub enum PrRequest {
     RemoveRequestChanges(PrRemoveRequestChangesRequest),
     Decline(PrDeclineRequest),
     Comment(PrCommentRequest),
+    CommentUpdate(PrCommentUpdateRequest),
     Comments(PrCommentsRequest),
     Diff(PrDiffRequest),
     Statuses(PrStatusesRequest),
