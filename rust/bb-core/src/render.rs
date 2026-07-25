@@ -310,6 +310,32 @@ pub fn render_pr_comments_table(values: &[Value]) -> String {
     )
 }
 
+pub fn pr_diffstat_path(value: &Value) -> Option<&str> {
+    first_string_field(value, &[&["new", "path"], &["old", "path"]])
+}
+
+pub fn render_pr_diffstat_table(values: &[Value]) -> String {
+    let rows = values
+        .iter()
+        .map(|value| {
+            vec![
+                string_field(value, &["status"]).unwrap_or("-").to_string(),
+                pr_diffstat_path(value).unwrap_or("-").to_string(),
+                int_field(value, &["lines_added"])
+                    .unwrap_or_default()
+                    .to_string(),
+                int_field(value, &["lines_removed"])
+                    .unwrap_or_default()
+                    .to_string(),
+            ]
+        })
+        .collect::<Vec<_>>();
+    format!(
+        "{}\n",
+        render_table(&["STATUS", "PATH", "ADDED", "REMOVED"], &rows)
+    )
+}
+
 pub fn render_pr_comment_detail(value: &Value) -> String {
     let mut output = format!(
         "Comment #{}\n",

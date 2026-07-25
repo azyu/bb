@@ -17,10 +17,10 @@ use crate::{
     PipelineGetRequest, PipelineListRequest, PipelineLogRequest, PipelineRequest,
     PipelineRunRequest, PipelineStepsRequest, PrActivityRequest, PrApproveRequest,
     PrCommentRequest, PrCommentUpdateRequest, PrCommentsRequest, PrCreateRequest, PrDeclineRequest,
-    PrDiffRequest, PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest,
-    PrRequest, PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
-    RepoListRequest, RepoRequest, Request, WikiGetRequest, WikiListRequest, WikiPutRequest,
-    WikiRequest, WriteOutput,
+    PrDiffRequest, PrDiffstatRequest, PrGetRequest, PrListRequest, PrMergeRequest,
+    PrRemoveRequestChangesRequest, PrRequest, PrRequestChangesRequest, PrStatusesRequest,
+    PrUnapproveRequest, PrUpdateRequest, RepoListRequest, RepoRequest, Request, WikiGetRequest,
+    WikiListRequest, WikiPutRequest, WikiRequest, WriteOutput,
 };
 
 pub const STDIN_TOKEN_SENTINEL: &str = "__bb_stdin_token__";
@@ -78,6 +78,14 @@ const PR_COMMENTS_JSON_FIELDS: &[&str] = &[
     "user",
 ];
 
+const PR_DIFFSTAT_JSON_FIELDS: &[&str] = &[
+    "lines_added",
+    "lines_removed",
+    "new",
+    "old",
+    "status",
+    "type",
+];
 const PR_STATUSES_JSON_FIELDS: &[&str] = &[
     "created_on",
     "description",
@@ -463,6 +471,7 @@ fn handle_pr<O: Write>(
         PrRequest::CommentUpdate(request) => handle_pr_comment_update(request, stdout),
         PrRequest::Comments(request) => handle_pr_comments(request, stdout),
         PrRequest::Diff(request) => handle_pr_diff(request, stdout),
+        PrRequest::Diffstat(request) => handle_pr_diffstat(request, stdout),
         PrRequest::Statuses(request) => handle_pr_statuses(request, stdout),
         PrRequest::Activity(request) => handle_pr_activity(request, stdout),
     }
@@ -971,6 +980,29 @@ fn handle_pr_diff<O: Write>(request: &PrDiffRequest, stdout: &mut O) -> Result<(
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let id = parse_pr_numeric_id(request.id.as_deref())?;
     let client = client_from_profile(request.profile.as_deref())?;
+    if request.name_only {
+        let values = client.get_all_values(
+            &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/diffstat"),
+            &[],
+        )?;
+        return match output {
+            WriteOutput::Json => {
+                let paths = values
+                    .iter()
+                    .filter_map(render::pr_diffstat_path)
+                    .collect::<Vec<_>>();
+                render::print_json(stdout, &paths)
+            }
+            WriteOutput::Text => {
+                for value in &values {
+                    if let Some(path) = render::pr_diffstat_path(value) {
+                        writeln!(stdout, "{path}")?;
+                    }
+                }
+                Ok(())
+            }
+        };
+    }
     let diff = client.request_text(
         Method::GET,
         &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/diff"),
@@ -985,6 +1017,37 @@ fn handle_pr_diff<O: Write>(request: &PrDiffRequest, stdout: &mut O) -> Result<(
                 writeln!(stdout)?;
             }
             Ok(())
+        }
+    }
+}
+
+fn handle_pr_diffstat<O: Write>(
+    request: &PrDiffstatRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb pr diffstat",
+        PR_DIFFSTAT_JSON_FIELDS,
+    )?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_pr_numeric_id(request.id.as_deref())?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let path = format!("/repositories/{workspace}/{repo}/pullrequests/{id}/diffstat");
+    let query = collect_query([
+        ("q", request.q.as_deref()),
+        ("sort", request.sort.as_deref()),
+        ("fields", request.fields.as_deref()),
+    ]);
+    let values = fetch_values(&client, &path, &query, request.all)?;
+
+    match output {
+        ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
+        ListOutput::Table => {
+            write!(stdout, "{}", render::render_pr_diffstat_table(&values)).map_err(CliError::from)
         }
     }
 }

@@ -6,8 +6,8 @@ use bb_core::{
     PipelineListRequest, PipelineLogRequest, PipelineRequest, PipelineRunRequest,
     PipelineStepsRequest, PrActivityRequest, PrApproveRequest, PrCommentRequest,
     PrCommentUpdateRequest, PrCommentsRequest, PrCreateRequest, PrDeclineRequest, PrDiffRequest,
-    PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest, PrRequest,
-    PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
+    PrDiffstatRequest, PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest,
+    PrRequest, PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
     RepoListRequest, RepoRequest, Request, WikiGetRequest, WikiListRequest, WikiPutRequest,
     WikiRequest,
 };
@@ -121,6 +121,8 @@ pub enum PrCommands {
     Comments(PrCommentsArgs),
     /// Get the raw pull request diff
     Diff(PrDiffArgs),
+    /// List pull request file changes and line counts
+    Diffstat(PrDiffstatArgs),
     /// List pull request commit statuses
     #[command(visible_alias = "checks")]
     Statuses(PrStatusesArgs),
@@ -538,18 +540,62 @@ pub struct PrCommentsArgs {
 
 #[derive(Debug, Args)]
 pub struct PrDiffArgs {
+    /// Bitbucket workspace slug
     #[arg(long)]
     pub workspace: Option<String>,
+    /// Bitbucket repository slug
     #[arg(long)]
     pub repo: Option<String>,
+    /// Pull request ID
     #[arg(long)]
     pub id: Option<String>,
     #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
     pub pr_id: Option<String>,
+    /// Print changed file paths instead of the raw diff
+    #[arg(long)]
+    pub name_only: bool,
+    /// Authentication profile name
     #[arg(long)]
     pub profile: Option<String>,
+    /// Output format
     #[arg(long, default_value = "text")]
     pub output: String,
+}
+
+#[derive(Debug, Args)]
+pub struct PrDiffstatArgs {
+    /// Bitbucket workspace slug
+    #[arg(long)]
+    pub workspace: Option<String>,
+    /// Bitbucket repository slug
+    #[arg(long)]
+    pub repo: Option<String>,
+    /// Pull request ID
+    #[arg(long)]
+    pub id: Option<String>,
+    #[arg(index = 1, value_name = "ID", conflicts_with = "id")]
+    pub pr_id: Option<String>,
+    /// Output format
+    #[arg(long, default_value = "table")]
+    pub output: String,
+    /// Fetch all pages instead of the first page only
+    #[arg(long)]
+    pub all: bool,
+    /// Authentication profile name
+    #[arg(long)]
+    pub profile: Option<String>,
+    /// Bitbucket Cloud API filter expression
+    #[arg(long)]
+    pub q: Option<String>,
+    /// Bitbucket Cloud API sort expression
+    #[arg(long)]
+    pub sort: Option<String>,
+    /// Bitbucket Cloud API partial-response fields
+    #[arg(long)]
+    pub fields: Option<String>,
+    /// Comma-separated fields to include in JSON output
+    #[arg(long)]
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -1045,6 +1091,19 @@ fn map_request(cli: Cli) -> Request {
                 id: resolve_pr_id(args.id, args.pr_id),
                 profile: args.profile,
                 output: args.output,
+                name_only: args.name_only,
+            }),
+            Some(PrCommands::Diffstat(args)) => PrRequest::Diffstat(PrDiffstatRequest {
+                workspace: args.workspace,
+                repo: args.repo,
+                id: resolve_pr_id(args.id, args.pr_id),
+                output: args.output,
+                all: args.all,
+                profile: args.profile,
+                q: args.q,
+                sort: args.sort,
+                fields: args.fields,
+                json_fields: args.json_fields,
             }),
             Some(PrCommands::Statuses(args)) => PrRequest::Statuses(PrStatusesRequest {
                 workspace: args.workspace,

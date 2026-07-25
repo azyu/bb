@@ -385,9 +385,30 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
+  - `--name-only` (use the diffstat endpoint and print changed paths only)
 - Output:
-  - `text`: raw diff payload
-  - `json`: object with a single `diff` string field
+  - `text`: raw diff payload, or one changed path per line with `--name-only`
+  - `json`: object with a single `diff` string field, or an array of changed path strings with `--name-only`
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
+  - Unsupported output -> non-zero exit
+
+### `bb pr diffstat`
+- Purpose: List files changed by a pull request with status and line counts.
+- Required flags:
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
+  - pull request ID via positional `<id>` or `--id`
+- Optional flags:
+  - `--output` (`table` default, `json`)
+  - `--all`
+  - `--profile`
+  - `--q`, `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
+- Output:
+  - `table`: `STATUS`, `PATH`, `ADDED`, `REMOVED`
+  - `json`: array of Bitbucket diffstat objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - Non-numeric pull request ID value -> non-zero exit

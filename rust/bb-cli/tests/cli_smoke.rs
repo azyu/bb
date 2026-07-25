@@ -1079,6 +1079,92 @@ fn pr_diff_text_reads_config_and_calls_server() {
 }
 
 #[test]
+fn pr_diff_name_only_uses_diffstat_and_prints_paths() {
+    let server = MockServer::start();
+    let diffstat = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42/diffstat")
+            .query_param("pagelen", "100");
+        then.json_body(json!({
+            "values": [
+                {"status":"modified","new":{"path":"src/lib.rs"},"old":{"path":"src/lib.rs"}},
+                {"status":"removed","new":null,"old":{"path":"old.txt"}}
+            ]
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "diff",
+            "42",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--name-only",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert_eq!(stdout, "src/lib.rs\nold.txt\n");
+    diffstat.assert();
+}
+
+#[test]
+fn pr_diffstat_table_uses_structured_api_response() {
+    let server = MockServer::start();
+    let diffstat = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42/diffstat");
+        then.json_body(json!({
+            "values": [
+                {
+                    "status":"modified",
+                    "new":{"path":"src/lib.rs"},
+                    "old":{"path":"src/lib.rs"},
+                    "lines_added":12,
+                    "lines_removed":3
+                }
+            ]
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "diffstat",
+            "42",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert!(stdout.contains("STATUS"));
+    assert!(stdout.contains("src/lib.rs"));
+    assert!(stdout.contains("12"));
+    assert!(stdout.contains("3"));
+    diffstat.assert();
+}
+
+#[test]
 fn pr_comment_get_json_reads_config_and_calls_server() {
     let server = MockServer::start();
     let comment = server.mock(|when, then| {
