@@ -22,4 +22,4 @@
 - Phase: post-MVP CLI usability follow-ups
 - Owner: Main
 - Linear: [AZYU-5](https://linear.app/azyu/issue/AZYU-5/bb-cli-usability-follow-ups-from-2026-07-26-feedback)
-- Notes: Linear is the execution-task source of truth. Current focus is [AZYU-10](https://linear.app/azyu/issue/AZYU-10/improve-public-bb-command-and-flag-help), adding concise descriptions for the public command and flag surface.
+- Notes: Linear is the execution-task source of truth. Current focus is [AZYU-6](https://linear.app/azyu/issue/AZYU-6/expose-github-compatible-pr-command-aliases), exposing gh-compatible PR aliases while retaining Bitbucket API-aligned canonical names.

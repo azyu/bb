@@ -94,10 +94,10 @@ pub enum PrCommands {
     /// Merge a pull request
     Merge(PrMergeArgs),
     /// Get a pull request
-    #[command(alias = "view")]
+    #[command(visible_alias = "view")]
     Get(PrGetArgs),
     /// Update a pull request
-    #[command(alias = "edit")]
+    #[command(visible_alias = "edit")]
     Update(PrUpdateArgs),
     /// Approve a pull request
     Approve(PrApproveArgs),
@@ -108,7 +108,7 @@ pub enum PrCommands {
     /// Remove your change request
     RemoveRequestChanges(PrRemoveRequestChangesArgs),
     /// Decline a pull request
-    #[command(alias = "close")]
+    #[command(visible_alias = "close")]
     Decline(PrDeclineArgs),
     /// Create a new pull request comment
     #[command(
@@ -122,7 +122,7 @@ pub enum PrCommands {
     /// Get the raw pull request diff
     Diff(PrDiffArgs),
     /// List pull request commit statuses
-    #[command(alias = "checks")]
+    #[command(visible_alias = "checks")]
     Statuses(PrStatusesArgs),
     /// List pull request activity
     Activity(PrActivityArgs),

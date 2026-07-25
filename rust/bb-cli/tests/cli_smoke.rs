@@ -844,6 +844,10 @@ fn pr_help_lists_api_aligned_commands() {
     assert!(stdout.contains("statuses"));
     assert!(stdout.contains("activity"));
     assert!(stdout.contains("comment-update"));
+    assert!(stdout.contains("aliases: view"));
+    assert!(stdout.contains("aliases: edit"));
+    assert!(stdout.contains("aliases: close"));
+    assert!(stdout.contains("aliases: checks"));
 }
 
 #[test]
