@@ -887,6 +887,15 @@ fn pr_help_lists_api_aligned_commands() {
 }
 
 #[test]
+fn bare_pr_help_lists_diffstat() {
+    let output = bb_command().arg("pr").output().expect("command should run");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert!(stdout.contains("diffstat"));
+}
+
+#[test]
 fn pr_list_help_explains_pagination_and_api_fields() {
     let output = bb_command()
         .args(["pr", "list", "--help"])
