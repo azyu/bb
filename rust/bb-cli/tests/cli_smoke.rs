@@ -847,6 +847,22 @@ fn pr_help_lists_api_aligned_commands() {
 }
 
 #[test]
+fn pr_list_help_explains_pagination_and_api_fields() {
+    let output = bb_command()
+        .args(["pr", "list", "--help"])
+        .output()
+        .expect("command should run");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert!(stdout.contains("Fetch all pages instead of the first page only"));
+    assert!(stdout.contains("Maximum number of pull requests to fetch"));
+    assert!(stdout.contains("Bitbucket Cloud API filter expression"));
+    assert!(stdout.contains("Bitbucket Cloud API partial-response fields"));
+    assert!(stdout.contains("Comma-separated fields to include in JSON output"));
+}
+
+#[test]
 fn pr_comments_help_includes_positional_id() {
     let output = bb_command()
         .args(["pr", "comments", "--help"])

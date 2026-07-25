@@ -31,180 +31,246 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    /// Authenticate and manage saved profiles
     Auth {
         #[command(subcommand)]
         command: Option<AuthCommands>,
     },
+    /// Call the Bitbucket Cloud REST API directly
     Api(ApiArgs),
+    /// Work with Bitbucket repositories
     Repo {
         #[command(subcommand)]
         command: Option<RepoCommands>,
     },
+    /// Work with pull requests
     Pr {
         #[command(subcommand)]
         command: Option<PrCommands>,
     },
+    /// Inspect and run Pipelines
     Pipeline {
         #[command(subcommand)]
         command: Option<PipelineCommands>,
     },
+    /// Work with repository issues
     Issue {
         #[command(subcommand)]
         command: Option<IssueCommands>,
     },
+    /// Read and update repository wiki pages
     Wiki {
         #[command(subcommand)]
         command: Option<WikiCommands>,
     },
+    /// Generate shell completion scripts
     Completion(CompletionArgs),
+    /// Show build version metadata
     Version,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum AuthCommands {
+    /// Save a Bitbucket Cloud authentication profile
     Login(AuthLoginArgs),
+    /// Show authentication profile status
     Status(AuthStatusArgs),
+    /// Remove a saved authentication profile
     Logout(AuthLogoutArgs),
 }
 
 #[derive(Debug, Subcommand)]
 pub enum RepoCommands {
+    /// List repositories in a workspace
     List(RepoListArgs),
 }
 
 #[derive(Debug, Subcommand)]
 pub enum PrCommands {
+    /// List pull requests
     List(PrListArgs),
+    /// Create a pull request
     Create(PrCreateArgs),
+    /// Merge a pull request
     Merge(PrMergeArgs),
+    /// Get a pull request
     #[command(alias = "view")]
     Get(PrGetArgs),
+    /// Update a pull request
     #[command(alias = "edit")]
     Update(PrUpdateArgs),
+    /// Approve a pull request
     Approve(PrApproveArgs),
+    /// Remove your pull request approval
     Unapprove(PrUnapproveArgs),
+    /// Request changes on a pull request
     RequestChanges(PrRequestChangesArgs),
+    /// Remove your change request
     RemoveRequestChanges(PrRemoveRequestChangesArgs),
+    /// Decline a pull request
     #[command(alias = "close")]
     Decline(PrDeclineArgs),
+    /// Create a new pull request comment
     #[command(
-        about = "Create a new pull request comment",
         long_about = "Create a new pull request comment. This command does not edit existing comments; use comment-update for that."
     )]
     Comment(PrCommentArgs),
-    #[command(about = "Update an existing pull request comment")]
+    /// Update an existing pull request comment
     CommentUpdate(PrCommentUpdateArgs),
+    /// List pull request comments or get one comment
     Comments(PrCommentsArgs),
+    /// Get the raw pull request diff
     Diff(PrDiffArgs),
+    /// List pull request commit statuses
     #[command(alias = "checks")]
     Statuses(PrStatusesArgs),
+    /// List pull request activity
     Activity(PrActivityArgs),
 }
 
 #[derive(Debug, Subcommand)]
 pub enum PipelineCommands {
+    /// List pipelines
     List(PipelineListArgs),
+    /// Get a pipeline
     Get(PipelineGetArgs),
+    /// List steps for a pipeline
     Steps(PipelineStepsArgs),
+    /// Get a pipeline step log
     Log(PipelineLogArgs),
+    /// Run a pipeline for a branch
     Run(PipelineRunArgs),
 }
 
 #[derive(Debug, Subcommand)]
 pub enum IssueCommands {
+    /// List repository issues
     List(IssueListArgs),
+    /// Create a repository issue
     Create(IssueCreateArgs),
+    /// Update a repository issue
     Update(IssueUpdateArgs),
 }
 
 #[derive(Debug, Subcommand)]
 pub enum WikiCommands {
+    /// List wiki pages
     List(WikiListArgs),
+    /// Get a wiki page
     Get(WikiGetArgs),
+    /// Create or update a wiki page
     Put(WikiPutArgs),
 }
 
 #[derive(Debug, Args)]
 pub struct CompletionArgs {
+    /// Shell name supported by clap_complete
     pub shell: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct AuthLoginArgs {
     #[arg(long, default_value = "default")]
+    /// Authentication profile name
     pub profile: String,
     #[arg(long)]
+    /// API token value, or read from stdin when omitted
     pub token: Option<String>,
     #[arg(long)]
+    /// Bitbucket username used with API tokens
     pub username: Option<String>,
     #[arg(long)]
+    /// Read the API token from stdin
     pub with_token: bool,
     #[arg(long)]
+    /// Bitbucket API base URL
     pub base_url: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct AuthStatusArgs {
     #[arg(long)]
+    /// Authentication profile name
     pub profile: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct AuthLogoutArgs {
     #[arg(long)]
+    /// Authentication profile name
     pub profile: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct ApiArgs {
     #[arg(long, default_value = "GET")]
+    /// HTTP method
     pub method: String,
     /// Request body file ("-" for stdin)
     #[arg(long)]
     pub input: Option<String>,
     #[arg(long)]
+    /// Follow every pagination `next` link
     pub paginate: bool,
     #[arg(long)]
+    /// Authentication profile name
     pub profile: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API filter expression
     pub q: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API sort expression
     pub sort: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API partial-response fields
     pub fields: Option<String>,
+    /// Relative API path or absolute Bitbucket API URL
     pub endpoint: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct RepoListArgs {
     #[arg(long)]
+    /// Bitbucket workspace slug
     pub workspace: Option<String>,
     #[arg(long, default_value = "table")]
+    /// Output format
     pub output: String,
     #[arg(long)]
+    /// Fetch all pages instead of the first page only
     pub all: bool,
     #[arg(long)]
+    /// Authentication profile name
     pub profile: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API filter expression
     pub q: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API sort expression
     pub sort: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API partial-response fields
     pub fields: Option<String>,
     #[arg(long)]
+    /// Comma-separated fields to include in JSON output
     pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct PrListArgs {
     #[arg(long)]
+    /// Bitbucket workspace slug
     pub workspace: Option<String>,
     #[arg(long)]
+    /// Bitbucket repository slug
     pub repo: Option<String>,
     #[arg(long, default_value = "table")]
+    /// Output format
     pub output: String,
     #[arg(long)]
+    /// Fetch all pages instead of the first page only
     pub all: bool,
+    /// Maximum number of pull requests to fetch
     #[arg(
         short = 'L',
         long,
@@ -214,16 +280,22 @@ pub struct PrListArgs {
     )]
     pub limit: Option<usize>,
     #[arg(long)]
+    /// Authentication profile name
     pub profile: Option<String>,
     #[arg(long)]
+    /// Pull request state: OPEN, MERGED, or DECLINED
     pub state: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API filter expression
     pub q: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API sort expression
     pub sort: Option<String>,
     #[arg(long)]
+    /// Bitbucket Cloud API partial-response fields
     pub fields: Option<String>,
     #[arg(long)]
+    /// Comma-separated fields to include in JSON output
     pub json_fields: Option<String>,
 }
 
