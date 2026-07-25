@@ -40,5 +40,6 @@
 - [x] Show full single-comment output for `bb pr comments --comment-id` in human mode - owner: agent
 - [x] Add `bb pr comment --parent` replies and `bb api --input` request bodies - owner: agent
 - [x] Add `bb pr comment-update` for existing PR comments and clarify comment help/docs - owner: agent
+- [x] Sync `Cargo.lock` package versions with workspace `0.2.5` - owner: Main
 - [ ] Evaluate `bb pr checkout` local Git workflow for a future follow-up - owner: agent
 - [ ] Evaluate phase 2 agent-first extensions (`--describe` or schema introspection, `--dry-run`, separate automation surface if needed) - owner: agent
