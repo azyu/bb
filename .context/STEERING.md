@@ -22,4 +22,4 @@
 - Phase: post-MVP CLI usability follow-ups
 - Owner: Main
 - Linear: [AZYU-5](https://linear.app/azyu/issue/AZYU-5/bb-cli-usability-follow-ups-from-2026-07-26-feedback)
-- Notes: Linear is the execution-task source of truth. Current focus is [AZYU-7](https://linear.app/azyu/issue/AZYU-7/design-and-implement-r-workspacerepo-selection), adding a deterministic global `-R <workspace>/<repo>` selector for repo-scoped commands.
+- Notes: Linear is the execution-task source of truth. Current focus is [AZYU-12](https://linear.app/azyu/issue/AZYU-12/show-tty-only-progress-for-all-pagination), reporting `--all` pagination progress only when stderr is an interactive terminal.

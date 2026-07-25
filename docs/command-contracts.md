@@ -124,6 +124,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all` (follow pagination)
+    - When stderr is a TTY, page progress is rewritten on stderr; non-TTY execution remains quiet
   - `-L`, `--limit <N>` (positive maximum item count; uses Bitbucket `pagelen` bounds and conflicts with `--all`)
   - `--profile`
   - `--state` (`OPEN|MERGED|DECLINED`)

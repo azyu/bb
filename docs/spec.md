@@ -69,6 +69,7 @@
 - GitHub CLI `--body` is accepted as a visible alias for PR `--description` and comment `--content`.
 
 ## Bitbucket Client Rules
+- Interactive `bb pr list --all` writes page progress to stderr only when stderr is a TTY; piped and captured executions remain quiet.
 - Follow server-provided pagination via `next`.
 - Bounded list requests use Bitbucket's `pagelen` range (`10..=100`), follow opaque `next` links as needed, and stop fetching as soon as the requested item limit is reached.
 - Support both relative API paths and absolute URLs.

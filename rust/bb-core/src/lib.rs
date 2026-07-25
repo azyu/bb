@@ -493,6 +493,7 @@ pub fn run<R: BufRead, O: Write, E: Write>(
     stdout: &mut O,
     stderr: &mut E,
     stdout_is_tty: bool,
+    stderr_is_tty: bool,
 ) -> u8 {
-    runtime::run(request, stdin, stdout, stderr, stdout_is_tty)
+    runtime::run(request, stdin, stdout, stderr, stdout_is_tty, stderr_is_tty)
 }
