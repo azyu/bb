@@ -68,6 +68,7 @@ bb auth status
 ### 3. 자주 쓰는 명령 실행
 
 Bitbucket 저장소 안에서는 `remote.origin.url`에서 `--workspace`와 `--repo`를 자동으로 추론할 수 있습니다.
+저장소 밖에서는 `-R <workspace>/<repo>`로 대상을 지정할 수 있습니다. `-R`은 `--workspace` 또는 `--repo`와 함께 사용할 수 없습니다.
 
 ```bash
 bb pr list

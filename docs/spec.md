@@ -46,6 +46,7 @@
 - Repo-scoped commands may infer missing `--workspace` and `--repo` from local Git `remote.origin.url`.
 - Only Bitbucket remotes must be inferred; non-Bitbucket remotes must not.
 - Explicit CLI flags always win over inferred values.
+- `-R`/`--repository <workspace>/<repo>` supplies both values for repo-scoped commands, takes precedence over local Git inference, and conflicts with explicit `--workspace` or `--repo`.
 
 ## Output and Errors
 - Success data goes to stdout.

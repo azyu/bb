@@ -912,7 +912,7 @@ fn pr_comment_update_help_includes_comment_id() {
 }
 
 #[test]
-fn pr_get_json_reads_config_and_calls_server() {
+fn pr_get_global_repository_selector_calls_selected_repo() {
     let server = MockServer::start();
     let pr = server.mock(|when, then| {
         when.method(GET)
@@ -935,10 +935,8 @@ fn pr_get_json_reads_config_and_calls_server() {
             "pr",
             "get",
             "42",
-            "--workspace",
-            "acme",
-            "--repo",
-            "widgets",
+            "-R",
+            "acme/widgets",
             "--output",
             "json",
         ])

@@ -9,6 +9,7 @@ This document is the contract baseline for `bb` command behavior.
 - Auth: per-profile token with optional Basic auth username (`--username` / `BITBUCKET_USERNAME`) and Bearer fallback
 - Versioning: SemVer + short git hash build metadata (e.g. `0.0.1+abc1234`)
 - Repo context inference: for repo-scoped commands, `--workspace`/`--repo` can be inferred from local Bitbucket `remote.origin.url` (`https://bitbucket.org/<workspace>/<repo>.git` or `git@bitbucket.org:<workspace>/<repo>.git`) when omitted
+- Repo selector: repo-scoped commands accept global `-R`/`--repository <workspace>/<repo>`; it supplies both target values, takes precedence over local Git inference, and cannot be combined with `--workspace` or `--repo`
 - Root help behavior: `bb` and top-level `bb --help` print the same top-level help with a short quick-start block for auth and common PR flows (`pr create`, `pr comments`) plus a note about `--output json`
 - `bb help` is a root-help alias and prints the same output as `bb`/`bb --help`
 - Existing-PR commands under `bb pr` accept the pull request ID as positional `<id>` or `--id`; passing both in one invocation is an error

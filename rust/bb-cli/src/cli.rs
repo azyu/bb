@@ -15,6 +15,12 @@ use clap::{Args, Parser, Subcommand};
 
 const STDIN_TOKEN_SENTINEL: &str = bb_core::runtime::STDIN_TOKEN_SENTINEL;
 
+#[derive(Debug, Clone)]
+struct RepositoryTarget {
+    workspace: String,
+    repo: String,
+}
+
 #[derive(Debug, Parser)]
 #[command(
     name = "bb",
@@ -24,6 +30,16 @@ const STDIN_TOKEN_SENTINEL: &str = bb_core::runtime::STDIN_TOKEN_SENTINEL;
 pub struct Cli {
     #[arg(short = 'v', long = "version", global = true)]
     pub version: bool,
+
+    /// Select a repository as WORKSPACE/REPO
+    #[arg(
+        short = 'R',
+        long = "repository",
+        global = true,
+        value_name = "WORKSPACE/REPO",
+        value_parser = parse_repository_target
+    )]
+    repository: Option<RepositoryTarget>,
 
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -871,8 +887,26 @@ where
         }
     }
 
-    let cli = Cli::try_parse_from(normalized)?;
-    Ok(map_request(cli))
+    let mut cli = Cli::try_parse_from(normalized)?;
+    let repository = cli.repository.take();
+    let mut request = map_request(cli);
+    if let Some(repository) = repository {
+        apply_repository_target(&mut request, repository)?;
+    }
+    Ok(request)
+}
+
+fn parse_repository_target(value: &str) -> Result<RepositoryTarget, String> {
+    let mut parts = value.split('/');
+    let workspace = parts.next().unwrap_or_default();
+    let repo = parts.next().unwrap_or_default();
+    if workspace.is_empty() || repo.is_empty() || parts.next().is_some() {
+        return Err("must use WORKSPACE/REPO with exactly one slash".to_string());
+    }
+    Ok(RepositoryTarget {
+        workspace: workspace.to_string(),
+        repo: repo.to_string(),
+    })
 }
 
 fn parse_positive_usize(value: &str) -> Result<usize, String> {
@@ -1246,6 +1280,134 @@ fn map_request(cli: Cli) -> Request {
     }
 }
 
+fn apply_repository_target(
+    request: &mut Request,
+    target: RepositoryTarget,
+) -> Result<(), clap::Error> {
+    match request {
+        Request::Pr(request) => match request {
+            PrRequest::Help => unsupported_repository_target(),
+            PrRequest::List(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Create(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Merge(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Get(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Update(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Approve(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Unapprove(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::RequestChanges(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::RemoveRequestChanges(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Decline(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Comment(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::CommentUpdate(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Comments(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Diff(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Diffstat(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Statuses(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PrRequest::Activity(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+        },
+        Request::Pipeline(request) => match request {
+            PipelineRequest::Help => unsupported_repository_target(),
+            PipelineRequest::List(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PipelineRequest::Get(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PipelineRequest::Steps(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PipelineRequest::Log(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            PipelineRequest::Run(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+        },
+        Request::Issue(request) => match request {
+            IssueRequest::Help => unsupported_repository_target(),
+            IssueRequest::List(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            IssueRequest::Create(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            IssueRequest::Update(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+        },
+        Request::Wiki(request) => match request {
+            WikiRequest::Help => unsupported_repository_target(),
+            WikiRequest::List(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            WikiRequest::Get(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+            WikiRequest::Put(request) => {
+                set_repository_target(&mut request.workspace, &mut request.repo, target)
+            }
+        },
+        _ => unsupported_repository_target(),
+    }
+}
+
+fn set_repository_target(
+    workspace: &mut Option<String>,
+    repo: &mut Option<String>,
+    target: RepositoryTarget,
+) -> Result<(), clap::Error> {
+    if workspace.is_some() || repo.is_some() {
+        return Err(clap::Error::raw(
+            clap::error::ErrorKind::ArgumentConflict,
+            "-R/--repository cannot be combined with --workspace or --repo",
+        ));
+    }
+    *workspace = Some(target.workspace);
+    *repo = Some(target.repo);
+    Ok(())
+}
+
+fn unsupported_repository_target() -> Result<(), clap::Error> {
+    Err(clap::Error::raw(
+        clap::error::ErrorKind::ArgumentConflict,
+        "-R/--repository is only valid for repository-scoped commands",
+    ))
+}
+
 fn resolve_pr_id(id: Option<String>, pr_id: Option<String>) -> Option<String> {
     id.or(pr_id)
 }
@@ -1253,6 +1415,36 @@ fn resolve_pr_id(id: Option<String>, pr_id: Option<String>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn global_repository_selector_populates_repo_target() {
+        let request = parse_from(["bb", "pr", "get", "42", "-R", "acme/widgets"])
+            .expect("repository selector should parse");
+        let Request::Pr(PrRequest::Get(request)) = request else {
+            panic!("expected pr get");
+        };
+        assert_eq!(request.workspace.as_deref(), Some("acme"));
+        assert_eq!(request.repo.as_deref(), Some("widgets"));
+    }
+
+    #[test]
+    fn global_repository_selector_rejects_invalid_or_conflicting_inputs() {
+        assert!(parse_from(["bb", "pr", "get", "42", "-R", "invalid"]).is_err());
+        assert!(
+            parse_from([
+                "bb",
+                "pr",
+                "get",
+                "42",
+                "-R",
+                "acme/widgets",
+                "--workspace",
+                "other",
+            ])
+            .is_err()
+        );
+        assert!(parse_from(["bb", "api", "-R", "acme/widgets", "user"]).is_err());
+    }
 
     #[test]
     fn bare_token_is_normalized_to_stdin_sentinel() {

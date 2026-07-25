@@ -68,6 +68,7 @@ bb auth status
 ### 3. Run common commands
 
 Inside a Bitbucket repository, `bb` can infer `--workspace` and `--repo` from `remote.origin.url`.
+Outside a repository, select the target explicitly with `-R <workspace>/<repo>`. Do not combine `-R` with `--workspace` or `--repo`.
 
 ```bash
 bb pr list

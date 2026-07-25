@@ -22,4 +22,4 @@
 - Phase: post-MVP CLI usability follow-ups
 - Owner: Main
 - Linear: [AZYU-5](https://linear.app/azyu/issue/AZYU-5/bb-cli-usability-follow-ups-from-2026-07-26-feedback)
-- Notes: Linear is the execution-task source of truth. Current focus is [AZYU-9](https://linear.app/azyu/issue/AZYU-9/add-body-aliases-for-pr-text-flags), accepting gh-style `--body` aliases for PR descriptions and comments.
+- Notes: Linear is the execution-task source of truth. Current focus is [AZYU-7](https://linear.app/azyu/issue/AZYU-7/design-and-implement-r-workspacerepo-selection), adding a deterministic global `-R <workspace>/<repo>` selector for repo-scoped commands.
