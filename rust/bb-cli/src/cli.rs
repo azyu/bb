@@ -205,6 +205,14 @@ pub struct PrListArgs {
     pub output: String,
     #[arg(long)]
     pub all: bool,
+    #[arg(
+        short = 'L',
+        long,
+        value_name = "N",
+        conflicts_with = "all",
+        value_parser = parse_positive_usize
+    )]
+    pub limit: Option<usize>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long)]
@@ -749,6 +757,16 @@ where
     Ok(map_request(cli))
 }
 
+fn parse_positive_usize(value: &str) -> Result<usize, String> {
+    let parsed = value
+        .parse::<usize>()
+        .map_err(|_| "must be a positive integer".to_string())?;
+    if parsed == 0 {
+        return Err("must be greater than zero".to_string());
+    }
+    Ok(parsed)
+}
+
 fn normalize_args(args: Vec<OsString>) -> Vec<OsString> {
     let mut out = Vec::with_capacity(args.len());
     let mut index = 0;
@@ -828,6 +846,7 @@ fn map_request(cli: Cli) -> Request {
                 repo: args.repo,
                 output: args.output,
                 all: args.all,
+                limit: args.limit,
                 profile: args.profile,
                 state: args.state,
                 q: args.q,
@@ -1152,6 +1171,19 @@ mod tests {
             request.endpoint.as_deref(),
             Some("repositories/acme/widgets/pullrequests/42/comments")
         );
+    }
+
+    #[test]
+    fn pr_list_maps_positive_limit_and_rejects_conflicts() {
+        let request =
+            parse_from(["bb", "pr", "list", "--limit", "25"]).expect("positive limit should parse");
+        let Request::Pr(PrRequest::List(request)) = request else {
+            panic!("expected pr list");
+        };
+        assert_eq!(request.limit, Some(25));
+
+        assert!(parse_from(["bb", "pr", "list", "--limit", "0"]).is_err());
+        assert!(parse_from(["bb", "pr", "list", "--limit", "25", "--all"]).is_err());
     }
 
     #[test]

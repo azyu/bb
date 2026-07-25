@@ -12,7 +12,6 @@ Current repository state:
 - `docs/references.md`: baseline research for Bitbucket CLI scope, API references, and MVP direction.
 - `docs/spec.md`: canonical technical specification for the active implementation target, including agent-oriented CLI rules.
 - `docs/command-contracts.md`: command-by-command behavior contract for the Cloud CLI surface.
-- `.context/TASKS.md`: work item tracker for agent-level execution status.
 - `.context/STEERING.md`: high-level plan tracker (phases, success criteria, current focus).
 
 Project goal (source of truth: `docs/references.md`):
@@ -27,13 +26,13 @@ The toolchain and layout are already chosen:
 
 ## Multi-Agent Coordination
 
-When multiple agents split work, use these files as the single source of execution state:
-- `.context/STEERING.md`: tracks objective, phase order, success criteria, and current phase owner.
-- `.context/TASKS.md`: tracks actionable tasks as checkboxes (`- [ ]`, `- [x]`) with owner and blocker notes.
+Linear is the single source of truth for actionable work, status, ownership, blockers, and follow-ups. Use Orca's Linear integration through the globally installed `orca-linear` skill and `orca linear ...` commands.
+
+Repository planning remains in `.context/STEERING.md`, which tracks objectives, phase order, success criteria, and current focus without duplicating executable task lists.
 
 Mandatory startup rule for every agent task:
-1. Read `.context/STEERING.md` first.
-2. Read `.context/TASKS.md` second.
+1. Read `.context/STEERING.md`.
+2. Load the version-matched Linear guide with `orca skills get orca-linear`, confirm `orca status --json`, and read the linked issue with `orca linear issue --current --full --json`. If the worktree is not linked, locate the named issue with `orca linear search`.
 3. Read `docs/spec.md` for the current technical spec and agent-facing behavior constraints.
 4. Only then start implementation.
 
@@ -46,9 +45,9 @@ Document roles:
 - `docs/command-contracts.md` is the command behavior reference.
 
 Update rules during work:
-- Before starting a task, assign the owner and add `(in progress)` on that task line.
-- If plan/sequence changed, update `.context/STEERING.md` before coding continues.
-- On completion, change checkbox to `- [x]` and sync any follow-up work items.
+- Before starting implementation, assign the Linear issue owner and move it to the intended active state.
+- If plan or sequence changes, update `.context/STEERING.md` before coding continues.
+- On completion, update the Linear issue status and create parented Linear follow-ups for remaining work.
 
 ## Build & Development
 
@@ -59,10 +58,12 @@ Useful current commands:
   ```bash
   rg --files -uu
   ```
-- Read planning state before any implementation:
+- Read planning and task state before any implementation:
   ```bash
   sed -n '1,240p' .context/STEERING.md
-  sed -n '1,240p' .context/TASKS.md
+  orca skills get orca-linear
+  orca status --json
+  orca linear issue --current --full --json
   sed -n '1,260p' docs/spec.md
   ```
 - Review project reference:
@@ -89,8 +90,7 @@ Useful current commands:
 ## Code Standards
 
 ### Do
-- Read `.context/STEERING.md` and `.context/TASKS.md` before any implementation task.
-- Read `docs/spec.md` for the current implementation contract before coding.
+- Read `.context/STEERING.md`, the applicable Linear issue, and `docs/spec.md` before any implementation task.
 - Keep changes directly tied to the current task; avoid opportunistic refactors.
 - Prefer the smallest implementation that satisfies requirements.
 - When technical behavior changes, update `docs/spec.md` in the same change.
@@ -122,10 +122,10 @@ Current minimum checklist:
    ```bash
    rg --files -uu
    ```
-2. Re-open planning files and verify status is current:
+2. Re-open planning state and verify the Linear issue is current:
    ```bash
    sed -n '1,240p' .context/STEERING.md
-   sed -n '1,240p' .context/TASKS.md
+   orca linear issue <issue-id> --full --json
    ```
 3. Re-open changed docs and check for coherence:
    ```bash
@@ -156,12 +156,8 @@ Rules:
 - If a command could not be run, state that explicitly.
 - Document assumptions and unresolved questions in the PR description.
 - When work is completed normally, create a commit for the finished scope.
-- Before committing, ensure `.context/STEERING.md` and `.context/TASKS.md` reflect final status.
-- Suggested commit flow:
-  ```bash
-  git add AGENTS.md .context/STEERING.md .context/TASKS.md
-  git commit -m "docs: define multi-agent plan/task workflow"
-  ```
+- Before committing, ensure `.context/STEERING.md` and the Linear issue reflect final status.
+- Include the Linear issue identifier in the commit or PR context when applicable.
 
 ## Secrets & Environment
 

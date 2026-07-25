@@ -123,6 +123,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all` (follow pagination)
+  - `-L`, `--limit <N>` (positive maximum item count; uses Bitbucket `pagelen` bounds and conflicts with `--all`)
   - `--profile`
   - `--state` (`OPEN|MERGED|DECLINED`)
   - `--q`, `--sort`, `--fields`
@@ -134,6 +135,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - Invalid `--state` value -> non-zero exit
+  - Zero `--limit` or combining `--limit` with `--all` -> non-zero exit before any API request
   - Unsupported output -> non-zero exit
 
 ### `bb pr create`

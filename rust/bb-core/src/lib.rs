@@ -93,6 +93,7 @@ pub struct PrListRequest {
     pub repo: Option<String>,
     pub output: String,
     pub all: bool,
+    pub limit: Option<usize>,
     pub profile: Option<String>,
     pub state: Option<String>,
     pub q: Option<String>,

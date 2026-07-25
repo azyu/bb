@@ -8,7 +8,7 @@
 ## Documentation Boundaries
 - `docs/spec.md` is the source of truth for implementation invariants and shared technical rules.
 - `docs/command-contracts.md` is the single source of truth for command surface, flags, output modes, help text, and failure behavior.
-- `.context/STEERING.md` and `.context/TASKS.md` hold roadmap, backlog, and follow-up work. Do not record speculative or future command ideas in this file.
+- `.context/STEERING.md` holds high-level roadmap and current focus; Linear is the single source of truth for actionable backlog, ownership, status, blockers, and follow-ups. Do not record speculative or future command ideas in this file.
 
 ## Architecture
 - Rust workspace layout:
@@ -68,6 +68,7 @@
 
 ## Bitbucket Client Rules
 - Follow server-provided pagination via `next`.
+- Bounded list requests use Bitbucket's `pagelen` range (`10..=100`), follow opaque `next` links as needed, and stop fetching as soon as the requested item limit is reached.
 - Support both relative API paths and absolute URLs.
 - Support `q`, `sort`, and `fields` query params where applicable.
 - Surface API failures with HTTP status and short response-body context.

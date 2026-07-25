@@ -495,6 +495,8 @@ fn handle_pr_list<O: Write>(
     if output == ListOutput::Json {
         let values = if request.all {
             client.get_all_values(&path, &query)?
+        } else if let Some(limit) = request.limit {
+            client.get_values_up_to(&path, &query, limit)?
         } else {
             client.get_page(&path, &query)?.0
         };
@@ -503,6 +505,8 @@ fn handle_pr_list<O: Write>(
 
     let (values, total_count) = if request.all {
         (client.get_all_values(&path, &query)?, None)
+    } else if let Some(limit) = request.limit {
+        (client.get_values_up_to(&path, &query, limit)?, None)
     } else {
         let (values, total) = client.get_page(&path, &query)?;
         (values, total.map(|value| value as usize))

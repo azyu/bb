@@ -157,6 +157,56 @@ fn repo_list_json_fields_projects_requested_keys() {
 }
 
 #[test]
+fn pr_list_limit_uses_bitbucket_page_bounds_and_stops_at_requested_count() {
+    let server = MockServer::start();
+    let next_page = server.mock(|when, then| {
+        when.method(GET).path("/next");
+        then.json_body(json!({"values":[{"id":3,"title":"three"}]}));
+    });
+    let pull_requests = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests")
+            .query_param("pagelen", "10");
+        then.json_body(json!({
+            "values": [
+                {"id":1,"title":"one"},
+                {"id":2,"title":"two"}
+            ],
+            "next": format!("{}/next", server.base_url())
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "list",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--limit",
+            "1",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body.as_array().map(Vec::len), Some(1));
+    assert_eq!(body[0]["id"], 1);
+    pull_requests.assert();
+    assert_eq!(next_page.hits(), 0);
+}
+
+#[test]
 fn api_help_includes_input_flag() {
     let output = bb_command()
         .args(["api", "--help"])
