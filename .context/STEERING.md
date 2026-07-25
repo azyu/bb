@@ -19,7 +19,7 @@
 - Go entrypoints and Go-only workflows are removed after Rust verification passes.
 
 ## Current Phase
-- Phase: post-MVP CLI usability follow-ups
+- Phase: post-MVP CLI usability follow-ups complete
 - Owner: Main
 - Linear: [AZYU-5](https://linear.app/azyu/issue/AZYU-5/bb-cli-usability-follow-ups-from-2026-07-26-feedback)
-- Notes: Linear is the execution-task source of truth. Current focus is [AZYU-12](https://linear.app/azyu/issue/AZYU-12/show-tty-only-progress-for-all-pagination), reporting `--all` pagination progress only when stderr is an interactive terminal.
+- Notes: All seven verified feedback follow-ups are complete in Linear. The workspace passes 96 tests across four suites, and Rust formatting is clean.
