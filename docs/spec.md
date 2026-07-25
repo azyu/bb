@@ -65,6 +65,7 @@
 - Reuse raw API objects for JSON output instead of re-parsing formatted text.
 - Preserve `q`, `sort`, and `fields` passthrough where the Bitbucket API supports them.
 - Prefer Bitbucket API-aligned naming (`get`, `update`, `request-changes`, `remove-request-changes`). GitHub CLI aliases accepted: `view`→`get`, `edit`→`update`, `close`→`decline`, `checks`→`statuses`.
+- GitHub CLI `--body` is accepted as a visible alias for PR `--description` and comment `--content`.
 
 ## Bitbucket Client Rules
 - Follow server-provided pagination via `next`.

@@ -313,7 +313,7 @@ pub struct PrCreateArgs {
     pub source: Option<String>,
     #[arg(long)]
     pub destination: Option<String>,
-    #[arg(long)]
+    #[arg(long, visible_alias = "body")]
     pub description: Option<String>,
     #[arg(long)]
     pub close_branch: bool,
@@ -377,7 +377,7 @@ pub struct PrUpdateArgs {
     pub pr_id: Option<String>,
     #[arg(long)]
     pub title: Option<String>,
-    #[arg(long)]
+    #[arg(long, visible_alias = "body")]
     pub description: Option<String>,
     #[arg(long)]
     pub source: Option<String>,
@@ -479,7 +479,7 @@ pub struct PrCommentArgs {
     pub id: Option<String>,
     #[arg(index = 1, value_name = "PR_ID", conflicts_with = "id")]
     pub pr_id: Option<String>,
-    #[arg(long)]
+    #[arg(long, visible_alias = "body")]
     pub content: Option<String>,
     /// Parent comment ID for replies
     #[arg(long)]
@@ -502,7 +502,7 @@ pub struct PrCommentUpdateArgs {
     pub pr_id: Option<String>,
     #[arg(long, value_name = "COMMENT_ID")]
     pub comment_id: Option<String>,
-    #[arg(long)]
+    #[arg(long, visible_alias = "body")]
     pub content: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
@@ -1416,6 +1416,28 @@ mod tests {
     }
 
     #[test]
+    fn pr_create_maps_body_alias_to_description() {
+        let request = parse_from([
+            "bb",
+            "pr",
+            "create",
+            "--title",
+            "title",
+            "--source",
+            "feature",
+            "--destination",
+            "main",
+            "--body",
+            "description",
+        ])
+        .expect("parse should succeed");
+        let Request::Pr(PrRequest::Create(request)) = request else {
+            panic!("expected pr create");
+        };
+        assert_eq!(request.description.as_deref(), Some("description"));
+    }
+
+    #[test]
     fn pr_comment_maps_content_and_output() {
         let request = parse_from([
             "bb",
@@ -1423,7 +1445,7 @@ mod tests {
             "comment",
             "--id",
             "42",
-            "--content",
+            "--body",
             "needs changes",
             "--output",
             "json",

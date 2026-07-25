@@ -146,7 +146,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `--source`
   - `--destination`
 - Optional flags:
-  - `--description`
+  - `--description` (alias: `--body`)
   - `--close-branch` (delete source branch after merge)
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -206,7 +206,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - pull request ID via positional `<id>` or `--id`
 - Optional flags (at least one required):
   - `--title`
-  - `--description`
+  - `--description` (alias: `--body`)
   - `--source`
   - `--destination`
   - `--profile`
@@ -312,7 +312,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - pull request ID via positional `<id>` or `--id`
-  - `--content`
+  - `--content` (alias: `--body`)
 - Optional flags:
   - `--parent` (reply to an existing comment ID)
   - `--profile`
@@ -334,7 +334,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - pull request ID via positional `<id>` or `--id`
   - `--comment-id` (existing pull request comment ID)
-  - `--content`
+  - `--content` (alias: `--body`)
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
