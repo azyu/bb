@@ -157,6 +157,92 @@ fn repo_list_json_fields_projects_requested_keys() {
 }
 
 #[test]
+fn pr_list_limit_uses_bitbucket_page_bounds_and_stops_at_requested_count() {
+    let server = MockServer::start();
+    let next_page = server.mock(|when, then| {
+        when.method(GET).path("/next");
+        then.json_body(json!({"values":[{"id":3,"title":"three"}]}));
+    });
+    let pull_requests = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests")
+            .query_param("pagelen", "10");
+        then.json_body(json!({
+            "values": [
+                {"id":1,"title":"one"},
+                {"id":2,"title":"two"}
+            ],
+            "next": format!("{}/next", server.base_url())
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "list",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--limit",
+            "1",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body.as_array().map(Vec::len), Some(1));
+    assert_eq!(body[0]["id"], 1);
+    pull_requests.assert();
+    assert_eq!(next_page.hits(), 0);
+}
+
+#[test]
+fn pr_list_all_is_quiet_when_stderr_is_not_a_terminal() {
+    let server = MockServer::start();
+    let pull_requests = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests")
+            .query_param("pagelen", "100");
+        then.json_body(json!({
+            "values": [{"id":1,"title":"one"}],
+            "size":1
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "list",
+            "-R",
+            "acme/widgets",
+            "--all",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    pull_requests.assert();
+}
+
+#[test]
 fn api_help_includes_input_flag() {
     let output = bb_command()
         .args(["api", "--help"])
@@ -763,6 +849,30 @@ fn pipeline_log_rejects_unbalanced_step_braces() {
 }
 
 #[test]
+fn pr_diffstat_missing_config_emits_json_error() {
+    let temp = tempdir().unwrap();
+    let output = bb_command()
+        .args([
+            "pr",
+            "diffstat",
+            "42",
+            "-R",
+            "acme/widgets",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", temp.path().join("missing.json"))
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "not_logged_in");
+}
+
+#[test]
 fn completion_bash_prints_script() {
     let output = bb_command()
         .args(["completion", "bash"])
@@ -776,6 +886,23 @@ fn completion_bash_prints_script() {
     assert!(stdout.contains("remove-request-changes"));
     assert!(stdout.contains("steps"));
     assert!(stdout.contains("log"));
+}
+
+#[test]
+fn completion_scripts_include_pr_diffstat() {
+    for shell in ["bash", "zsh", "fish", "powershell"] {
+        let output = bb_command()
+            .args(["completion", shell])
+            .output()
+            .expect("command should run");
+        assert!(output.status.success(), "{shell} completion should succeed");
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+        assert!(
+            stdout.contains("diffstat"),
+            "{shell} completion should include pr diffstat"
+        );
+    }
 }
 
 #[test]
@@ -794,6 +921,35 @@ fn pr_help_lists_api_aligned_commands() {
     assert!(stdout.contains("statuses"));
     assert!(stdout.contains("activity"));
     assert!(stdout.contains("comment-update"));
+    assert!(stdout.contains("aliases: view"));
+    assert!(stdout.contains("aliases: edit"));
+    assert!(stdout.contains("aliases: close"));
+    assert!(stdout.contains("aliases: checks"));
+}
+
+#[test]
+fn bare_pr_help_lists_diffstat() {
+    let output = bb_command().arg("pr").output().expect("command should run");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert!(stdout.contains("diffstat"));
+}
+
+#[test]
+fn pr_list_help_explains_pagination_and_api_fields() {
+    let output = bb_command()
+        .args(["pr", "list", "--help"])
+        .output()
+        .expect("command should run");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert!(stdout.contains("Fetch all pages instead of the first page only"));
+    assert!(stdout.contains("Maximum number of pull requests to fetch"));
+    assert!(stdout.contains("Bitbucket Cloud API filter expression"));
+    assert!(stdout.contains("Bitbucket Cloud API partial-response fields"));
+    assert!(stdout.contains("Comma-separated fields to include in JSON output"));
 }
 
 #[test]
@@ -842,7 +998,7 @@ fn pr_comment_update_help_includes_comment_id() {
 }
 
 #[test]
-fn pr_get_json_reads_config_and_calls_server() {
+fn pr_get_global_repository_selector_calls_selected_repo() {
     let server = MockServer::start();
     let pr = server.mock(|when, then| {
         when.method(GET)
@@ -861,17 +1017,7 @@ fn pr_get_json_reads_config_and_calls_server() {
     write_config(&config_path, &format!("{}/2.0", server.base_url()));
 
     let output = bb_command()
-        .args([
-            "pr",
-            "get",
-            "42",
-            "--workspace",
-            "acme",
-            "--repo",
-            "widgets",
-            "--output",
-            "json",
-        ])
+        .args(["pr", "get", "42", "-R", "acme/widgets", "--output", "json"])
         .env("BB_CONFIG_PATH", &config_path)
         .output()
         .expect("command should run");
@@ -1006,6 +1152,92 @@ fn pr_diff_text_reads_config_and_calls_server() {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
     assert_eq!(stdout, "diff --git a/src/lib.rs b/src/lib.rs\n");
     diff.assert();
+}
+
+#[test]
+fn pr_diff_name_only_uses_diffstat_and_prints_paths() {
+    let server = MockServer::start();
+    let diffstat = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42/diffstat")
+            .query_param("pagelen", "100");
+        then.json_body(json!({
+            "values": [
+                {"status":"modified","new":{"path":"src/lib.rs"},"old":{"path":"src/lib.rs"}},
+                {"status":"removed","new":null,"old":{"path":"old.txt"}}
+            ]
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "diff",
+            "42",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--name-only",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert_eq!(stdout, "src/lib.rs\nold.txt\n");
+    diffstat.assert();
+}
+
+#[test]
+fn pr_diffstat_table_uses_structured_api_response() {
+    let server = MockServer::start();
+    let diffstat = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42/diffstat");
+        then.json_body(json!({
+            "values": [
+                {
+                    "status":"modified",
+                    "new":{"path":"src/lib.rs"},
+                    "old":{"path":"src/lib.rs"},
+                    "lines_added":12,
+                    "lines_removed":3
+                }
+            ]
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pr",
+            "diffstat",
+            "42",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert!(stdout.contains("STATUS"));
+    assert!(stdout.contains("src/lib.rs"));
+    assert!(stdout.contains("12"));
+    assert!(stdout.contains("3"));
+    diffstat.assert();
 }
 
 #[test]

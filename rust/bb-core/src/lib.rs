@@ -93,6 +93,7 @@ pub struct PrListRequest {
     pub repo: Option<String>,
     pub output: String,
     pub all: bool,
+    pub limit: Option<usize>,
     pub profile: Option<String>,
     pub state: Option<String>,
     pub q: Option<String>,
@@ -239,6 +240,21 @@ pub struct PrDiffRequest {
     pub id: Option<String>,
     pub profile: Option<String>,
     pub output: String,
+    pub name_only: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrDiffstatRequest {
+    pub workspace: Option<String>,
+    pub repo: Option<String>,
+    pub id: Option<String>,
+    pub output: String,
+    pub all: bool,
+    pub profile: Option<String>,
+    pub q: Option<String>,
+    pub sort: Option<String>,
+    pub fields: Option<String>,
+    pub json_fields: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -426,6 +442,7 @@ pub enum PrRequest {
     CommentUpdate(PrCommentUpdateRequest),
     Comments(PrCommentsRequest),
     Diff(PrDiffRequest),
+    Diffstat(PrDiffstatRequest),
     Statuses(PrStatusesRequest),
     Activity(PrActivityRequest),
 }
@@ -476,6 +493,7 @@ pub fn run<R: BufRead, O: Write, E: Write>(
     stdout: &mut O,
     stderr: &mut E,
     stdout_is_tty: bool,
+    stderr_is_tty: bool,
 ) -> u8 {
-    runtime::run(request, stdin, stdout, stderr, stdout_is_tty)
+    runtime::run(request, stdin, stdout, stderr, stdout_is_tty, stderr_is_tty)
 }

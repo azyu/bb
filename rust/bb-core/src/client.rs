@@ -57,14 +57,55 @@ impl Client {
         path: &str,
         query: &[(String, String)],
     ) -> Result<Vec<Value>, CliError> {
+        self.get_values(path, query, None, |_, _| Ok(()))
+    }
+
+    pub fn get_all_values_with_progress<F>(
+        &self,
+        path: &str,
+        query: &[(String, String)],
+        progress: F,
+    ) -> Result<Vec<Value>, CliError>
+    where
+        F: FnMut(usize, Option<u64>) -> Result<(), CliError>,
+    {
+        self.get_values(path, query, None, progress)
+    }
+
+    pub fn get_values_up_to(
+        &self,
+        path: &str,
+        query: &[(String, String)],
+        limit: usize,
+    ) -> Result<Vec<Value>, CliError> {
+        self.get_values(path, query, Some(limit), |_, _| Ok(()))
+    }
+
+    fn get_values<F>(
+        &self,
+        path: &str,
+        query: &[(String, String)],
+        limit: Option<usize>,
+        mut progress: F,
+    ) -> Result<Vec<Value>, CliError>
+    where
+        F: FnMut(usize, Option<u64>) -> Result<(), CliError>,
+    {
         let mut next = path.to_string();
         let mut current_query = query.to_vec();
-        let mut values = Vec::new();
+        let page_len = limit.unwrap_or(100).clamp(10, 100);
+        current_query.push(("pagelen".to_string(), page_len.to_string()));
+        let mut values = Vec::with_capacity(limit.unwrap_or(100).min(100));
 
-        while !next.is_empty() {
+        while !next.is_empty() && limit.is_none_or(|limit| values.len() < limit) {
             let page: ListPage =
                 self.request_json(Method::GET, &next, &current_query, None::<Value>)?;
-            values.extend(page.values);
+            let remaining = limit
+                .map(|limit| limit.saturating_sub(values.len()))
+                .unwrap_or(usize::MAX);
+            let total = page.size;
+            values.extend(page.values.into_iter().take(remaining));
+            progress(values.len(), total)?;
             next = page.next.unwrap_or_default();
             current_query.clear();
         }
@@ -189,6 +230,109 @@ mod tests {
 
         let values = client.get_all_values("/repositories/acme", &[]).unwrap();
         assert_eq!(values.len(), 2);
+        page1.assert();
+        page2.assert();
+    }
+
+    #[test]
+    fn get_all_values_reports_each_completed_page() {
+        let server = MockServer::start();
+        let page2 = server.mock(|when, then| {
+            when.method(GET).path("/page2");
+            then.json_body(json!({"values":[{"slug":"two"}],"size":2}));
+        });
+        let page1 = server.mock(|when, then| {
+            when.method(GET).path("/repositories/acme");
+            then.json_body(json!({
+                "values":[{"slug":"one"}],
+                "size":2,
+                "next": format!("{}/page2", server.base_url())
+            }));
+        });
+        let client = Client::from_profile(&Profile {
+            base_url: server.base_url(),
+            token: "token".to_string(),
+            username: String::new(),
+        })
+        .unwrap();
+        let mut updates = Vec::new();
+
+        let values = client
+            .get_all_values_with_progress("/repositories/acme", &[], |fetched, total| {
+                updates.push((fetched, total));
+                Ok(())
+            })
+            .unwrap();
+
+        assert_eq!(values.len(), 2);
+        assert_eq!(updates, vec![(1, Some(2)), (2, Some(2))]);
+        page1.assert();
+        page2.assert();
+    }
+
+    #[test]
+    fn get_values_up_to_uses_bitbucket_page_bounds_and_stops_at_limit() {
+        let server = MockServer::start();
+        let page2 = server.mock(|when, then| {
+            when.method(GET).path("/page2");
+            then.json_body(json!({"values":[{"slug":"three"}]}));
+        });
+        let page1 = server.mock(|when, then| {
+            when.method(GET)
+                .path("/repositories/acme")
+                .query_param("pagelen", "10");
+            then.json_body(json!({
+                "values":[{"slug":"one"},{"slug":"two"}],
+                "next": format!("{}/page2", server.base_url())
+            }));
+        });
+
+        let client = Client::from_profile(&Profile {
+            base_url: server.base_url(),
+            token: "token".to_string(),
+            username: String::new(),
+        })
+        .unwrap();
+
+        let values = client
+            .get_values_up_to("/repositories/acme", &[], 1)
+            .unwrap();
+        assert_eq!(values, vec![json!({"slug":"one"})]);
+        page1.assert();
+        assert_eq!(page2.hits(), 0);
+    }
+
+    #[test]
+    fn get_values_up_to_follows_next_and_caps_first_page_at_bitbucket_maximum() {
+        let server = MockServer::start();
+        let first_values = (0..100).map(|id| json!({"id": id})).collect::<Vec<_>>();
+        let second_values = (100..110).map(|id| json!({"id": id})).collect::<Vec<_>>();
+        let page2 = server.mock(|when, then| {
+            when.method(GET).path("/page2");
+            then.json_body(json!({"values": second_values}));
+        });
+        let page1 = server.mock(|when, then| {
+            when.method(GET)
+                .path("/repositories/acme")
+                .query_param("pagelen", "100");
+            then.json_body(json!({
+                "values": first_values,
+                "next": format!("{}/page2", server.base_url())
+            }));
+        });
+
+        let client = Client::from_profile(&Profile {
+            base_url: server.base_url(),
+            token: "token".to_string(),
+            username: String::new(),
+        })
+        .unwrap();
+
+        let values = client
+            .get_values_up_to("/repositories/acme", &[], 105)
+            .unwrap();
+        assert_eq!(values.len(), 105);
+        assert_eq!(values.last(), Some(&json!({"id": 104})));
         page1.assert();
         page2.assert();
     }

@@ -9,6 +9,7 @@ This document is the contract baseline for `bb` command behavior.
 - Auth: per-profile token with optional Basic auth username (`--username` / `BITBUCKET_USERNAME`) and Bearer fallback
 - Versioning: SemVer + short git hash build metadata (e.g. `0.0.1+abc1234`)
 - Repo context inference: for repo-scoped commands, `--workspace`/`--repo` can be inferred from local Bitbucket `remote.origin.url` (`https://bitbucket.org/<workspace>/<repo>.git` or `git@bitbucket.org:<workspace>/<repo>.git`) when omitted
+- Repo selector: repo-scoped commands accept global `-R`/`--repository <workspace>/<repo>`; it supplies both target values, takes precedence over local Git inference, and cannot be combined with `--workspace` or `--repo`
 - Root help behavior: `bb` and top-level `bb --help` print the same top-level help with a short quick-start block for auth and common PR flows (`pr create`, `pr comments`) plus a note about `--output json`
 - `bb help` is a root-help alias and prints the same output as `bb`/`bb --help`
 - Existing-PR commands under `bb pr` accept the pull request ID as positional `<id>` or `--id`; passing both in one invocation is an error
@@ -123,6 +124,8 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Optional flags:
   - `--output` (`table` default, `json`)
   - `--all` (follow pagination)
+    - When stderr is a TTY, page progress is rewritten on stderr; non-TTY execution remains quiet
+  - `-L`, `--limit <N>` (positive maximum item count; uses Bitbucket `pagelen` bounds and conflicts with `--all`)
   - `--profile`
   - `--state` (`OPEN|MERGED|DECLINED`)
   - `--q`, `--sort`, `--fields`
@@ -134,6 +137,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - Invalid `--state` value -> non-zero exit
+  - Zero `--limit` or combining `--limit` with `--all` -> non-zero exit before any API request
   - Unsupported output -> non-zero exit
 
 ### `bb pr create`
@@ -144,7 +148,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `--source`
   - `--destination`
 - Optional flags:
-  - `--description`
+  - `--description` (alias: `--body`)
   - `--close-branch` (delete source branch after merge)
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -204,7 +208,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - pull request ID via positional `<id>` or `--id`
 - Optional flags (at least one required):
   - `--title`
-  - `--description`
+  - `--description` (alias: `--body`)
   - `--source`
   - `--destination`
   - `--profile`
@@ -310,7 +314,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Required flags:
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - pull request ID via positional `<id>` or `--id`
-  - `--content`
+  - `--content` (alias: `--body`)
 - Optional flags:
   - `--parent` (reply to an existing comment ID)
   - `--profile`
@@ -332,7 +336,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
   - pull request ID via positional `<id>` or `--id`
   - `--comment-id` (existing pull request comment ID)
-  - `--content`
+  - `--content` (alias: `--body`)
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
@@ -383,9 +387,30 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
 - Optional flags:
   - `--profile`
   - `--output` (`text` default, `json`)
+  - `--name-only` (use the diffstat endpoint and print changed paths only)
 - Output:
-  - `text`: raw diff payload
-  - `json`: object with a single `diff` string field
+  - `text`: raw diff payload, or one changed path per line with `--name-only`
+  - `json`: object with a single `diff` string field, or an array of changed path strings with `--name-only`
+- Failure behavior:
+  - Missing required flags -> non-zero exit
+  - Non-numeric pull request ID value -> non-zero exit
+  - Passing both `<id>` and `--id` -> non-zero exit
+  - Unsupported output -> non-zero exit
+
+### `bb pr diffstat`
+- Purpose: List files changed by a pull request with status and line counts.
+- Required flags:
+  - `--workspace`, `--repo` unless both can be inferred from local Bitbucket `remote.origin.url`
+  - pull request ID via positional `<id>` or `--id`
+- Optional flags:
+  - `--output` (`table` default, `json`)
+  - `--all`
+  - `--profile`
+  - `--q`, `--sort`, `--fields`
+  - `--json-fields` (requires `--output json`)
+- Output:
+  - `table`: `STATUS`, `PATH`, `ADDED`, `REMOVED`
+  - `json`: array of Bitbucket diffstat objects
 - Failure behavior:
   - Missing required flags -> non-zero exit
   - Non-numeric pull request ID value -> non-zero exit

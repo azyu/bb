@@ -18,15 +18,19 @@ fn main() -> ExitCode {
         }
     };
 
-    let stdout_is_tty = stdout().is_terminal();
+    let stdout = stdout();
+    let stderr = stderr();
+    let stdout_is_tty = stdout.is_terminal();
+    let stderr_is_tty = stderr.is_terminal();
     let mut stdin = stdin().lock();
-    let mut stdout = stdout().lock();
-    let mut stderr = stderr().lock();
+    let mut stdout = stdout.lock();
+    let mut stderr = stderr.lock();
     ExitCode::from(bb_core::run(
         request,
         &mut stdin,
         &mut stdout,
         &mut stderr,
         stdout_is_tty,
+        stderr_is_tty,
     ))
 }

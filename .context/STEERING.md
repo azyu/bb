@@ -19,6 +19,7 @@
 - Go entrypoints and Go-only workflows are removed after Rust verification passes.
 
 ## Current Phase
-- Phase: complete
-- Owner: agent
-- Notes: Phase 1 Rust migration is complete. The Rust 2-crate workspace (`bb-cli`, `bb-core`) is now the only implementation, CI/release workflows target Cargo, and the legacy Go source tree has been removed. The PR surface has been expanded with Bitbucket Cloud API-aligned command names (`get`, `update`, `request-changes`, `remove-request-changes`, etc.) while keeping the repo Cloud-only and the architecture unchanged. Local Git helpers such as `bb pr checkout` remain explicit follow-up work.
+- Phase: post-MVP CLI usability follow-ups complete
+- Owner: Main
+- Linear: [AZYU-5](https://linear.app/azyu/issue/AZYU-5/bb-cli-usability-follow-ups-from-2026-07-26-feedback)
+- Notes: All seven verified feedback follow-ups are complete in Linear. The workspace passes 96 tests across four suites, and Rust formatting is clean.

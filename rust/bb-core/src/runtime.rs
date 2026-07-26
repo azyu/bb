@@ -17,10 +17,10 @@ use crate::{
     PipelineGetRequest, PipelineListRequest, PipelineLogRequest, PipelineRequest,
     PipelineRunRequest, PipelineStepsRequest, PrActivityRequest, PrApproveRequest,
     PrCommentRequest, PrCommentUpdateRequest, PrCommentsRequest, PrCreateRequest, PrDeclineRequest,
-    PrDiffRequest, PrGetRequest, PrListRequest, PrMergeRequest, PrRemoveRequestChangesRequest,
-    PrRequest, PrRequestChangesRequest, PrStatusesRequest, PrUnapproveRequest, PrUpdateRequest,
-    RepoListRequest, RepoRequest, Request, WikiGetRequest, WikiListRequest, WikiPutRequest,
-    WikiRequest, WriteOutput,
+    PrDiffRequest, PrDiffstatRequest, PrGetRequest, PrListRequest, PrMergeRequest,
+    PrRemoveRequestChangesRequest, PrRequest, PrRequestChangesRequest, PrStatusesRequest,
+    PrUnapproveRequest, PrUpdateRequest, RepoListRequest, RepoRequest, Request, WikiGetRequest,
+    WikiListRequest, WikiPutRequest, WikiRequest, WriteOutput,
 };
 
 pub const STDIN_TOKEN_SENTINEL: &str = "__bb_stdin_token__";
@@ -78,6 +78,14 @@ const PR_COMMENTS_JSON_FIELDS: &[&str] = &[
     "user",
 ];
 
+const PR_DIFFSTAT_JSON_FIELDS: &[&str] = &[
+    "lines_added",
+    "lines_removed",
+    "new",
+    "old",
+    "status",
+    "type",
+];
 const PR_STATUSES_JSON_FIELDS: &[&str] = &[
     "created_on",
     "description",
@@ -139,8 +147,16 @@ pub fn run<R: BufRead, O: Write, E: Write>(
     stdout: &mut O,
     stderr: &mut E,
     stdout_is_tty: bool,
+    stderr_is_tty: bool,
 ) -> u8 {
-    match dispatch(&request, stdin, stdout, stdout_is_tty) {
+    match dispatch(
+        &request,
+        stdin,
+        stdout,
+        stderr,
+        stdout_is_tty,
+        stderr_is_tty,
+    ) {
         Ok(()) => 0,
         Err(error) => {
             let _ = emit_error(&request, &error, stdout, stderr);
@@ -149,11 +165,13 @@ pub fn run<R: BufRead, O: Write, E: Write>(
     }
 }
 
-fn dispatch<R: BufRead, O: Write>(
+fn dispatch<R: BufRead, O: Write, E: Write>(
     request: &Request,
     stdin: &mut R,
     stdout: &mut O,
+    stderr: &mut E,
     stdout_is_tty: bool,
+    stderr_is_tty: bool,
 ) -> Result<(), CliError> {
     match request {
         Request::RootHelp => {
@@ -184,7 +202,7 @@ fn dispatch<R: BufRead, O: Write>(
         Request::Auth(auth) => handle_auth(auth, stdin, stdout)?,
         Request::Api(api) => handle_api(api, stdout)?,
         Request::Repo(repo) => handle_repo(repo, stdout)?,
-        Request::Pr(pr) => handle_pr(pr, stdout, stdout_is_tty)?,
+        Request::Pr(pr) => handle_pr(pr, stdout, stderr, stdout_is_tty, stderr_is_tty)?,
         Request::Pipeline(pipeline) => handle_pipeline(pipeline, stdout)?,
         Request::Issue(issue) => handle_issue(issue, stdout)?,
         Request::Wiki(wiki) => handle_wiki(wiki, stdout)?,
@@ -237,6 +255,7 @@ fn wants_json_errors(request: &Request) -> bool {
         }
         Request::Pr(PrRequest::Comments(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Diff(req)) => req.output.trim().eq_ignore_ascii_case("json"),
+        Request::Pr(PrRequest::Diffstat(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Statuses(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pr(PrRequest::Activity(req)) => req.output.trim().eq_ignore_ascii_case("json"),
         Request::Pipeline(PipelineRequest::List(req)) => {
@@ -440,14 +459,18 @@ fn handle_repo_list<O: Write>(request: &RepoListRequest, stdout: &mut O) -> Resu
     }
 }
 
-fn handle_pr<O: Write>(
+fn handle_pr<O: Write, E: Write>(
     request: &PrRequest,
     stdout: &mut O,
+    stderr: &mut E,
     stdout_is_tty: bool,
+    stderr_is_tty: bool,
 ) -> Result<(), CliError> {
     match request {
         PrRequest::Help => write!(stdout, "{}", render::pr_usage()).map_err(CliError::from),
-        PrRequest::List(request) => handle_pr_list(request, stdout, stdout_is_tty),
+        PrRequest::List(request) => {
+            handle_pr_list(request, stdout, stderr, stdout_is_tty, stderr_is_tty)
+        }
         PrRequest::Create(request) => handle_pr_create(request, stdout),
         PrRequest::Merge(request) => handle_pr_merge(request, stdout),
         PrRequest::Get(request) => handle_pr_get(request, stdout),
@@ -463,15 +486,18 @@ fn handle_pr<O: Write>(
         PrRequest::CommentUpdate(request) => handle_pr_comment_update(request, stdout),
         PrRequest::Comments(request) => handle_pr_comments(request, stdout),
         PrRequest::Diff(request) => handle_pr_diff(request, stdout),
+        PrRequest::Diffstat(request) => handle_pr_diffstat(request, stdout),
         PrRequest::Statuses(request) => handle_pr_statuses(request, stdout),
         PrRequest::Activity(request) => handle_pr_activity(request, stdout),
     }
 }
 
-fn handle_pr_list<O: Write>(
+fn handle_pr_list<O: Write, E: Write>(
     request: &PrListRequest,
     stdout: &mut O,
+    stderr: &mut E,
     stdout_is_tty: bool,
+    stderr_is_tty: bool,
 ) -> Result<(), CliError> {
     let output = parse_list_output(&request.output)?;
     let json_fields = parse_json_fields(
@@ -492,21 +518,21 @@ fn handle_pr_list<O: Write>(
     ]);
     let path = format!("/repositories/{workspace}/{repo}/pullrequests");
 
-    if output == ListOutput::Json {
-        let values = if request.all {
-            client.get_all_values(&path, &query)?
-        } else {
-            client.get_page(&path, &query)?.0
-        };
-        return print_json_list(stdout, &values, json_fields.as_deref());
-    }
-
     let (values, total_count) = if request.all {
-        (client.get_all_values(&path, &query)?, None)
+        (
+            fetch_all_prs(&client, &path, &query, stderr, stderr_is_tty)?,
+            None,
+        )
+    } else if let Some(limit) = request.limit {
+        (client.get_values_up_to(&path, &query, limit)?, None)
     } else {
         let (values, total) = client.get_page(&path, &query)?;
         (values, total.map(|value| value as usize))
     };
+
+    if output == ListOutput::Json {
+        return print_json_list(stdout, &values, json_fields.as_deref());
+    }
     let rows = values
         .iter()
         .map(|value| PrTableRow {
@@ -535,6 +561,40 @@ fn handle_pr_list<O: Write>(
             render::should_use_color(stdout_is_tty)
         )
     )
+    .map_err(CliError::from)
+}
+fn fetch_all_prs<E: Write>(
+    client: &Client,
+    path: &str,
+    query: &[(String, String)],
+    stderr: &mut E,
+    show_progress: bool,
+) -> Result<Vec<Value>, CliError> {
+    if !show_progress {
+        return client.get_all_values(path, query);
+    }
+
+    let mut wrote_progress = false;
+    let result = client.get_all_values_with_progress(path, query, |fetched, total| {
+        wrote_progress = true;
+        write_pr_progress(stderr, fetched, total)?;
+        stderr.flush().map_err(CliError::from)
+    });
+    if wrote_progress {
+        writeln!(stderr)?;
+    }
+    result
+}
+
+fn write_pr_progress<E: Write>(
+    stderr: &mut E,
+    fetched: usize,
+    total: Option<u64>,
+) -> Result<(), CliError> {
+    match total {
+        Some(total) => write!(stderr, "\rFetched {fetched}/{total} pull requests"),
+        None => write!(stderr, "\rFetched {fetched} pull requests"),
+    }
     .map_err(CliError::from)
 }
 
@@ -967,6 +1027,29 @@ fn handle_pr_diff<O: Write>(request: &PrDiffRequest, stdout: &mut O) -> Result<(
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let id = parse_pr_numeric_id(request.id.as_deref())?;
     let client = client_from_profile(request.profile.as_deref())?;
+    if request.name_only {
+        let values = client.get_all_values(
+            &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/diffstat"),
+            &[],
+        )?;
+        return match output {
+            WriteOutput::Json => {
+                let paths = values
+                    .iter()
+                    .filter_map(render::pr_diffstat_path)
+                    .collect::<Vec<_>>();
+                render::print_json(stdout, &paths)
+            }
+            WriteOutput::Text => {
+                for value in &values {
+                    if let Some(path) = render::pr_diffstat_path(value) {
+                        writeln!(stdout, "{path}")?;
+                    }
+                }
+                Ok(())
+            }
+        };
+    }
     let diff = client.request_text(
         Method::GET,
         &format!("/repositories/{workspace}/{repo}/pullrequests/{id}/diff"),
@@ -981,6 +1064,37 @@ fn handle_pr_diff<O: Write>(request: &PrDiffRequest, stdout: &mut O) -> Result<(
                 writeln!(stdout)?;
             }
             Ok(())
+        }
+    }
+}
+
+fn handle_pr_diffstat<O: Write>(
+    request: &PrDiffstatRequest,
+    stdout: &mut O,
+) -> Result<(), CliError> {
+    let output = parse_list_output(&request.output)?;
+    let json_fields = parse_json_fields(
+        request.json_fields.as_deref(),
+        output == ListOutput::Json,
+        "bb pr diffstat",
+        PR_DIFFSTAT_JSON_FIELDS,
+    )?;
+    let (workspace, repo) =
+        context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
+    let id = parse_pr_numeric_id(request.id.as_deref())?;
+    let client = client_from_profile(request.profile.as_deref())?;
+    let path = format!("/repositories/{workspace}/{repo}/pullrequests/{id}/diffstat");
+    let query = collect_query([
+        ("q", request.q.as_deref()),
+        ("sort", request.sort.as_deref()),
+        ("fields", request.fields.as_deref()),
+    ]);
+    let values = fetch_values(&client, &path, &query, request.all)?;
+
+    match output {
+        ListOutput::Json => print_json_list(stdout, &values, json_fields.as_deref()),
+        ListOutput::Table => {
+            write!(stdout, "{}", render::render_pr_diffstat_table(&values)).map_err(CliError::from)
         }
     }
 }
@@ -2056,6 +2170,8 @@ fn redact_token(input: &str, token: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use httpmock::Method::GET;
+    use httpmock::MockServer;
     use std::io::Cursor;
 
     use serde_json::json;
@@ -2099,5 +2215,49 @@ mod tests {
             error.message(),
             "--paginate cannot be combined with --input"
         );
+    }
+
+    #[test]
+    fn write_pr_progress_uses_total_when_available() {
+        let mut stderr = Vec::new();
+        write_pr_progress(&mut stderr, 25, Some(100)).expect("progress should render");
+        assert_eq!(stderr, b"\rFetched 25/100 pull requests");
+    }
+
+    #[test]
+    fn fetch_all_prs_writes_each_page_when_progress_is_enabled() {
+        let server = MockServer::start();
+        let page2 = server.mock(|when, then| {
+            when.method(GET).path("/page2");
+            then.json_body(json!({"values":[{"id":2}],"size":2}));
+        });
+        let page1 = server.mock(|when, then| {
+            when.method(GET)
+                .path("/pullrequests")
+                .query_param("pagelen", "100");
+            then.json_body(json!({
+                "values":[{"id":1}],
+                "size":2,
+                "next": format!("{}/page2", server.base_url())
+            }));
+        });
+        let client = Client::from_profile(&Profile {
+            base_url: server.base_url(),
+            token: "token".to_string(),
+            username: String::new(),
+        })
+        .unwrap();
+        let mut stderr = Vec::new();
+
+        let values = fetch_all_prs(&client, "/pullrequests", &[], &mut stderr, true)
+            .expect("paginated fetch should succeed");
+
+        assert_eq!(values.len(), 2);
+        assert_eq!(
+            stderr,
+            b"\rFetched 1/2 pull requests\rFetched 2/2 pull requests\n"
+        );
+        page1.assert();
+        page2.assert();
     }
 }
