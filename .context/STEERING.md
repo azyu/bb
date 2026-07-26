@@ -19,7 +19,7 @@
 - Go entrypoints and Go-only workflows are removed after Rust verification passes.
 
 ## Current Phase
-- Phase: post-MVP CLI usability follow-ups complete
+- Phase: v0.2.6 release ready
 - Owner: Main
-- Linear: [AZYU-5](https://linear.app/azyu/issue/AZYU-5/bb-cli-usability-follow-ups-from-2026-07-26-feedback)
-- Notes: All seven verified feedback follow-ups are complete in Linear. The workspace passes 96 tests across four suites, and Rust formatting is clean.
+- Linear: [AZYU-13](https://linear.app/azyu/issue/AZYU-13/prepare-v026-release)
+- Notes: PR #19 is merged; `main`, workspace metadata, and `Cargo.lock` are synchronized at 0.2.6. The 99-test workspace suite, formatting check, release build, and release-binary version smoke pass. Tagging and publishing remain separate explicit release actions.
