@@ -849,6 +849,30 @@ fn pipeline_log_rejects_unbalanced_step_braces() {
 }
 
 #[test]
+fn pr_diffstat_missing_config_emits_json_error() {
+    let temp = tempdir().unwrap();
+    let output = bb_command()
+        .args([
+            "pr",
+            "diffstat",
+            "42",
+            "-R",
+            "acme/widgets",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", temp.path().join("missing.json"))
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "not_logged_in");
+}
+
+#[test]
 fn completion_bash_prints_script() {
     let output = bb_command()
         .args(["completion", "bash"])
@@ -862,6 +886,23 @@ fn completion_bash_prints_script() {
     assert!(stdout.contains("remove-request-changes"));
     assert!(stdout.contains("steps"));
     assert!(stdout.contains("log"));
+}
+
+#[test]
+fn completion_scripts_include_pr_diffstat() {
+    for shell in ["bash", "zsh", "fish", "powershell"] {
+        let output = bb_command()
+            .args(["completion", shell])
+            .output()
+            .expect("command should run");
+        assert!(output.status.success(), "{shell} completion should succeed");
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+        assert!(
+            stdout.contains("diffstat"),
+            "{shell} completion should include pr diffstat"
+        );
+    }
 }
 
 #[test]
