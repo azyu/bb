@@ -9,18 +9,21 @@ description: Run collaborative work with multiple agents in this repository usin
 
 Always do this before implementation:
 1. Read `.context/STEERING.md`.
-2. List the actionable queue:
-   ```bash
-   gh issue list -R azyu/bb-cli --state open --label backlog
-   ```
-3. Pick one unassigned issue and read it in full:
+2. Determine which issue you are working on:
+   - If an issue number was given, use it.
+   - If you already hold an open claim on an issue, resume that one.
+   - Otherwise pick one from the queue that no agent has claimed:
+     ```bash
+     gh issue list -R azyu/bb-cli --state open --label backlog
+     ```
+3. Read it in full, including comments, so you see existing claims:
    ```bash
    gh issue view <number> -R azyu/bb-cli --comments
    ```
-4. Claim it before touching code:
+4. Claim it before touching code, naming yourself in the comment:
    ```bash
    gh issue edit <number> -R azyu/bb-cli --add-assignee @me
-   gh issue comment <number> -R azyu/bb-cli --body "Starting: <one-line plan>"
+   gh issue comment <number> -R azyu/bb-cli --body "Claimed by <agent-name>: <one-line plan>"
    ```
 
 Do not start work that has no issue. Open one first.
@@ -29,7 +32,8 @@ Do not start work that has no issue. Open one first.
 
 - Keep `.context/STEERING.md` for phase-level changes and success criteria updates.
 - Keep GitHub Issues for concrete tasks, ownership, status, and blockers.
-- An issue's assignee is its owner. Do not work on an issue assigned to someone else.
+- Ownership is the most recent `Claimed by <agent-name>` comment, not the assignee. Several assistants can share one authenticated `gh` account, so `@me` identifies the account, not the agent. Do not work on an issue another agent has claimed and not released.
+- To release a claim you are abandoning, comment `Released by <agent-name>: <reason>` so the next agent can take it.
 - Record status changes and blockers as issue comments, not as edits to the issue body. The body stays the statement of work.
 - If scope changes, update `.context/STEERING.md` first, then continue coding.
 - Keep edits surgical and tied to the active issue only.

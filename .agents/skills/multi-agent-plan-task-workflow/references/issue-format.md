@@ -35,14 +35,19 @@ For an evaluation issue (no implementation committed yet), replace `Done when` w
 - `archive` — historical record, not actionable. Closed on creation.
 - `bug`, `enhancement`, `documentation` — kind of work. Combine with `backlog`.
 
-Do not invent status labels. Status lives in assignee plus comments.
+Do not invent status labels. Status lives in comments.
 
 ## Ownership and status
 
-- Owner = assignee. Claim with `gh issue edit <number> --add-assignee @me`.
+- Owner is the agent named in the most recent `Claimed by` comment. Assignee is a coarser signal: several assistants may share one authenticated `gh` account, so `@me` says which account holds the issue, not which agent.
+- Claim with both, in this order:
+  ```bash
+  gh issue edit <number> --add-assignee @me
+  gh issue comment <number> --body "Claimed by <agent-name>: <one-line plan>"
+  ```
 - Status is a comment, not a label and not a body edit:
-  - on claim: `Starting: <one-line plan>`
-  - on block: `Blocked: <what is blocking> — <what would unblock it>`
+  - on block: `Blocked by <agent-name>: <what is blocking> — <what would unblock it>`
+  - on abandon: `Released by <agent-name>: <reason>`
 
 ## Closing comment
 

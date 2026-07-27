@@ -45,7 +45,7 @@ Document roles:
 - `docs/command-contracts.md` is the command behavior reference.
 
 Update rules during work:
-- Before starting implementation, take ownership with `gh issue edit <number> -R azyu/bb-cli --add-assignee @me`, and record that you started in an issue comment.
+- Before starting implementation, take ownership with `gh issue edit <number> -R azyu/bb-cli --add-assignee @me` and a `Claimed by <agent-name>: <one-line plan>` comment. The comment is what identifies the owner — assistants can share one authenticated `gh` account, so the assignee alone does not.
 - If plan or sequence changes, update `.context/STEERING.md` before coding continues.
 - On completion, comment the verification results on the issue, close it with `gh issue close <number> -R azyu/bb-cli --reason completed`, and open follow-up issues for remaining work. GitHub has no parent/child issues here, so cross-link the follow-ups and the closed issue by number in both directions.
 
