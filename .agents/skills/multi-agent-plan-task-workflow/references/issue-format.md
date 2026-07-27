@@ -65,13 +65,20 @@ Verified:
 Not run: <command> — <reason>
 ```
 
-**After the commit or PR exists** — post the reference and close in the same step:
+**After the commit or PR exists** — post the reference:
 
 ```bash
 gh issue comment <number> -R azyu/bb-cli --body "Done in <commit-sha or #pr-number>. Follow-ups: #<number>"
-gh issue close <number> -R azyu/bb-cli --reason completed
 ```
 
 If there are no follow-ups, drop that sentence rather than writing `none`.
+
+**Once the work has landed** — close it:
+
+```bash
+gh issue close <number> -R azyu/bb-cli --reason completed
+```
+
+Landed means the commit is on the branch, or the PR merged. Do not close at PR creation: the PR can still fail CI or come back from review, and the open `backlog` queue is the only signal that the work is unfinished.
 
 State skipped checks explicitly. A closing comment that omits what was not run is wrong.

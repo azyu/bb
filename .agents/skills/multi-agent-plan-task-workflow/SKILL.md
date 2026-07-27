@@ -45,13 +45,17 @@ Do not start work that has no issue. Open one first.
    gh issue comment <number> -R azyu/bb-cli --body-file <notes>.md
    ```
 2. Create the commit, and the PR if the work needs one.
-3. Only then reference it and close, since the commit SHA and PR number do not exist before step 2:
+3. Only then reference it, since the commit SHA and PR number do not exist before step 2:
    ```bash
    gh issue comment <number> -R azyu/bb-cli --body "Done in <commit-sha or #pr-number>."
+   ```
+4. Close the issue once the work has landed:
+   ```bash
    gh issue close <number> -R azyu/bb-cli --reason completed
    ```
-4. If new work appeared, open follow-up issues with the `backlog` label and cross-link them by number in both directions. GitHub has no parent/child issues in this repository, so the cross-links are the only trail.
-5. Ensure `.context/STEERING.md` and the issue state reflect repository reality.
+   For a direct commit that is already on the branch, close now. For a PR, wait until it merges — an open PR can still fail CI or be sent back in review, and the open `backlog` queue is what tells another agent the work is unfinished.
+5. If new work appeared, open follow-up issues with the `backlog` label and cross-link them by number in both directions. GitHub has no parent/child issues in this repository, so the cross-links are the only trail.
+6. Ensure `.context/STEERING.md` and the issue state reflect repository reality.
 
 ## References
 
