@@ -40,11 +40,13 @@ Do not invent status labels. Status lives in comments.
 ## Ownership and status
 
 - Owner is the agent named in the most recent `Claimed by` comment. Assignee is a coarser signal: several assistants may share one authenticated `gh` account, so `@me` says which account holds the issue, not which agent.
-- Claim with both, in this order:
+- Claim with both, in this order, then re-read the comments to confirm yours is the newest claim:
   ```bash
   gh issue edit <number> -R azyu/bb-cli --add-assignee @me
   gh issue comment <number> -R azyu/bb-cli --body "Claimed by <agent-name>: <one-line plan>"
+  gh issue view <number> -R azyu/bb-cli --comments
   ```
+  If a competing claim landed after yours, release it and take another issue. The re-read catches the common interleaving; it is not a lock.
 - Status is a comment, not a label and not a body edit:
   - on block: `Blocked by <agent-name>: <what is blocking> — <what would unblock it>`
   - on abandon: `Released by <agent-name>: <reason>`

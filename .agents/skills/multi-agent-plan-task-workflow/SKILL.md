@@ -25,6 +25,11 @@ Always do this before implementation:
    gh issue edit <number> -R azyu/bb-cli --add-assignee @me
    gh issue comment <number> -R azyu/bb-cli --body "Claimed by <agent-name>: <one-line plan>"
    ```
+5. Re-read the comments and confirm your claim is the newest one:
+   ```bash
+   gh issue view <number> -R azyu/bb-cli --comments
+   ```
+   Two agents that read the issue at the same time can both post a claim, and the assignee cannot tell them apart. If someone else's claim landed after yours, comment `Released by <agent-name>: lost claim race` and pick a different issue. This is a read-after-write check, not a lock — it catches the common interleaving, and nothing in GitHub issues can make it airtight.
 
 Do not start work that has no issue. Open one first.
 
