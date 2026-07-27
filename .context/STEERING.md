@@ -21,5 +21,5 @@
 ## Current Phase
 - Phase: v0.2.6 release ready
 - Owner: Main
-- Linear: [AZYU-13](https://linear.app/azyu/issue/AZYU-13/prepare-v026-release)
+- Tracking: [github.com/azyu/bb-cli/issues](https://github.com/azyu/bb-cli/issues) (`backlog` label for actionable work)
 - Notes: PR #19 is merged; `main`, workspace metadata, and `Cargo.lock` are synchronized at 0.2.6. The 99-test workspace suite, formatting check, release build, and release-binary version smoke pass. Tagging and publishing remain separate explicit release actions.

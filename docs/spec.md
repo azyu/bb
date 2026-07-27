@@ -8,7 +8,7 @@
 ## Documentation Boundaries
 - `docs/spec.md` is the source of truth for implementation invariants and shared technical rules.
 - `docs/command-contracts.md` is the single source of truth for command surface, flags, output modes, help text, and failure behavior.
-- `.context/STEERING.md` holds high-level roadmap and current focus; Linear is the single source of truth for actionable backlog, ownership, status, blockers, and follow-ups. Do not record speculative or future command ideas in this file.
+- `.context/STEERING.md` holds high-level roadmap and current focus; GitHub Issues on `azyu/bb-cli` is the single source of truth for actionable backlog, ownership, status, blockers, and follow-ups. Do not record speculative or future command ideas in this file.
 
 ## Architecture
 - Rust workspace layout:
