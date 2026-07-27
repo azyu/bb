@@ -26,13 +26,13 @@ The toolchain and layout are already chosen:
 
 ## Multi-Agent Coordination
 
-Linear is the single source of truth for actionable work, status, ownership, blockers, and follow-ups. Use Orca's Linear integration through the globally installed `orca-linear` skill and `orca linear ...` commands.
+GitHub Issues on `azyu/bb-cli` is the single source of truth for actionable work, status, ownership, blockers, and follow-ups. Use the `gh` CLI. Open issues labeled `backlog` are the actionable queue; issues labeled `archive` are historical records and are not actionable.
 
 Repository planning remains in `.context/STEERING.md`, which tracks objectives, phase order, success criteria, and current focus without duplicating executable task lists.
 
 Mandatory startup rule for every agent task:
 1. Read `.context/STEERING.md`.
-2. Load the version-matched Linear guide with `orca skills get orca-linear`, confirm `orca status --json`, and read the linked issue with `orca linear issue --current --full --json`. If the worktree is not linked, locate the named issue with `orca linear search`.
+2. Read the issue you are working on with `gh issue view <number> -R azyu/bb-cli --comments`. If no issue number was given, pick one from `gh issue list -R azyu/bb-cli --state open --label backlog`, or open a new issue for the work first.
 3. Read `docs/spec.md` for the current technical spec and agent-facing behavior constraints.
 4. Only then start implementation.
 
@@ -45,9 +45,9 @@ Document roles:
 - `docs/command-contracts.md` is the command behavior reference.
 
 Update rules during work:
-- Before starting implementation, assign the Linear issue owner and move it to the intended active state.
+- Before starting implementation, take ownership with `gh issue edit <number> -R azyu/bb-cli --add-assignee @me`, and record that you started in an issue comment.
 - If plan or sequence changes, update `.context/STEERING.md` before coding continues.
-- On completion, update the Linear issue status and create parented Linear follow-ups for remaining work.
+- On completion, comment the verification results on the issue, close it with `gh issue close <number> -R azyu/bb-cli --reason completed`, and open follow-up issues for remaining work. GitHub has no parent/child issues here, so cross-link the follow-ups and the closed issue by number in both directions.
 
 ## Build & Development
 
@@ -61,9 +61,7 @@ Useful current commands:
 - Read planning and task state before any implementation:
   ```bash
   sed -n '1,240p' .context/STEERING.md
-  orca skills get orca-linear
-  orca status --json
-  orca linear issue --current --full --json
+  gh issue view <number> -R azyu/bb-cli --comments
   sed -n '1,260p' docs/spec.md
   ```
 - Review project reference:
@@ -90,7 +88,7 @@ Useful current commands:
 ## Code Standards
 
 ### Do
-- Read `.context/STEERING.md`, the applicable Linear issue, and `docs/spec.md` before any implementation task.
+- Read `.context/STEERING.md`, the applicable GitHub issue, and `docs/spec.md` before any implementation task.
 - Keep changes directly tied to the current task; avoid opportunistic refactors.
 - Prefer the smallest implementation that satisfies requirements.
 - When technical behavior changes, update `docs/spec.md` in the same change.
@@ -122,10 +120,10 @@ Current minimum checklist:
    ```bash
    rg --files -uu
    ```
-2. Re-open planning state and verify the Linear issue is current:
+2. Re-open planning state and verify the issue is current:
    ```bash
    sed -n '1,240p' .context/STEERING.md
-   orca linear issue <issue-id> --full --json
+   gh issue view <number> -R azyu/bb-cli --comments
    ```
 3. Re-open changed docs and check for coherence:
    ```bash
@@ -156,8 +154,8 @@ Rules:
 - If a command could not be run, state that explicitly.
 - Document assumptions and unresolved questions in the PR description.
 - When work is completed normally, create a commit for the finished scope.
-- Before committing, ensure `.context/STEERING.md` and the Linear issue reflect final status.
-- Include the Linear issue identifier in the commit or PR context when applicable.
+- Before committing, ensure `.context/STEERING.md` and the GitHub issue reflect final status.
+- Include the issue reference (`#<number>`) in the commit message or PR description when applicable.
 
 ## Secrets & Environment
 
