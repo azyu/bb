@@ -154,7 +154,7 @@ Rules:
 - If a command could not be run, state that explicitly.
 - Document assumptions and unresolved questions in the PR description.
 - When work is completed normally, create a commit for the finished scope.
-- Before committing, ensure `.context/STEERING.md` and the GitHub issue reflect final status.
+- Before committing, ensure `.context/STEERING.md` and the GitHub issue reflect final status. "Final status" here means the verification results are posted on the issue; closing it comes after the commit or PR exists, since the closing comment references them.
 - Include the issue reference (`#<number>`) in the commit message or PR description when applicable.
 
 ## Secrets & Environment

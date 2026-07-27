@@ -40,16 +40,18 @@ Do not start work that has no issue. Open one first.
 
 ## Completion Protocol
 
-1. Comment the verification commands actually run and their results:
+1. Before committing, comment the verification commands actually run and their results:
    ```bash
    gh issue comment <number> -R azyu/bb-cli --body-file <notes>.md
    ```
-2. Close the issue:
+2. Create the commit, and the PR if the work needs one.
+3. Only then reference it and close, since the commit SHA and PR number do not exist before step 2:
    ```bash
+   gh issue comment <number> -R azyu/bb-cli --body "Done in <commit-sha or #pr-number>."
    gh issue close <number> -R azyu/bb-cli --reason completed
    ```
-3. If new work appeared, open follow-up issues with the `backlog` label and cross-link them by number in both directions. GitHub has no parent/child issues in this repository, so the cross-links are the only trail.
-4. Ensure `.context/STEERING.md` and the issue state reflect repository reality.
+4. If new work appeared, open follow-up issues with the `backlog` label and cross-link them by number in both directions. GitHub has no parent/child issues in this repository, so the cross-links are the only trail.
+5. Ensure `.context/STEERING.md` and the issue state reflect repository reality.
 
 ## References
 
