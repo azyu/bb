@@ -28,6 +28,7 @@
 - Issue update: `PUT /repositories/{workspace}/{repo_slug}/issues/{id}`
 
 Notes:
+- Observed behavior (not an officially documented contract): `Pipeline get` also accepts a build number in place of `{uuid}`, and `Pipelines list` ignores `q=build_number=<n>` (it returns the whole collection). Resolve build selectors with `GET /repositories/{workspace}/{repo_slug}/pipelines/{build_number}`; a missing build returns 404 with detail `Pipeline with build number '<n>' not found in repository ...`, which is what confirms the segment is read as a build number.
 - Wiki commands are intentionally excluded from this map because this project handles wiki operations through the wiki Git repository, not Bitbucket Cloud REST endpoints.
 
 Use `bb api` for coverage gaps before adding a dedicated wrapper command.
