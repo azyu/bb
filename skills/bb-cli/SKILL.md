@@ -29,7 +29,7 @@ bb <command> <subcommand> [flags]
 - `bb api` request bodies are JSON-only (`--input <file>` or `--input -`). Responses follow the server's content type: JSON responses print as pretty-printed JSON, anything else (pipeline step logs, diffs, binaries) prints the raw body verbatim — redirect large or binary output to a file. Prefer the wrapped commands (`bb pipeline log`, `bb pr diff`) when you need their selector flags.
 - `bb api` has no `--output` flag. Passing one is a clap argument error on stderr; if you redirect stderr away you will see an empty result and misread it as empty data. Do not suppress stderr when probing flags.
 - Do not combine `bb api --input` with `--paginate`; paginated mode is read-only.
-- `bb pipeline get`/`steps`/`log` select a pipeline via `--build <number>` or `--uuid "{uuid}"` flags only — no positional ID, unlike `bb pr get 123`. Step UUIDs go to `--step "{uuid}"` including braces.
+- `bb pipeline get`/`steps`/`log` select a pipeline via a positional selector (`bb pipeline get 14588`, `bb pipeline log 14588 --step "{uuid}"`) — numeric means build number, brace-wrapped means UUID — or via the `--build <number>`/`--uuid "{uuid}"` flags; passing the positional together with either flag is an error. Step UUIDs go to `--step "{uuid}"` including braces.
 - `bb pipeline list` returns the API default order (oldest first) and only the first page unless `--all`. For recent builds always pass `--sort=-created_on`.
 - `bb pipeline list` filters by branch with `--branch <name>` (sent as the `target.branch` query parameter); the pipelines endpoint ignores `q`.
 - Use `bb pr comment --parent <comment-id>` for PR comment replies.
@@ -106,8 +106,8 @@ bb pr get 123 --workspace acme --repo widgets --output json
 bb pr comments 123 --workspace acme --repo widgets --output json
 bb pr comments 123 --comment-id 456 --workspace acme --repo widgets --output json
 bb pipeline list --workspace acme --repo widgets --output json
-bb pipeline get --workspace acme --repo widgets --uuid "{pipeline-uuid}" --output json
-bb pipeline log --workspace acme --repo widgets --uuid "{pipeline-uuid}"
+bb pipeline get "{pipeline-uuid}" --workspace acme --repo widgets --output json
+bb pipeline log "{pipeline-uuid}" --workspace acme --repo widgets --step "{step-uuid}"
 bb issue list --workspace acme --repo widgets --output json
 bb wiki get --workspace acme --repo widgets --page Home.md
 
@@ -134,11 +134,11 @@ bb pipeline list --branch feature/x --sort=-created_on --output json
 bb pipeline list --sort=-created_on --output json
 
 # 2. Steps for a build — find the failed step's UUID
-bb pipeline steps --build 14588 --output json
+bb pipeline steps 14588 --output json
 
 # 3. Step log — `bb api .../log` now prints the raw log, but prefer the wrapped
-#    command for its --build/--step selectors. Logs can be MBs — redirect, then grep/tail.
-bb pipeline log --build 14588 --step "{step-uuid}" > step.log
+#    command for its selector and --step handling. Logs can be MBs — redirect, then grep/tail.
+bb pipeline log 14588 --step "{step-uuid}" > step.log
 tail -100 step.log
 ```
 

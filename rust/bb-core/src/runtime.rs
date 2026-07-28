@@ -30,6 +30,8 @@ enum PipelineSelector {
     Build(u64),
 }
 
+const PIPELINE_SELECTOR_NAME: &str = "pipeline selector";
+
 const REPO_LIST_JSON_FIELDS: &[&str] = &[
     "description",
     "full_name",
@@ -1296,7 +1298,11 @@ fn handle_pipeline_get<O: Write>(
     )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
-    let selector = validate_pipeline_selector(request.uuid.as_deref(), request.build.as_deref())?;
+    let selector = validate_pipeline_selector(
+        request.uuid.as_deref(),
+        request.build.as_deref(),
+        request.positional_selector.as_deref(),
+    )?;
     let client = client_from_profile(request.profile.as_deref())?;
     let (_, pipeline_uuid) = resolve_pipeline_selector(&client, &workspace, &repo, &selector)?;
     let query = collect_query([("fields", request.fields.as_deref())]);
@@ -1326,7 +1332,11 @@ fn handle_pipeline_steps<O: Write>(
     )?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
-    let selector = validate_pipeline_selector(request.uuid.as_deref(), request.build.as_deref())?;
+    let selector = validate_pipeline_selector(
+        request.uuid.as_deref(),
+        request.build.as_deref(),
+        request.positional_selector.as_deref(),
+    )?;
     let client = client_from_profile(request.profile.as_deref())?;
     let (_, pipeline_uuid) = resolve_pipeline_selector(&client, &workspace, &repo, &selector)?;
     let query = collect_query([
@@ -1354,7 +1364,11 @@ fn handle_pipeline_log<O: Write>(
     let output = parse_write_output(&request.output)?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
-    let selector = validate_pipeline_selector(request.uuid.as_deref(), request.build.as_deref())?;
+    let selector = validate_pipeline_selector(
+        request.uuid.as_deref(),
+        request.build.as_deref(),
+        request.positional_selector.as_deref(),
+    )?;
     let (step_display_uuid, step_uuid) = normalize_uuid_arg("--step", request.step.as_deref())?;
     let client = client_from_profile(request.profile.as_deref())?;
     let (pipeline_display_uuid, pipeline_uuid) =
@@ -2019,18 +2033,35 @@ fn normalize_uuid_arg(flag_name: &str, value: Option<&str>) -> Result<(String, S
 fn validate_pipeline_selector(
     uuid: Option<&str>,
     build: Option<&str>,
+    positional_selector: Option<&str>,
 ) -> Result<PipelineSelector, CliError> {
-    match (uuid, build) {
-        (Some(uuid), None) => {
+    match (uuid, build, positional_selector) {
+        (Some(uuid), None, None) => {
             let (display_uuid, encoded_uuid) = normalize_uuid_arg("--uuid", Some(uuid))?;
             Ok(PipelineSelector::Uuid(display_uuid, encoded_uuid))
         }
-        (None, Some(build)) => Ok(PipelineSelector::Build(parse_pipeline_build_arg(build)?)),
-        (None, None) => Err(CliError::InvalidInput(
-            "pipeline identifier is required: pass --uuid or --build".to_string(),
+        (None, Some(build), None) => Ok(PipelineSelector::Build(parse_pipeline_build_arg(
+            "--build", build,
+        )?)),
+        (None, None, Some(selector)) => {
+            let selector = selector.trim();
+            if selector.starts_with('{') {
+                let (display_uuid, encoded_uuid) =
+                    normalize_uuid_arg(PIPELINE_SELECTOR_NAME, Some(selector))?;
+                Ok(PipelineSelector::Uuid(display_uuid, encoded_uuid))
+            } else {
+                Ok(PipelineSelector::Build(parse_pipeline_build_arg(
+                    PIPELINE_SELECTOR_NAME,
+                    selector,
+                )?))
+            }
+        }
+        (None, None, None) => Err(CliError::InvalidInput(
+            "pipeline identifier is required: pass a build number or {uuid} positionally, or --uuid/--build"
+                .to_string(),
         )),
-        (Some(_), Some(_)) => Err(CliError::InvalidInput(
-            "pass exactly one of --uuid or --build".to_string(),
+        _ => Err(CliError::InvalidInput(
+            "pass exactly one of the positional selector, --uuid, or --build".to_string(),
         )),
     }
 }
@@ -2051,15 +2082,15 @@ fn resolve_pipeline_selector(
     }
 }
 
-fn parse_pipeline_build_arg(build: &str) -> Result<u64, CliError> {
-    let build = required_string("--build is required", Some(build))?;
+fn parse_pipeline_build_arg(arg_name: &str, build: &str) -> Result<u64, CliError> {
+    let build = required_string(&format!("{arg_name} is required"), Some(build))?;
     let build = build
         .parse::<u64>()
-        .map_err(|_| CliError::InvalidInput("--build must be a positive integer".to_string()))?;
+        .map_err(|_| CliError::InvalidInput(format!("{arg_name} must be a positive integer")))?;
     if build == 0 {
-        return Err(CliError::InvalidInput(
-            "--build must be a positive integer".to_string(),
-        ));
+        return Err(CliError::InvalidInput(format!(
+            "{arg_name} must be a positive integer"
+        )));
     }
     Ok(build)
 }
@@ -2269,5 +2300,79 @@ mod tests {
         );
         page1.assert();
         page2.assert();
+    }
+
+    #[test]
+    fn validate_pipeline_selector_reads_positional_build_number() {
+        let selector = validate_pipeline_selector(None, None, Some("14588"))
+            .expect("positional build number should be accepted");
+
+        assert!(matches!(selector, PipelineSelector::Build(14588)));
+    }
+
+    #[test]
+    fn validate_pipeline_selector_reads_positional_uuid() {
+        let selector = validate_pipeline_selector(None, None, Some("{pipe-123}"))
+            .expect("positional uuid should be accepted");
+
+        let PipelineSelector::Uuid(display_uuid, encoded_uuid) = selector else {
+            panic!("expected uuid selector");
+        };
+        assert_eq!(display_uuid, "{pipe-123}");
+        assert_eq!(encoded_uuid, "%7Bpipe-123%7D");
+    }
+
+    #[test]
+    fn validate_pipeline_selector_rejects_non_numeric_positional() {
+        let Err(error) = validate_pipeline_selector(None, None, Some("abc")) else {
+            panic!("positional selector should be rejected");
+        };
+
+        assert_eq!(error.code(), "invalid_input");
+        assert_eq!(
+            error.message(),
+            "pipeline selector must be a positive integer"
+        );
+    }
+
+    #[test]
+    fn validate_pipeline_selector_rejects_zero_positional() {
+        let Err(error) = validate_pipeline_selector(None, None, Some("0")) else {
+            panic!("positional selector should be rejected");
+        };
+
+        assert_eq!(error.code(), "invalid_input");
+        assert_eq!(
+            error.message(),
+            "pipeline selector must be a positive integer"
+        );
+    }
+
+    #[test]
+    fn validate_pipeline_selector_rejects_positional_with_flags() {
+        for (uuid, build) in [(Some("{pipe-123}"), None), (None, Some("17"))] {
+            let Err(error) = validate_pipeline_selector(uuid, build, Some("17")) else {
+                panic!("positional selector with a flag should be rejected");
+            };
+
+            assert_eq!(error.code(), "invalid_input");
+            assert_eq!(
+                error.message(),
+                "pass exactly one of the positional selector, --uuid, or --build"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_pipeline_selector_requires_an_identifier() {
+        let Err(error) = validate_pipeline_selector(None, None, None) else {
+            panic!("missing identifier should be rejected");
+        };
+
+        assert_eq!(error.code(), "invalid_input");
+        assert_eq!(
+            error.message(),
+            "pipeline identifier is required: pass a build number or {uuid} positionally, or --uuid/--build"
+        );
     }
 }
