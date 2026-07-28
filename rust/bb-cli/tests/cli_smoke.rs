@@ -657,17 +657,12 @@ fn pipeline_get_json_reads_config_and_calls_server() {
 #[test]
 fn pipeline_get_build_json_resolves_uuid_from_server() {
     let server = MockServer::start();
-    let list = server.mock(|when, then| {
+    let lookup = server.mock(|when, then| {
         when.method(GET)
-            .path("/2.0/repositories/acme/widgets/pipelines")
-            .query_param("q", "build_number=17");
+            .path("/2.0/repositories/acme/widgets/pipelines/17");
         then.json_body(json!({
-            "values": [
-                {
-                    "uuid": "{pipe-123}",
-                    "build_number": 17
-                }
-            ]
+            "uuid": "{pipe-123}",
+            "build_number": 17
         }));
     });
     let pipeline = server.mock(|when, then| {
@@ -707,8 +702,101 @@ fn pipeline_get_build_json_resolves_uuid_from_server() {
     let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
     assert_eq!(body["uuid"], "{pipe-123}");
     assert_eq!(body["build_number"], 17);
-    list.assert();
+    lookup.assert();
     pipeline.assert();
+}
+
+#[test]
+fn pipeline_get_build_rejects_mismatched_lookup_result() {
+    let server = MockServer::start();
+    let lookup = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines/17");
+        then.json_body(json!({
+            "uuid": "{aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}",
+            "build_number": 1
+        }));
+    });
+    let pipeline = server.mock(|when, then| {
+        when.method(GET).path(
+            "/2.0/repositories/acme/widgets/pipelines/%7Baaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa%7D",
+        );
+        then.json_body(json!({
+            "uuid": "{aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}",
+            "build_number": 1,
+            "state": { "name": "COMPLETED", "result": { "name": "SUCCESSFUL" } }
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "get",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--build",
+            "17",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "internal_error");
+    lookup.assert();
+    assert_eq!(pipeline.hits(), 0);
+}
+
+#[test]
+fn pipeline_get_build_not_found_emits_api_error() {
+    let server = MockServer::start();
+    let lookup = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines/17");
+        then.status(404).json_body(json!({
+            "error": {
+                "message": "Not found",
+                "detail": "Pipeline with build number '17' not found in repository acme/widgets."
+            }
+        }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "get",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--build",
+            "17",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "api_error");
+    lookup.assert();
 }
 
 #[test]
@@ -806,17 +894,12 @@ fn pipeline_steps_json_reads_config_and_calls_server() {
 #[test]
 fn pipeline_steps_build_json_resolves_uuid_from_server() {
     let server = MockServer::start();
-    let list = server.mock(|when, then| {
+    let lookup = server.mock(|when, then| {
         when.method(GET)
-            .path("/2.0/repositories/acme/widgets/pipelines")
-            .query_param("q", "build_number=17");
+            .path("/2.0/repositories/acme/widgets/pipelines/17");
         then.json_body(json!({
-            "values": [
-                {
-                    "uuid": "{pipe-123}",
-                    "build_number": 17
-                }
-            ]
+            "uuid": "{pipe-123}",
+            "build_number": 17
         }));
     });
     let steps = server.mock(|when, then| {
@@ -859,7 +942,7 @@ fn pipeline_steps_build_json_resolves_uuid_from_server() {
     let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
     assert_eq!(body[0]["uuid"], "{step-1}");
     assert_eq!(body[0]["name"], "build");
-    list.assert();
+    lookup.assert();
     steps.assert();
 }
 
@@ -902,17 +985,12 @@ fn pipeline_log_text_reads_config_and_calls_server() {
 #[test]
 fn pipeline_log_build_text_resolves_uuid_from_server() {
     let server = MockServer::start();
-    let list = server.mock(|when, then| {
+    let lookup = server.mock(|when, then| {
         when.method(GET)
-            .path("/2.0/repositories/acme/widgets/pipelines")
-            .query_param("q", "build_number=17");
+            .path("/2.0/repositories/acme/widgets/pipelines/17");
         then.json_body(json!({
-            "values": [
-                {
-                    "uuid": "{pipe-123}",
-                    "build_number": 17
-                }
-            ]
+            "uuid": "{pipe-123}",
+            "build_number": 17
         }));
     });
     let log = server.mock(|when, then| {
@@ -945,24 +1023,19 @@ fn pipeline_log_build_text_resolves_uuid_from_server() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
     assert_eq!(stdout, "build failed\n");
-    list.assert();
+    lookup.assert();
     log.assert();
 }
 
 #[test]
 fn pipeline_get_positional_build_resolves_uuid_from_server() {
     let server = MockServer::start();
-    let list = server.mock(|when, then| {
+    let lookup = server.mock(|when, then| {
         when.method(GET)
-            .path("/2.0/repositories/acme/widgets/pipelines")
-            .query_param("q", "build_number=14588");
+            .path("/2.0/repositories/acme/widgets/pipelines/14588");
         then.json_body(json!({
-            "values": [
-                {
-                    "uuid": "{pipe-123}",
-                    "build_number": 14588
-                }
-            ]
+            "uuid": "{pipe-123}",
+            "build_number": 14588
         }));
     });
     let pipeline = server.mock(|when, then| {
@@ -1001,7 +1074,7 @@ fn pipeline_get_positional_build_resolves_uuid_from_server() {
     let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
     assert_eq!(body["uuid"], "{pipe-123}");
     assert_eq!(body["build_number"], 14588);
-    list.assert();
+    lookup.assert();
     pipeline.assert();
 }
 
@@ -1049,17 +1122,12 @@ fn pipeline_get_positional_uuid_calls_server_directly() {
 #[test]
 fn pipeline_steps_positional_build_resolves_uuid_from_server() {
     let server = MockServer::start();
-    let list = server.mock(|when, then| {
+    let lookup = server.mock(|when, then| {
         when.method(GET)
-            .path("/2.0/repositories/acme/widgets/pipelines")
-            .query_param("q", "build_number=14588");
+            .path("/2.0/repositories/acme/widgets/pipelines/14588");
         then.json_body(json!({
-            "values": [
-                {
-                    "uuid": "{pipe-123}",
-                    "build_number": 14588
-                }
-            ]
+            "uuid": "{pipe-123}",
+            "build_number": 14588
         }));
     });
     let steps = server.mock(|when, then| {
@@ -1100,24 +1168,19 @@ fn pipeline_steps_positional_build_resolves_uuid_from_server() {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
     let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
     assert_eq!(body[0]["uuid"], "{step-1}");
-    list.assert();
+    lookup.assert();
     steps.assert();
 }
 
 #[test]
 fn pipeline_log_positional_build_resolves_uuid_from_server() {
     let server = MockServer::start();
-    let list = server.mock(|when, then| {
+    let lookup = server.mock(|when, then| {
         when.method(GET)
-            .path("/2.0/repositories/acme/widgets/pipelines")
-            .query_param("q", "build_number=14588");
+            .path("/2.0/repositories/acme/widgets/pipelines/14588");
         then.json_body(json!({
-            "values": [
-                {
-                    "uuid": "{pipe-123}",
-                    "build_number": 14588
-                }
-            ]
+            "uuid": "{pipe-123}",
+            "build_number": 14588
         }));
     });
     let log = server.mock(|when, then| {
@@ -1149,7 +1212,7 @@ fn pipeline_log_positional_build_resolves_uuid_from_server() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
     assert_eq!(stdout, "build failed\n");
-    list.assert();
+    lookup.assert();
     log.assert();
 }
 

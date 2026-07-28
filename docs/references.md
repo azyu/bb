@@ -140,6 +140,7 @@ Operational UX:
 - `GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}`
 - `GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}/steps`
 - `GET /repositories/{workspace}/{repo_slug}/pipelines/{pipeline_uuid}/steps/{step_uuid}/log`
+  - Observed (not an officially documented contract): the `{pipeline_uuid}` path segment also accepts a build number, and the pipelines list endpoint ignores `q=build_number=<n>` (it returns the whole collection). Build selectors (`--build <n>`, numeric positional) therefore resolve through `GET .../pipelines/{build_number}`; the server's own 404 detail (`Pipeline with build number '<n>' not found in repository ...`) confirms it treats the segment as a build number.
 - `POST /repositories/{workspace}/{repo_slug}/pipelines`
 - `GET /repositories/{workspace}/{repo_slug}/issues`
 - Wiki operations via Git remote:

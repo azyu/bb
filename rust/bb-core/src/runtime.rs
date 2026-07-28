@@ -2101,13 +2101,23 @@ fn resolve_pipeline_build_lookup(
     repo: &str,
     build: u64,
 ) -> Result<(String, String), CliError> {
-    let path = format!("/repositories/{workspace}/{repo}/pipelines");
-    let query = collect_query([("q", Some(&format!("build_number={build}")[..]))]);
-    let values = client.get_page(&path, &query)?.0;
-    let value = values
-        .into_iter()
-        .next()
-        .ok_or_else(|| CliError::InvalidInput(format!("no pipeline found for --build {build}")))?;
+    let value = client.request_value(
+        Method::GET,
+        &format!("/repositories/{workspace}/{repo}/pipelines/{build}"),
+        &[],
+        None,
+    )?;
+    let returned_build = value
+        .get("build_number")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            CliError::Internal("pipeline lookup response missing build_number".to_string())
+        })?;
+    if returned_build != build {
+        return Err(CliError::Internal(format!(
+            "pipeline lookup returned build {returned_build}, expected {build}"
+        )));
+    }
     let uuid = value
         .get("uuid")
         .and_then(Value::as_str)
