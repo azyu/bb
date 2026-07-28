@@ -77,6 +77,8 @@
 - Support both relative API paths and absolute URLs.
 - Support `q`, `sort`, and `fields` query params where applicable.
 - Surface API failures with HTTP status and short response-body context.
+- Pipeline build-number selectors (`--build <n>`, numeric positional) resolve through the numeric `{pipeline}` path segment (`GET /repositories/{workspace}/{repo_slug}/pipelines/{build_number}`) — observed Bitbucket Cloud behavior, not an officially documented contract; the pipelines list endpoint ignores `q=build_number`.
+- The build lookup verifies the returned `build_number` matches the request (mismatch is an internal error); a nonexistent build surfaces the API 404 as a plain API failure, same as UUID selectors.
 
 ## Wiki Rules
 - Wiki commands use the wiki Git repository over HTTPS, not REST endpoints.
