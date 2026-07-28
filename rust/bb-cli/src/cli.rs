@@ -696,6 +696,8 @@ pub struct PipelineGetArgs {
     pub uuid: Option<String>,
     #[arg(long, conflicts_with = "uuid")]
     pub build: Option<String>,
+    #[arg(index = 1, value_name = "SELECTOR", conflicts_with_all = ["uuid", "build"])]
+    pub selector: Option<String>,
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long, default_value = "text")]
@@ -716,6 +718,8 @@ pub struct PipelineStepsArgs {
     pub uuid: Option<String>,
     #[arg(long, conflicts_with = "uuid")]
     pub build: Option<String>,
+    #[arg(index = 1, value_name = "SELECTOR", conflicts_with_all = ["uuid", "build"])]
+    pub selector: Option<String>,
     #[arg(long, default_value = "table")]
     pub output: String,
     #[arg(long)]
@@ -740,6 +744,8 @@ pub struct PipelineLogArgs {
     pub uuid: Option<String>,
     #[arg(long, conflicts_with = "uuid")]
     pub build: Option<String>,
+    #[arg(index = 1, value_name = "SELECTOR", conflicts_with_all = ["uuid", "build"])]
+    pub selector: Option<String>,
     #[arg(long)]
     pub step: Option<String>,
     #[arg(long)]
@@ -1181,6 +1187,7 @@ fn map_request(cli: Cli) -> Request {
                 repo: args.repo,
                 uuid: args.uuid,
                 build: args.build,
+                positional_selector: args.selector,
                 profile: args.profile,
                 output: args.output,
                 fields: args.fields,
@@ -1191,6 +1198,7 @@ fn map_request(cli: Cli) -> Request {
                 repo: args.repo,
                 uuid: args.uuid,
                 build: args.build,
+                positional_selector: args.selector,
                 output: args.output,
                 all: args.all,
                 profile: args.profile,
@@ -1203,6 +1211,7 @@ fn map_request(cli: Cli) -> Request {
                 repo: args.repo,
                 uuid: args.uuid,
                 build: args.build,
+                positional_selector: args.selector,
                 step: args.step,
                 profile: args.profile,
                 output: args.output,
@@ -1748,6 +1757,39 @@ mod tests {
         assert_eq!(request.uuid.as_deref(), Some("{pipe}"));
         assert_eq!(request.step.as_deref(), Some("{step}"));
         assert_eq!(request.output, "text");
+    }
+
+    #[test]
+    fn pipeline_get_maps_positional_selector() {
+        let request = parse_from(["bb", "pipeline", "get", "14588", "--output", "json"])
+            .expect("parse should succeed");
+        let Request::Pipeline(PipelineRequest::Get(request)) = request else {
+            panic!("expected pipeline get");
+        };
+        assert_eq!(request.positional_selector.as_deref(), Some("14588"));
+        assert_eq!(request.uuid, None);
+        assert_eq!(request.build, None);
+    }
+
+    #[test]
+    fn pipeline_steps_maps_positional_selector() {
+        let request = parse_from(["bb", "pipeline", "steps", "14588", "--output", "json"])
+            .expect("parse should succeed");
+        let Request::Pipeline(PipelineRequest::Steps(request)) = request else {
+            panic!("expected pipeline steps");
+        };
+        assert_eq!(request.positional_selector.as_deref(), Some("14588"));
+    }
+
+    #[test]
+    fn pipeline_log_maps_positional_selector() {
+        let request = parse_from(["bb", "pipeline", "log", "14588", "--step", "{step}"])
+            .expect("parse should succeed");
+        let Request::Pipeline(PipelineRequest::Log(request)) = request else {
+            panic!("expected pipeline log");
+        };
+        assert_eq!(request.positional_selector.as_deref(), Some("14588"));
+        assert_eq!(request.step.as_deref(), Some("{step}"));
     }
 
     #[test]
