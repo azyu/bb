@@ -77,9 +77,13 @@ This document is the contract baseline for `bb` command behavior.
   - `--profile`
   - `--q`, `--sort`, `--fields`
 - Output:
-  - JSON
+  - Pretty-printed JSON when the response `Content-Type` MIME subtype is `json` or ends with `+json`
+  - Raw response body verbatim for any other content type (including a missing header); no trailing newline added
+  - Empty response body -> no output
+  - `--paginate` always merges `values` and prints JSON
 - Failure behavior:
   - API error -> non-zero exit with status/body summary
+  - JSON content type with an undecodable body -> non-zero exit with `internal_error`
   - `--paginate` with `--input` -> non-zero exit
   - Missing endpoint arg -> non-zero exit with usage
 

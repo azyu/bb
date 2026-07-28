@@ -265,9 +265,10 @@ fn api_post_with_input_file_sends_json_body() {
                     "raw": "reply body"
                 }
             }));
-        then.json_body(json!({
-            "id": 91
-        }));
+        then.header("content-type", "application/json")
+            .json_body(json!({
+                "id": 91
+            }));
     });
 
     let temp = tempdir().unwrap();
@@ -362,6 +363,68 @@ fn api_invalid_input_json_emits_error() {
             .expect("message should be a string")
             .contains("invalid JSON body")
     );
+}
+
+#[test]
+fn api_prints_plain_text_response_verbatim() {
+    let server = MockServer::start();
+    let log_body = "+ npm test\nfailed with exit code 1\n";
+    let log = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines/14588/steps/step-uuid/log");
+        then.header("content-type", "text/plain").body(log_body);
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "api",
+            "repositories/acme/widgets/pipelines/14588/steps/step-uuid/log",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    assert_eq!(output.stdout, log_body.as_bytes());
+    log.assert();
+}
+
+#[test]
+fn api_malformed_json_response_emits_internal_error() {
+    let server = MockServer::start();
+    let broken = server.mock(|when, then| {
+        when.method(GET).path("/2.0/repositories/acme/widgets");
+        then.header("content-type", "application/json")
+            .body("{not-json");
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args(["api", "repositories/acme/widgets"])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(!output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["error"]["code"], "internal_error");
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .expect("message should be a string")
+            .starts_with("decode response")
+    );
+    broken.assert();
 }
 
 #[test]

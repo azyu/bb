@@ -26,7 +26,7 @@ bb <command> <subcommand> [flags]
 - For write operations, do not guess IDs, branch names, or target repos. Resolve them first.
 - `bb pr create` uses `--description` and `--destination`; do not substitute `--body` or `--dest`.
 - Use `bb api` when the wrapped command surface does not cover the operation you need.
-- `bb api` is JSON-only in both directions: request bodies via `--input <file>` or `--input -`, and every response is decoded as JSON. Endpoints that return plain text or binary (pipeline step logs, diffs) fail with `internal_error: decode response` — use the wrapped command (`bb pipeline log`, `bb pr diff`) for those.
+- `bb api` request bodies are JSON-only (`--input <file>` or `--input -`). Responses follow the server's content type: JSON responses print as pretty-printed JSON, anything else (pipeline step logs, diffs, binaries) prints the raw body verbatim — redirect large or binary output to a file. Prefer the wrapped commands (`bb pipeline log`, `bb pr diff`) when you need their selector flags.
 - `bb api` has no `--output` flag. Passing one is a clap argument error on stderr; if you redirect stderr away you will see an empty result and misread it as empty data. Do not suppress stderr when probing flags.
 - Do not combine `bb api --input` with `--paginate`; paginated mode is read-only.
 - `bb pipeline get`/`steps`/`log` select a pipeline via `--build <number>` or `--uuid "{uuid}"` flags only — no positional ID, unlike `bb pr get 123`. Step UUIDs go to `--step "{uuid}"` including braces.
@@ -136,8 +136,8 @@ bb pipeline list --sort=-created_on --output json
 # 2. Steps for a build — find the failed step's UUID
 bb pipeline steps --build 14588 --output json
 
-# 3. Step log via the wrapped command, never `bb api .../log` (non-JSON response).
-#    Logs can be MBs — redirect to a file, then grep/tail.
+# 3. Step log — `bb api .../log` now prints the raw log, but prefer the wrapped
+#    command for its --build/--step selectors. Logs can be MBs — redirect, then grep/tail.
 bb pipeline log --build 14588 --step "{step-uuid}" > step.log
 tail -100 step.log
 ```

@@ -5,7 +5,7 @@ use std::path::Path;
 use reqwest::Method;
 use serde_json::{Value, json};
 
-use crate::client::Client;
+use crate::client::{ApiResponse, Client};
 use crate::config::{self, Profile};
 use crate::context;
 use crate::error::CliError;
@@ -411,14 +411,18 @@ fn handle_api<O: Write>(request: &ApiRequest, stdout: &mut O) -> Result<(), CliE
 
     let method = request.method.trim().to_uppercase();
     let body = read_api_input_body(request.input.as_deref())?;
-    let value = client.request_value(
+    let response = client.request_api(
         Method::from_bytes(method.as_bytes())
             .map_err(|error| CliError::InvalidInput(format!("invalid HTTP method: {error}")))?,
         endpoint,
         &query,
         body,
+        stdout,
     )?;
-    render::print_json(stdout, &value)
+    match response {
+        ApiResponse::Json(value) => render::print_json(stdout, &value),
+        ApiResponse::Raw => Ok(()),
+    }
 }
 
 fn handle_repo<O: Write>(request: &RepoRequest, stdout: &mut O) -> Result<(), CliError> {

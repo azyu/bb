@@ -54,7 +54,9 @@
 - Commands that support machine-readable output emit JSON to stdout.
 - Runtime failures for JSON-capable commands emit JSON error envelopes when that command is running in JSON mode.
 - CLI parse/help errors are emitted by `bb-cli` before runtime dispatch and therefore remain clap-rendered text output.
-- `bb api` is JSON-only.
+- `bb api` request bodies are JSON-only; `--paginate` is JSON-only.
+- `bb api` success output follows the response `Content-Type`: pretty-printed JSON when the MIME subtype is `json` or ends with `+json`, otherwise the raw response body verbatim. Empty bodies print nothing.
+- `bb api` runtime failures still emit JSON error envelopes.
 - `--fields` is Bitbucket API query passthrough.
 - `--json-fields` is local client-side JSON projection, requires `--output json`, and uses command-specific allowlists defined by the implementation and described in `docs/command-contracts.md`.
 - Nested-resource selectors must use dedicated flags instead of overloading an existing primary `--id` meaning; document them in `docs/command-contracts.md`.
