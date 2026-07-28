@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{Seek, SeekFrom, Write};
 
 use reqwest::Method;
 use reqwest::blocking::Client as HttpClient;
@@ -147,7 +147,13 @@ impl Client {
             .is_some_and(is_json_content_type);
 
         if !is_json {
-            std::io::copy(&mut response, raw_out).map_err(CliError::from)?;
+            // stdout must receive either the complete body or only the error envelope, never a
+            // mix: errors are printed as JSON to the same stream. Spool to an anonymous temp file
+            // so a mid-download failure never touches the sink, without buffering in memory.
+            let mut spool = tempfile::tempfile().map_err(CliError::from)?;
+            std::io::copy(&mut response, &mut spool).map_err(CliError::from)?;
+            spool.seek(SeekFrom::Start(0)).map_err(CliError::from)?;
+            std::io::copy(&mut spool, raw_out).map_err(CliError::from)?;
             return Ok(ApiResponse::Raw);
         }
 
