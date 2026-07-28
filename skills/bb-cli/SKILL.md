@@ -26,8 +26,12 @@ bb <command> <subcommand> [flags]
 - For write operations, do not guess IDs, branch names, or target repos. Resolve them first.
 - `bb pr create` uses `--description` and `--destination`; do not substitute `--body` or `--dest`.
 - Use `bb api` when the wrapped command surface does not cover the operation you need.
-- `bb api` is JSON-only and accepts request bodies via `--input <file>` or `--input -` for stdin.
+- `bb api` is JSON-only in both directions: request bodies via `--input <file>` or `--input -`, and every response is decoded as JSON. Endpoints that return plain text or binary (pipeline step logs, diffs) fail with `internal_error: decode response` — use the wrapped command (`bb pipeline log`, `bb pr diff`) for those.
+- `bb api` has no `--output` flag. Passing one is a clap argument error on stderr; if you redirect stderr away you will see an empty result and misread it as empty data. Do not suppress stderr when probing flags.
 - Do not combine `bb api --input` with `--paginate`; paginated mode is read-only.
+- `bb pipeline get`/`steps`/`log` select a pipeline via `--build <number>` or `--uuid "{uuid}"` flags only — no positional ID, unlike `bb pr get 123`. Step UUIDs go to `--step "{uuid}"` including braces.
+- `bb pipeline list` returns the API default order (oldest first) and only the first page unless `--all`. For recent builds always pass `--sort=-created_on`.
+- `bb pipeline list` has no branch filter and the pipelines endpoint ignores `q`; filter by branch via `bb api` with the `target.branch=<name>` query parameter.
 - Use `bb pr comment --parent <comment-id>` for PR comment replies.
 - Wiki commands use the repo's wiki Git remote, not a REST endpoint.
 - Runtime failures in JSON mode return JSON error envelopes; parse/help failures stay text.
@@ -118,6 +122,24 @@ bb wiki put --workspace acme --repo widgets --page Home.md --file ./docs/home.md
 bb api repositories/acme/widgets/pullrequests --paginate
 bb api --method POST --input ./body.json repositories/acme/widgets/pullrequests/123/comments
 printf '{"content":{"raw":"Reply text"}}' | bb api --method POST --input - repositories/acme/widgets/pullrequests/123/comments
+```
+
+## Recipe: Pipeline Failure Triage
+
+```bash
+# 1. Recent pipelines for a branch (list has no branch filter — use the API param)
+bb api "repositories/acme/widgets/pipelines?target.branch=feature/x&sort=-created_on&pagelen=10"
+
+# 1b. Recent pipelines regardless of branch (default order is oldest-first — always sort)
+bb pipeline list --sort=-created_on --output json
+
+# 2. Steps for a build — find the failed step's UUID
+bb pipeline steps --build 14588 --output json
+
+# 3. Step log via the wrapped command, never `bb api .../log` (non-JSON response).
+#    Logs can be MBs — redirect to a file, then grep/tail.
+bb pipeline log --build 14588 --step "{step-uuid}" > step.log
+tail -100 step.log
 ```
 
 ## GitHub CLI Compatibility
