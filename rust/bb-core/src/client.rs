@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use reqwest::Method;
 use reqwest::blocking::Client as HttpClient;
 use serde::Deserialize;
@@ -20,7 +22,7 @@ struct ListPage {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ApiResponse {
     Json(Value),
-    Raw(Vec<u8>),
+    Raw,
 }
 
 pub struct Client {
@@ -129,32 +131,35 @@ impl Client {
         self.request_json(method, path, query, body)
     }
 
-    pub fn request_api(
+    pub fn request_api<W: Write>(
         &self,
         method: Method,
         path: &str,
         query: &[(String, String)],
         body: Option<Value>,
+        raw_out: &mut W,
     ) -> Result<ApiResponse, CliError> {
-        let response = self.send_request(method, path, query, body)?;
+        let mut response = self.send_request(method, path, query, body)?;
         let is_json = response
             .headers()
             .get(reqwest::header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .is_some_and(is_json_content_type);
+
+        if !is_json {
+            std::io::copy(&mut response, raw_out).map_err(CliError::from)?;
+            return Ok(ApiResponse::Raw);
+        }
+
         let bytes = response
             .bytes()
             .map_err(|error| CliError::Internal(format!("decode response: {error}")))?;
-
         if bytes.is_empty() {
-            return Ok(ApiResponse::Raw(Vec::new()));
+            return Ok(ApiResponse::Raw);
         }
-        if is_json {
-            let value = serde_json::from_slice(&bytes)
-                .map_err(|error| CliError::Internal(format!("decode response: {error}")))?;
-            return Ok(ApiResponse::Json(value));
-        }
-        Ok(ApiResponse::Raw(bytes.to_vec()))
+        let value = serde_json::from_slice(&bytes)
+            .map_err(|error| CliError::Internal(format!("decode response: {error}")))?;
+        Ok(ApiResponse::Json(value))
     }
 
     pub fn request_text(
@@ -420,12 +425,14 @@ mod tests {
                 .body("+ npm test\nfailed\n");
         });
         let client = api_client(&server);
+        let mut sink: Vec<u8> = Vec::new();
 
         let response = client
-            .request_api(Method::GET, "/log", &[], None)
+            .request_api(Method::GET, "/log", &[], None, &mut sink)
             .expect("plain text response should succeed");
 
-        assert_eq!(response, ApiResponse::Raw(b"+ npm test\nfailed\n".to_vec()));
+        assert_eq!(response, ApiResponse::Raw);
+        assert_eq!(sink, b"+ npm test\nfailed\n");
         log.assert();
     }
 
@@ -438,12 +445,14 @@ mod tests {
             then.header("content-type", "image/png").body(bytes);
         });
         let client = api_client(&server);
+        let mut sink: Vec<u8> = Vec::new();
 
         let response = client
-            .request_api(Method::GET, "/avatar", &[], None)
+            .request_api(Method::GET, "/avatar", &[], None, &mut sink)
             .expect("binary response should succeed");
 
-        assert_eq!(response, ApiResponse::Raw(bytes.to_vec()));
+        assert_eq!(response, ApiResponse::Raw);
+        assert_eq!(sink, bytes);
         avatar.assert();
     }
 
@@ -456,12 +465,14 @@ mod tests {
                 .json_body(json!({"slug": "widgets"}));
         });
         let client = api_client(&server);
+        let mut sink: Vec<u8> = Vec::new();
 
         let response = client
-            .request_api(Method::GET, "/repo", &[], None)
+            .request_api(Method::GET, "/repo", &[], None, &mut sink)
             .expect("json response should succeed");
 
         assert_eq!(response, ApiResponse::Json(json!({"slug": "widgets"})));
+        assert!(sink.is_empty());
         repo.assert();
     }
 
@@ -474,12 +485,14 @@ mod tests {
                 .json_body(json!({"slug": "widgets"}));
         });
         let client = api_client(&server);
+        let mut sink: Vec<u8> = Vec::new();
 
         let response = client
-            .request_api(Method::GET, "/repo", &[], None)
+            .request_api(Method::GET, "/repo", &[], None, &mut sink)
             .expect("hal+json response should succeed");
 
         assert_eq!(response, ApiResponse::Json(json!({"slug": "widgets"})));
+        assert!(sink.is_empty());
         repo.assert();
     }
 
@@ -492,15 +505,14 @@ mod tests {
                 .body("{\"id\":1}\n{\"id\":2}\n");
         });
         let client = api_client(&server);
+        let mut sink: Vec<u8> = Vec::new();
 
         let response = client
-            .request_api(Method::GET, "/stream", &[], None)
+            .request_api(Method::GET, "/stream", &[], None, &mut sink)
             .expect("ndjson response should succeed");
 
-        assert_eq!(
-            response,
-            ApiResponse::Raw(b"{\"id\":1}\n{\"id\":2}\n".to_vec())
-        );
+        assert_eq!(response, ApiResponse::Raw);
+        assert_eq!(sink, b"{\"id\":1}\n{\"id\":2}\n");
         stream.assert();
     }
 
@@ -512,15 +524,14 @@ mod tests {
             then.body("{\"slug\":\"widgets\"}");
         });
         let client = api_client(&server);
+        let mut sink: Vec<u8> = Vec::new();
 
         let response = client
-            .request_api(Method::GET, "/untyped", &[], None)
+            .request_api(Method::GET, "/untyped", &[], None, &mut sink)
             .expect("untyped response should succeed");
 
-        assert_eq!(
-            response,
-            ApiResponse::Raw(b"{\"slug\":\"widgets\"}".to_vec())
-        );
+        assert_eq!(response, ApiResponse::Raw);
+        assert_eq!(sink, b"{\"slug\":\"widgets\"}");
         untyped.assert();
     }
 
@@ -532,12 +543,14 @@ mod tests {
             then.header("content-type", "application/json").body("");
         });
         let client = api_client(&server);
+        let mut sink: Vec<u8> = Vec::new();
 
         let response = client
-            .request_api(Method::GET, "/empty", &[], None)
+            .request_api(Method::GET, "/empty", &[], None, &mut sink)
             .expect("empty response should succeed");
 
-        assert_eq!(response, ApiResponse::Raw(Vec::new()));
+        assert_eq!(response, ApiResponse::Raw);
+        assert!(sink.is_empty());
         empty.assert();
     }
 
@@ -550,9 +563,10 @@ mod tests {
                 .body("{not-json");
         });
         let client = api_client(&server);
+        let mut sink: Vec<u8> = Vec::new();
 
         let error = client
-            .request_api(Method::GET, "/broken", &[], None)
+            .request_api(Method::GET, "/broken", &[], None, &mut sink)
             .expect_err("malformed json should fail");
 
         assert_eq!(error.code(), "internal_error");
@@ -561,6 +575,7 @@ mod tests {
             "unexpected message: {}",
             error.message()
         );
+        assert!(sink.is_empty());
         broken.assert();
     }
 }
