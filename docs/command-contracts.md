@@ -472,7 +472,7 @@ Naming rule: prefer Bitbucket API-aligned names (`get`, `update`, `request-chang
   - `--output` (`table` default, `json`)
   - `--all` (follow pagination)
   - `--profile`
-  - `--sort`, `--fields`
+  - `--sort` (when unset the API is observed to return oldest-first; pass `--sort=-created_on` for most recent first), `--fields`
   - `--json-fields` (requires `--output json`)
 - Output:
   - `table`: `BUILD`, `UUID`, `STATE`, `REF`
