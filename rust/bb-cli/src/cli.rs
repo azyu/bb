@@ -680,7 +680,10 @@ pub struct PipelineListArgs {
     pub profile: Option<String>,
     #[arg(long)]
     pub branch: Option<String>,
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Sort expression passed to the API; when unset the API is observed to return oldest-first, so pass --sort=-created_on for the most recent builds"
+    )]
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,

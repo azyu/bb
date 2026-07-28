@@ -443,6 +443,19 @@ fn pipeline_help_lists_debugging_commands() {
 }
 
 #[test]
+fn pipeline_list_help_documents_oldest_first_sort_default() {
+    let output = bb_command()
+        .args(["pipeline", "list", "--help"])
+        .output()
+        .expect("command should run");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    assert!(stdout.contains("oldest-first"));
+    assert!(stdout.contains("--sort=-created_on"));
+}
+
+#[test]
 fn pipeline_list_table_shows_build_number_first() {
     let server = MockServer::start();
     let pipelines = server.mock(|when, then| {
