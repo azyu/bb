@@ -679,6 +679,8 @@ pub struct PipelineListArgs {
     #[arg(long)]
     pub profile: Option<String>,
     #[arg(long)]
+    pub branch: Option<String>,
+    #[arg(long)]
     pub sort: Option<String>,
     #[arg(long)]
     pub fields: Option<String>,
@@ -1172,6 +1174,7 @@ fn map_request(cli: Cli) -> Request {
                 output: args.output,
                 all: args.all,
                 profile: args.profile,
+                branch: args.branch,
                 sort: args.sort,
                 fields: args.fields,
                 json_fields: args.json_fields,

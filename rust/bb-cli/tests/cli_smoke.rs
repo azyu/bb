@@ -3,6 +3,7 @@ use std::process::Command;
 
 use httpmock::Method::{DELETE, GET, POST, PUT};
 use httpmock::MockServer;
+use httpmock::prelude::HttpMockRequest;
 use serde_json::json;
 use tempfile::tempdir;
 
@@ -482,6 +483,119 @@ fn pipeline_list_table_shows_build_number_first() {
     assert!(stdout.contains("17"));
     assert!(!stdout.contains("UUID   STATE"));
     pipelines.assert();
+}
+
+#[test]
+fn pipeline_list_branch_sends_target_branch_query_param() {
+    let server = MockServer::start();
+    let pipelines = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines")
+            .query_param("target.branch", "feature/x");
+        then.json_body(json!({ "values": [] }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "list",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--branch",
+            "feature/x",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    pipelines.assert();
+}
+
+#[test]
+fn pipeline_list_without_branch_omits_target_branch_query_param() {
+    let server = MockServer::start();
+    let pipelines = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines")
+            .matches(|req: &HttpMockRequest| match req.query_params.as_ref() {
+                None => true,
+                Some(params) => params.iter().all(|(name, _)| name != "target.branch"),
+            });
+        then.json_body(json!({ "values": [] }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    let output = bb_command()
+        .args([
+            "pipeline",
+            "list",
+            "--workspace",
+            "acme",
+            "--repo",
+            "widgets",
+            "--output",
+            "json",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    pipelines.assert();
+}
+
+#[test]
+fn pipeline_list_rejects_empty_branch_without_calling_server() {
+    let server = MockServer::start();
+    let pipelines = server.mock(|when, then| {
+        when.method(GET)
+            .path("/2.0/repositories/acme/widgets/pipelines");
+        then.json_body(json!({ "values": [] }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    for branch in ["", "   "] {
+        let output = bb_command()
+            .args([
+                "pipeline",
+                "list",
+                "--workspace",
+                "acme",
+                "--repo",
+                "widgets",
+                "--branch",
+                branch,
+                "--output",
+                "json",
+            ])
+            .env("BB_CONFIG_PATH", &config_path)
+            .output()
+            .expect("command should run");
+
+        assert!(!output.status.success());
+        assert!(output.stderr.is_empty());
+        let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+        let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+        assert_eq!(body["error"]["code"], "invalid_input");
+        assert_eq!(body["error"]["message"], "--branch must not be empty");
+    }
+
+    pipelines.assert_hits(0);
 }
 
 #[test]

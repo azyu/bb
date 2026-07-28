@@ -292,6 +292,7 @@ pub struct PipelineListRequest {
     pub output: String,
     pub all: bool,
     pub profile: Option<String>,
+    pub branch: Option<String>,
     pub sort: Option<String>,
     pub fields: Option<String>,
     pub json_fields: Option<String>,
