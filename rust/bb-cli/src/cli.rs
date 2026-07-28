@@ -678,6 +678,8 @@ pub struct PipelineListArgs {
     pub all: bool,
     #[arg(long)]
     pub profile: Option<String>,
+    #[arg(long)]
+    pub branch: Option<String>,
     #[arg(
         long,
         help = "Sort expression passed to the API; when unset the API is observed to return oldest-first, so pass --sort=-created_on for the most recent builds"
@@ -1175,6 +1177,7 @@ fn map_request(cli: Cli) -> Request {
                 output: args.output,
                 all: args.all,
                 profile: args.profile,
+                branch: args.branch,
                 sort: args.sort,
                 fields: args.fields,
                 json_fields: args.json_fields,

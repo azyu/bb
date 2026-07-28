@@ -1255,10 +1255,16 @@ fn handle_pipeline_list<O: Write>(
         "bb pipeline list",
         PIPELINE_JSON_FIELDS,
     )?;
+    let branch = request
+        .branch
+        .as_deref()
+        .map(|branch| required_string("--branch must not be empty", Some(branch)))
+        .transpose()?;
     let (workspace, repo) =
         context::resolve_repo_target(request.workspace.as_deref(), request.repo.as_deref(), true)?;
     let client = client_from_profile(request.profile.as_deref())?;
     let query = collect_query([
+        ("target.branch", branch),
         ("sort", request.sort.as_deref()),
         ("fields", request.fields.as_deref()),
     ]);

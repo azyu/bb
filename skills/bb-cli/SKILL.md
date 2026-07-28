@@ -31,7 +31,7 @@ bb <command> <subcommand> [flags]
 - Do not combine `bb api --input` with `--paginate`; paginated mode is read-only.
 - `bb pipeline get`/`steps`/`log` select a pipeline via `--build <number>` or `--uuid "{uuid}"` flags only — no positional ID, unlike `bb pr get 123`. Step UUIDs go to `--step "{uuid}"` including braces.
 - `bb pipeline list` returns the API default order (oldest first) and only the first page unless `--all`. For recent builds always pass `--sort=-created_on`.
-- `bb pipeline list` has no branch filter and the pipelines endpoint ignores `q`; filter by branch via `bb api` with the `target.branch=<name>` query parameter.
+- `bb pipeline list` filters by branch with `--branch <name>` (sent as the `target.branch` query parameter); the pipelines endpoint ignores `q`.
 - Use `bb pr comment --parent <comment-id>` for PR comment replies.
 - Wiki commands use the repo's wiki Git remote, not a REST endpoint.
 - Runtime failures in JSON mode return JSON error envelopes; parse/help failures stay text.
@@ -127,8 +127,8 @@ printf '{"content":{"raw":"Reply text"}}' | bb api --method POST --input - repos
 ## Recipe: Pipeline Failure Triage
 
 ```bash
-# 1. Recent pipelines for a branch (list has no branch filter — use the API param)
-bb api "repositories/acme/widgets/pipelines?target.branch=feature/x&sort=-created_on&pagelen=10"
+# 1. Recent pipelines for a branch
+bb pipeline list --branch feature/x --sort=-created_on --output json
 
 # 1b. Recent pipelines regardless of branch (default order is oldest-first — always sort)
 bb pipeline list --sort=-created_on --output json
