@@ -5,7 +5,7 @@ use std::path::Path;
 use reqwest::Method;
 use serde_json::{Value, json};
 
-use crate::client::Client;
+use crate::client::{ApiResponse, Client};
 use crate::config::{self, Profile};
 use crate::context;
 use crate::error::CliError;
@@ -411,14 +411,21 @@ fn handle_api<O: Write>(request: &ApiRequest, stdout: &mut O) -> Result<(), CliE
 
     let method = request.method.trim().to_uppercase();
     let body = read_api_input_body(request.input.as_deref())?;
-    let value = client.request_value(
+    let response = client.request_api(
         Method::from_bytes(method.as_bytes())
             .map_err(|error| CliError::InvalidInput(format!("invalid HTTP method: {error}")))?,
         endpoint,
         &query,
         body,
     )?;
-    render::print_json(stdout, &value)
+    print_api_response(stdout, &response)
+}
+
+fn print_api_response<O: Write>(stdout: &mut O, response: &ApiResponse) -> Result<(), CliError> {
+    match response {
+        ApiResponse::Json(value) => render::print_json(stdout, value),
+        ApiResponse::Raw(bytes) => stdout.write_all(bytes).map_err(CliError::from),
+    }
 }
 
 fn handle_repo<O: Write>(request: &RepoRequest, stdout: &mut O) -> Result<(), CliError> {
@@ -2215,6 +2222,39 @@ mod tests {
             error.message(),
             "--paginate cannot be combined with --input"
         );
+    }
+
+    #[test]
+    fn print_api_response_pretty_prints_json() {
+        let value = json!({"id": 91, "title": "widget"});
+        let mut expected = Vec::new();
+        render::print_json(&mut expected, &value).expect("json should render");
+        let mut stdout = Vec::new();
+
+        print_api_response(&mut stdout, &ApiResponse::Json(value)).expect("json should print");
+
+        assert_eq!(stdout, expected);
+    }
+
+    #[test]
+    fn print_api_response_writes_raw_bytes_verbatim() {
+        let bytes = b"+ npm test\nfailed".to_vec();
+        let mut stdout = Vec::new();
+
+        print_api_response(&mut stdout, &ApiResponse::Raw(bytes.clone()))
+            .expect("raw body should print");
+
+        assert_eq!(stdout, bytes);
+    }
+
+    #[test]
+    fn print_api_response_prints_nothing_for_empty_raw_body() {
+        let mut stdout = Vec::new();
+
+        print_api_response(&mut stdout, &ApiResponse::Raw(Vec::new()))
+            .expect("empty body should print");
+
+        assert!(stdout.is_empty());
     }
 
     #[test]

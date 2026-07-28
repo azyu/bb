@@ -17,6 +17,12 @@ struct ListPage {
     size: Option<u64>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ApiResponse {
+    Json(Value),
+    Raw(Vec<u8>),
+}
+
 pub struct Client {
     base_url: String,
     token: String,
@@ -123,6 +129,34 @@ impl Client {
         self.request_json(method, path, query, body)
     }
 
+    pub fn request_api(
+        &self,
+        method: Method,
+        path: &str,
+        query: &[(String, String)],
+        body: Option<Value>,
+    ) -> Result<ApiResponse, CliError> {
+        let response = self.send_request(method, path, query, body)?;
+        let is_json = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(is_json_content_type);
+        let bytes = response
+            .bytes()
+            .map_err(|error| CliError::Internal(format!("decode response: {error}")))?;
+
+        if bytes.is_empty() {
+            return Ok(ApiResponse::Raw(Vec::new()));
+        }
+        if is_json {
+            let value = serde_json::from_slice(&bytes)
+                .map_err(|error| CliError::Internal(format!("decode response: {error}")))?;
+            return Ok(ApiResponse::Json(value));
+        }
+        Ok(ApiResponse::Raw(bytes.to_vec()))
+    }
+
     pub fn request_text(
         &self,
         method: Method,
@@ -196,6 +230,17 @@ impl Client {
 
         Ok(response)
     }
+}
+
+fn is_json_content_type(header: &str) -> bool {
+    let mime = header.split(';').next().unwrap_or_default().trim();
+    let Some((_, subtype)) = mime.split_once('/') else {
+        return false;
+    };
+    subtype.eq_ignore_ascii_case("json")
+        || subtype
+            .rsplit_once('+')
+            .is_some_and(|(_, suffix)| suffix.eq_ignore_ascii_case("json"))
 }
 
 #[cfg(test)]
@@ -355,5 +400,167 @@ mod tests {
         let body = client.request_text(Method::GET, "/diff", &[]).unwrap();
         assert_eq!(body, "diff --git a/file b/file\n");
         diff.assert();
+    }
+
+    fn api_client(server: &MockServer) -> Client {
+        Client::from_profile(&Profile {
+            base_url: server.base_url(),
+            token: "token".to_string(),
+            username: String::new(),
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn request_api_returns_raw_body_for_plain_text_response() {
+        let server = MockServer::start();
+        let log = server.mock(|when, then| {
+            when.method(GET).path("/log");
+            then.header("content-type", "text/plain")
+                .body("+ npm test\nfailed\n");
+        });
+        let client = api_client(&server);
+
+        let response = client
+            .request_api(Method::GET, "/log", &[], None)
+            .expect("plain text response should succeed");
+
+        assert_eq!(response, ApiResponse::Raw(b"+ npm test\nfailed\n".to_vec()));
+        log.assert();
+    }
+
+    #[test]
+    fn request_api_returns_raw_body_for_non_utf8_response() {
+        let server = MockServer::start();
+        let bytes: &[u8] = b"\x89PNG\r\n\x1a\n\xff\xfe";
+        let avatar = server.mock(|when, then| {
+            when.method(GET).path("/avatar");
+            then.header("content-type", "image/png").body(bytes);
+        });
+        let client = api_client(&server);
+
+        let response = client
+            .request_api(Method::GET, "/avatar", &[], None)
+            .expect("binary response should succeed");
+
+        assert_eq!(response, ApiResponse::Raw(bytes.to_vec()));
+        avatar.assert();
+    }
+
+    #[test]
+    fn request_api_parses_json_content_type_with_parameters() {
+        let server = MockServer::start();
+        let repo = server.mock(|when, then| {
+            when.method(GET).path("/repo");
+            then.header("content-type", "application/json; charset=utf-8")
+                .json_body(json!({"slug": "widgets"}));
+        });
+        let client = api_client(&server);
+
+        let response = client
+            .request_api(Method::GET, "/repo", &[], None)
+            .expect("json response should succeed");
+
+        assert_eq!(response, ApiResponse::Json(json!({"slug": "widgets"})));
+        repo.assert();
+    }
+
+    #[test]
+    fn request_api_parses_json_suffixed_content_type() {
+        let server = MockServer::start();
+        let repo = server.mock(|when, then| {
+            when.method(GET).path("/repo");
+            then.header("content-type", "application/hal+json")
+                .json_body(json!({"slug": "widgets"}));
+        });
+        let client = api_client(&server);
+
+        let response = client
+            .request_api(Method::GET, "/repo", &[], None)
+            .expect("hal+json response should succeed");
+
+        assert_eq!(response, ApiResponse::Json(json!({"slug": "widgets"})));
+        repo.assert();
+    }
+
+    #[test]
+    fn request_api_returns_raw_body_for_ndjson_content_type() {
+        let server = MockServer::start();
+        let stream = server.mock(|when, then| {
+            when.method(GET).path("/stream");
+            then.header("content-type", "application/x-ndjson")
+                .body("{\"id\":1}\n{\"id\":2}\n");
+        });
+        let client = api_client(&server);
+
+        let response = client
+            .request_api(Method::GET, "/stream", &[], None)
+            .expect("ndjson response should succeed");
+
+        assert_eq!(
+            response,
+            ApiResponse::Raw(b"{\"id\":1}\n{\"id\":2}\n".to_vec())
+        );
+        stream.assert();
+    }
+
+    #[test]
+    fn request_api_returns_raw_body_when_content_type_is_missing() {
+        let server = MockServer::start();
+        let untyped = server.mock(|when, then| {
+            when.method(GET).path("/untyped");
+            then.body("{\"slug\":\"widgets\"}");
+        });
+        let client = api_client(&server);
+
+        let response = client
+            .request_api(Method::GET, "/untyped", &[], None)
+            .expect("untyped response should succeed");
+
+        assert_eq!(
+            response,
+            ApiResponse::Raw(b"{\"slug\":\"widgets\"}".to_vec())
+        );
+        untyped.assert();
+    }
+
+    #[test]
+    fn request_api_returns_empty_raw_body_for_empty_json_response() {
+        let server = MockServer::start();
+        let empty = server.mock(|when, then| {
+            when.method(GET).path("/empty");
+            then.header("content-type", "application/json").body("");
+        });
+        let client = api_client(&server);
+
+        let response = client
+            .request_api(Method::GET, "/empty", &[], None)
+            .expect("empty response should succeed");
+
+        assert_eq!(response, ApiResponse::Raw(Vec::new()));
+        empty.assert();
+    }
+
+    #[test]
+    fn request_api_rejects_malformed_json_body() {
+        let server = MockServer::start();
+        let broken = server.mock(|when, then| {
+            when.method(GET).path("/broken");
+            then.header("content-type", "application/json")
+                .body("{not-json");
+        });
+        let client = api_client(&server);
+
+        let error = client
+            .request_api(Method::GET, "/broken", &[], None)
+            .expect_err("malformed json should fail");
+
+        assert_eq!(error.code(), "internal_error");
+        assert!(
+            error.message().starts_with("decode response"),
+            "unexpected message: {}",
+            error.message()
+        );
+        broken.assert();
     }
 }
