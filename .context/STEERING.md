@@ -19,7 +19,7 @@
 - Go entrypoints and Go-only workflows are removed after Rust verification passes.
 
 ## Current Phase
-- Phase: v0.2.7 release ready
+- Phase: v0.2.7 released
 - Owner: Main
 - Tracking: [GitHub issue #36](https://github.com/azyu/bb-cli/issues/36)
-- Notes: The latest `main` changes and workspace metadata are synchronized at 0.2.7. The 130-test workspace suite, formatting check, release build, and release-binary version smoke pass. Tagging and publication remain.
+- Notes: Release v0.2.7 was published from commit `20705ed`. All five platform archives and `checksums.txt` are available, published checksums pass, the macOS ARM64 artifact reports 0.2.7, and the Homebrew formula is synchronized.
