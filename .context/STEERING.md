@@ -19,7 +19,7 @@
 - Go entrypoints and Go-only workflows are removed after Rust verification passes.
 
 ## Current Phase
-- Phase: v0.2.6 release ready
+- Phase: v0.2.7 release ready
 - Owner: Main
-- Tracking: [github.com/azyu/bb-cli/issues](https://github.com/azyu/bb-cli/issues) (`backlog` label for actionable work)
-- Notes: PR #19 is merged; `main`, workspace metadata, and `Cargo.lock` are synchronized at 0.2.6. The 99-test workspace suite, formatting check, release build, and release-binary version smoke pass. Tagging and publishing remain separate explicit release actions.
+- Tracking: [GitHub issue #36](https://github.com/azyu/bb-cli/issues/36)
+- Notes: The latest `main` changes and workspace metadata are synchronized at 0.2.7. The 130-test workspace suite, formatting check, release build, and release-binary version smoke pass. Tagging and publication remain.
