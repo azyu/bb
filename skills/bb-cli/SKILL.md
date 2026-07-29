@@ -19,14 +19,14 @@ bb <command> <subcommand> [flags]
 
 - Prefer `--output json` for automation.
 - Use `--json-fields` only on commands that explicitly support it.
-- Outside a cloned Bitbucket repo, pass `--workspace` and `--repo` explicitly.
+- Outside a cloned Bitbucket repo, pass `-R <workspace>/<repo>` or explicit `--workspace` and `--repo`; `-R` conflicts with the two explicit flags.
 - Before any write operation, inspect the exact subcommand help in the current session and use only documented flags.
 - Existing-PR commands accept positional `ID` or `--id`; passing both is an error.
 - For `bb pr comments`, `ID`/`--id` always mean the pull request ID. Use `--comment-id` to target a single comment; never pass a comment ID via `--id`.
 - For write operations, do not guess IDs, branch names, or target repos. Resolve them first.
-- `bb pr create` uses `--description` and `--destination`; do not substitute `--body` or `--dest`.
+- `bb pr create` uses `--destination`; `--body` is an accepted alias for `--description`, but `--base` and `--dest` are not accepted.
 - Use `bb api` when the wrapped command surface does not cover the operation you need.
-- `bb api` request bodies are JSON-only (`--input <file>` or `--input -`). Responses follow the server's content type: JSON responses print as pretty-printed JSON, anything else (pipeline step logs, diffs, binaries) prints the raw body verbatim — redirect large or binary output to a file. Prefer the wrapped commands (`bb pipeline log`, `bb pr diff`) when you need their selector flags.
+- `bb api` request bodies are JSON-only (`--input <file>` or `--input -`). Responses follow the server's content type: JSON responses print as pretty-printed JSON, anything else (pipeline step logs, diffs, binaries) prints the raw body verbatim — redirect large or binary output to a file. Pagination still requires JSON pages. Prefer the wrapped commands (`bb pipeline log`, `bb pr diff`) when you need their selector flags.
 - `bb api` has no `--output` flag. Passing one is a clap argument error on stderr; if you redirect stderr away you will see an empty result and misread it as empty data. Do not suppress stderr when probing flags.
 - Do not combine `bb api --input` with `--paginate`; paginated mode is read-only.
 - `bb pipeline get`/`steps`/`log` select a pipeline via a positional selector (`bb pipeline get 14588`, `bb pipeline log 14588 --step "{uuid}"`) — numeric means build number, brace-wrapped means UUID — or via the `--build <number>`/`--uuid "{uuid}"` flags; passing the positional together with either flag is an error. Step UUIDs go to `--step "{uuid}"` including braces.
@@ -68,7 +68,7 @@ bb <command> <subcommand> [flags]
 
 ### api
 
-- Raw Bitbucket Cloud REST calls with JSON output.
+- Raw Bitbucket Cloud REST calls with JSON request bodies and content-type-aware response output.
 
 ## Discovering Commands
 
@@ -146,4 +146,4 @@ tail -100 step.log
 
 Subcommand aliases accepted: `view`→`get`, `edit`→`update`, `close`→`decline`, `checks`→`statuses`.
 
-Flag names differ — `bb pr create` uses `--description` (not `--body`) and `--destination` (not `--base`/`--dest`). When unsure, run `<command> --help`.
+Flag names differ — `bb pr create` uses `--destination` (not `--base`/`--dest`); `--body` is accepted as an alias for `--description`. When unsure, run `<command> --help`.

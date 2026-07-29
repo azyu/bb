@@ -19,7 +19,7 @@
 - Go entrypoints and Go-only workflows are removed after Rust verification passes.
 
 ## Current Phase
-- Phase: v0.2.7 released
+- Phase: v0.2.7 skill synchronized
 - Owner: Main
-- Tracking: [GitHub issue #36](https://github.com/azyu/bb-cli/issues/36)
-- Notes: Release v0.2.7 was published from commit `20705ed`. All five platform archives and `checksums.txt` are available, published checksums pass, the macOS ARM64 artifact reports 0.2.7, and the Homebrew formula is synchronized.
+- Tracking: [GitHub issue #37](https://github.com/azyu/bb-cli/issues/37)
+- Notes: The repository and local skillctl canonical `bb-cli` skill match the v0.2.7 command contracts. Claude and Codex rendered targets are applied, byte-identical to the repository source, and `skillctl plan` reports no changes.
