@@ -19,7 +19,7 @@
 - Go entrypoints and Go-only workflows are removed after Rust verification passes.
 
 ## Current Phase
-- Phase: v0.2.7 skill synchronized
+- Phase: Rust CLI/runtime module refactor completed
 - Owner: Main
-- Tracking: [GitHub issue #37](https://github.com/azyu/bb-cli/issues/37)
-- Notes: The repository and local skillctl canonical `bb-cli` skill match the v0.2.7 command contracts. Claude and Codex rendered targets are applied, byte-identical to the repository source, and `skillctl plan` reports no changes.
+- Tracking: [GitHub issue #38](https://github.com/azyu/bb-cli/issues/38)
+- Notes: CLI parsing and runtime execution are split into cohesive command-domain modules. The v0.2.7 command contracts and runtime behavior remain covered by 130 passing workspace tests.
