@@ -96,7 +96,7 @@ bb completion zsh
 |-------|-------------|
 | `bb auth` | `login`, `status`, `logout` |
 | `bb repo` | `list` |
-| `bb pr` | `list`, `get`, `create`, `update`, `merge`, `approve`, `unapprove`, `request-changes`, `remove-request-changes`, `decline`, `comment`, `comment-update`, `comments`, `diff`, `statuses`, `activity` |
+| `bb pr` | `list`, `get`, `create`, `update`, `merge`, `approve`, `unapprove`, `request-changes`, `remove-request-changes`, `decline`, `comment`, `comment-update`, `comments`, `diff`, `diffstat`, `statuses`, `activity` |
 | `bb pipeline` | `list`, `get`, `steps`, `log`, `run` |
 | `bb issue` | `list`, `create`, `update` |
 | `bb wiki` | `list`, `get`, `put` |
@@ -158,7 +158,7 @@ Add `write:*` scopes only for mutating commands.
 | Command | Required scopes |
 |---------|-----------------|
 | `bb repo list` | `read:repository` |
-| `bb pr list/get/comments/diff/statuses/activity` | `read:repository`, `read:pullrequest` |
+| `bb pr list/get/comments/diff/diffstat/statuses/activity` | `read:repository`, `read:pullrequest` |
 | `bb pr create/update/merge/approve/unapprove/request-changes/remove-request-changes/decline/comment/comment-update` | `read:repository`, `read:pullrequest`, `write:pullrequest` |
 | `bb pipeline list/get/steps/log` | `read:repository`, `read:pipeline` |
 | `bb pipeline run` | `read:repository`, `read:pipeline`, `write:pipeline` |
