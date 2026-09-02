@@ -1,5 +1,8 @@
 use std::fs;
 use std::process::Command;
+use std::time::Duration;
+
+use assert_cmd::Command as AssertCommand;
 
 use httpmock::Method::{DELETE, GET, POST, PUT};
 use httpmock::MockServer;
@@ -295,6 +298,50 @@ fn api_post_with_input_file_sends_json_body() {
     let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
     let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
     assert_eq!(body["id"], 91);
+    api.assert();
+}
+
+#[test]
+fn api_post_with_stdin_input_sends_json_body() {
+    let server = MockServer::start();
+    let api = server.mock(|when, then| {
+        when.method(POST)
+            .path("/2.0/repositories/acme/widgets/pullrequests/42/comments")
+            .json_body(json!({
+                "content": {
+                    "raw": "stdin body"
+                }
+            }));
+        then.header("content-type", "application/json")
+            .json_body(json!({
+                "id": 92
+            }));
+    });
+
+    let temp = tempdir().unwrap();
+    let config_path = temp.path().join("config.json");
+    write_config(&config_path, &format!("{}/2.0", server.base_url()));
+
+    // A stdin regression deadlocks the binary, so cap the wait: fail fast instead of hanging CI.
+    let output = AssertCommand::from_std(bb_command())
+        .args([
+            "api",
+            "--method",
+            "POST",
+            "--input",
+            "-",
+            "repositories/acme/widgets/pullrequests/42/comments",
+        ])
+        .env("BB_CONFIG_PATH", &config_path)
+        .write_stdin(r#"{"content":{"raw":"stdin body"}}"#)
+        .timeout(Duration::from_secs(30))
+        .output()
+        .expect("command should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf-8");
+    let body: serde_json::Value = serde_json::from_str(&stdout).expect("stdout should be json");
+    assert_eq!(body["id"], 92);
     api.assert();
 }
 

@@ -11,7 +11,11 @@ use crate::render;
 
 use super::support::{client_from_profile, collect_query, optional_trimmed};
 
-pub(super) fn handle_api<O: Write>(request: &ApiRequest, stdout: &mut O) -> Result<(), CliError> {
+pub(super) fn handle_api<R: Read, O: Write>(
+    request: &ApiRequest,
+    stdin: &mut R,
+    stdout: &mut O,
+) -> Result<(), CliError> {
     validate_api_request_options(request)?;
     let endpoint = request
         .endpoint
@@ -32,7 +36,7 @@ pub(super) fn handle_api<O: Write>(request: &ApiRequest, stdout: &mut O) -> Resu
     }
 
     let method = request.method.trim().to_uppercase();
-    let body = read_api_input_body(request.input.as_deref())?;
+    let body = read_api_input_body_from(request.input.as_deref(), stdin)?;
     let response = client.request_api(
         Method::from_bytes(method.as_bytes())
             .map_err(|error| CliError::InvalidInput(format!("invalid HTTP method: {error}")))?,
@@ -46,11 +50,6 @@ pub(super) fn handle_api<O: Write>(request: &ApiRequest, stdout: &mut O) -> Resu
         ApiResponse::Raw => Ok(()),
     }
 }
-fn read_api_input_body(input: Option<&str>) -> Result<Option<Value>, CliError> {
-    let mut stdin = std::io::stdin();
-    read_api_input_body_from(input, &mut stdin)
-}
-
 fn read_api_input_body_from<R: Read>(
     input: Option<&str>,
     stdin: &mut R,

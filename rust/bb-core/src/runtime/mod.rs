@@ -77,7 +77,7 @@ fn dispatch<R: BufRead, O: Write, E: Write>(
             writeln!(stdout, "{script}")?;
         }
         Request::Auth(auth) => auth::handle_auth(auth, stdin, stdout)?,
-        Request::Api(api) => api::handle_api(api, stdout)?,
+        Request::Api(api) => api::handle_api(api, stdin, stdout)?,
         Request::Repo(repo) => repo::handle_repo(repo, stdout)?,
         Request::Pr(pr) => pr::handle_pr(pr, stdout, stderr, stdout_is_tty, stderr_is_tty)?,
         Request::Pipeline(pipeline) => pipeline::handle_pipeline(pipeline, stdout)?,
