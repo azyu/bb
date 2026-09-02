@@ -13,23 +13,27 @@ metadata:
 
 ```bash
 bb <command> <subcommand> [flags]
+bb api [flags] <endpoint>
+bb completion <shell>
+bb version
 ```
 
 ## Agent Usage Rules
 
 - Prefer `--output json` for automation.
 - Use `--json-fields` only on commands that explicitly support it.
-- Outside a cloned Bitbucket repo, pass `-R <workspace>/<repo>` or explicit `--workspace` and `--repo`; `-R` conflicts with the two explicit flags.
+- Outside a cloned Bitbucket repo, pass `-R <workspace>/<repo>` or explicit `--workspace` and `--repo`; `-R` conflicts with the two explicit flags. `-R` is accepted only by the repository-scoped groups (`pr`, `pipeline`, `issue`, `wiki`) — `repo list` takes `--workspace` alone, and `api`/`auth` reject it.
 - Before any write operation, inspect the exact subcommand help in the current session and use only documented flags.
 - Existing-PR commands accept positional `ID` or `--id`; passing both is an error.
 - For `bb pr comments`, `ID`/`--id` always mean the pull request ID. Use `--comment-id` to target a single comment; never pass a comment ID via `--id`.
+- `bb pr comment` only creates a new comment. To edit an existing one use `bb pr comment-update <PR_ID> --comment-id <id> --content ...`.
 - For write operations, do not guess IDs, branch names, or target repos. Resolve them first.
 - `bb pr create` uses `--destination`; `--body` is an accepted alias for `--description`, but `--base` and `--dest` are not accepted.
 - Use `bb api` when the wrapped command surface does not cover the operation you need.
 - `bb api` request bodies are JSON-only (`--input <file>` or `--input -`). Responses follow the server's content type: JSON responses print as pretty-printed JSON, anything else (pipeline step logs, diffs, binaries) prints the raw body verbatim — redirect large or binary output to a file. Pagination still requires JSON pages. Prefer the wrapped commands (`bb pipeline log`, `bb pr diff`) when you need their selector flags.
 - `bb api` has no `--output` flag. Passing one is a clap argument error on stderr; if you redirect stderr away you will see an empty result and misread it as empty data. Do not suppress stderr when probing flags.
 - Do not combine `bb api --input` with `--paginate`; paginated mode is read-only.
-- `bb pipeline get`/`steps`/`log` select a pipeline via a positional selector (`bb pipeline get 14588`, `bb pipeline log 14588 --step "{uuid}"`) — numeric means build number, brace-wrapped means UUID — or via the `--build <number>`/`--uuid "{uuid}"` flags; passing the positional together with either flag is an error. Step UUIDs go to `--step "{uuid}"` including braces.
+- `bb pipeline get`/`steps`/`log` select a pipeline via a positional selector (`bb pipeline get 14588`, `bb pipeline log 14588 --step "{uuid}"`) — numeric means build number, brace-wrapped means UUID — or via the `--build <number>`/`--uuid "{uuid}"` flags; passing the positional together with either flag is an error. Braces are optional for `--step`/`--uuid`, but required on a positional selector — that is what distinguishes a UUID from a build number.
 - `bb pipeline list` returns the API default order (oldest first) and only the first page unless `--all`. For recent builds always pass `--sort=-created_on`.
 - `bb pipeline list` filters by branch with `--branch <name>` (sent as the `target.branch` query parameter); the pipelines endpoint ignores `q`.
 - Use `bb pr comment --parent <comment-id>` for PR comment replies.
@@ -52,7 +56,7 @@ bb <command> <subcommand> [flags]
 
 - `list`, `get`, `create`, `update`, `merge`
 - `approve`, `unapprove`, `request-changes`, `remove-request-changes`, `decline`
-- `comment`, `comments`, `diff`, `statuses`, `activity`
+- `comment`, `comment-update`, `comments`, `diff`, `diffstat`, `statuses`, `activity`
 
 ### pipeline
 
@@ -69,6 +73,14 @@ bb <command> <subcommand> [flags]
 ### api
 
 - Raw Bitbucket Cloud REST calls with JSON request bodies and content-type-aware response output.
+
+### completion
+
+- `bb completion <bash|zsh|fish|powershell>` - Print a shell completion script.
+
+### version
+
+- `bb version`, `bb --version`, `bb -v` - Show build version metadata.
 
 ## Discovering Commands
 
