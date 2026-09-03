@@ -180,9 +180,6 @@ jobs:
         with:
           ref: main
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Update workspace version
         shell: bash
         run: |
@@ -190,7 +187,7 @@ jobs:
           VERSION="${{ env.RELEASE_TAG }}"
           VERSION="${VERSION#v}"
           sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"${VERSION}\"/}" rust/Cargo.toml
-          cargo update --manifest-path rust/Cargo.toml -p bb-cli -p bb-core --offline
+          python3 .github/scripts/bump_lockfile_version.py "${VERSION}"
 
       - name: Commit and push if changed
         shell: bash
