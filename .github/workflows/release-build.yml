@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="${{ env.RELEASE_TAG }}"
+          TAG="${RELEASE_TAG}"
           if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid release tag: ${TAG}"
             echo "Expected format: vMAJOR.MINOR.PATCH (example: v0.0.1)"
@@ -88,8 +88,7 @@ jobs:
           BB_BUILD_DATE: ${{ github.event.repository.updated_at }}
         run: |
           set -euo pipefail
-          VERSION="${{ env.RELEASE_TAG }}"
-          VERSION="${VERSION#v}"
+          VERSION="${RELEASE_TAG#v}"
           BB_BUILD_VERSION="${VERSION}" \
             cargo build --manifest-path rust/Cargo.toml -p bb-cli --bin bb --release --target "${{ matrix.target }}"
 
@@ -98,8 +97,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${{ env.RELEASE_TAG }}"
-          VERSION="${VERSION#v}"
+          VERSION="${RELEASE_TAG#v}"
           ARCHIVE_NAME="bb_${VERSION}_${{ matrix.platform_id }}"
 
           mkdir staging
@@ -112,7 +110,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $Version = "${{ env.RELEASE_TAG }}" -replace '^v', ''
+          $Version = $env:RELEASE_TAG -replace '^v', ''
           $ArchiveName = "bb_${Version}_${{ matrix.platform_id }}"
 
           New-Item -ItemType Directory -Path staging | Out-Null
@@ -157,7 +155,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="${{ env.RELEASE_TAG }}"
+          TAG="${RELEASE_TAG}"
 
           if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             gh release upload "${TAG}" dist/* --clobber --repo "${GITHUB_REPOSITORY}"
@@ -184,8 +182,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${{ env.RELEASE_TAG }}"
-          VERSION="${VERSION#v}"
+          VERSION="${RELEASE_TAG#v}"
           sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"${VERSION}\"/}" rust/Cargo.toml
           python3 .github/scripts/bump_lockfile_version.py "${VERSION}"
 
@@ -200,7 +197,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add rust/Cargo.toml rust/Cargo.lock
-          git commit -m "chore: sync workspace version to ${{ env.RELEASE_TAG }}"
+          git commit -m "chore: sync workspace version to ${RELEASE_TAG}"
           git push origin HEAD:main
 
   homebrew-tap:
